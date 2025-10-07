@@ -99,6 +99,41 @@ let tickets: TicketRow[] = [
   },
 ];
 
+// Seed additional sample tickets for demo pagination
+const owners = ["Courtney Henry", "Devon Lane", "Jane Cooper", "Unassigned"] as const;
+const machinesList = [
+  "Injection Molding Machine",
+  "Torque Press 4",
+  "CNC Mill 7",
+  "Lathe 2",
+  "Packaging Line",
+] as const;
+const statuses: TicketStatus[] = ["New", "Diagnosing", "In Progress", "On Hold", "Resolved"];
+const severities: TicketRow["severity"][] = ["Error", "Warning", "Resolved"];
+
+for (let i = 0; i < 35; i += 1) {
+  const idx = i + 1;
+  const relatedId = `T-${1100 + i}`;
+  tickets.push({
+    timestamp: new Date(Date.now() - (idx * 60 + 15) * 60 * 1000).toLocaleString(),
+    workorder: `WO-${8100 + i}`,
+    summary: `Auto-generated sample ticket ${idx}`,
+    related: relatedId,
+    severity: severities[i % severities.length],
+    owner: owners[i % owners.length],
+    status: statuses[i % statuses.length],
+    machine: machinesList[i % machinesList.length],
+    timeline: [
+      {
+        id: `t-auto-${i}`,
+        author: "System",
+        body: "Sample ticket seeded for demo pagination.",
+        timestamp: new Date().toLocaleString(),
+      },
+    ],
+  });
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
@@ -111,7 +146,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ tickets });
+  // Optional pagination parameters
+  const page = Math.max(1, Number(searchParams.get("page") || 1));
+  const pageSize = Math.max(1, Math.min(100, Number(searchParams.get("pageSize") || 10)));
+  const total = tickets.length;
+  const start = (page - 1) * pageSize;
+  const end = start + pageSize;
+  const pageItems = tickets.slice(start, end);
+
+  return NextResponse.json({ tickets: pageItems, total, page, pageSize });
 }
 
 export async function POST(request: NextRequest) {

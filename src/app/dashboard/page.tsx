@@ -4,30 +4,47 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import {
   AlertCircle,
   AppWindow,
   Bell,
+  Check,
+  ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Clock,
+  FileText,
   Gauge,
   LayoutDashboard,
   Loader2,
   Menu,
   MessageSquare,
+  Paperclip,
   Plus,
+  Save,
+  Search,
   Settings,
   Shield,
   Sparkles,
   Ticket,
-  TrendingUp,
   UsersRound,
   X,
   Zap,
 } from "lucide-react";
+import { RealTimeChart } from "@/components/RealTimeChart";
+import { MultiChannelChart } from "@/components/MultiChannelChart";
 
 import type { LucideIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 type AssetProfile = {
@@ -639,6 +656,10 @@ type NotificationItem = {
   tone: "critical" | "positive" | "neutral";
 };
 
+type NotificationItemWithRead = NotificationItem & {
+  isRead: boolean;
+};
+
 type TicketRow = {
   timestamp: string;
   workorder: string;
@@ -726,6 +747,13 @@ export default function DashboardPage() {
   const [shareOpen, setShareOpen] = useState(false);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [newTicketOpen, setNewTicketOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItemWithRead[]>(
+    DASHBOARD_NOTIFICATIONS.map((n) => ({ ...n, isRead: false }))
+  );
+
+  // Pagination state for Tickets view
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   const testTicketRef = useRef<TicketRow | null>(null);
   const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -979,6 +1007,20 @@ export default function DashboardPage() {
       return matchesStatus && matchesSeverity && matchesMachine;
     });
   }, [sortedTickets, statusFilter, severityFilter, machineFilter]);
+
+  // Slice filtered tickets per page for display
+  const paginatedTickets = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredTickets.slice(start, start + pageSize);
+  }, [filteredTickets, page, pageSize]);
+
+  // When filters or total change, ensure we are on a valid page
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filteredTickets.length / pageSize));
+    if (page > totalPages) {
+      setPage(1);
+    }
+  }, [filteredTickets.length, pageSize]);
 
   useEffect(() => {
     if (
@@ -1320,6 +1362,16 @@ export default function DashboardPage() {
     [collaborators],
   );
 
+  const handleMarkNotificationRead = useCallback((id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    );
+  }, []);
+
+  const handleMarkAllNotificationsRead = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  }, []);
+
   // Build a contextual chat attachment for a given script step.
   // For now, return null for all steps to keep the demo lightweight.
   function buildAttachment(
@@ -1329,12 +1381,14 @@ export default function DashboardPage() {
     testTicket: TicketRow | null,
   ): ReactNode | null {
     // Show configuration summary after collecting onboarding fields
-    if (stepId === "a6" || stepId === "a6-demo" || stepId === "a3-demo") {
+    // For demo flow, only show on a3-demo (not a6-demo which is empty)
+    // For MQTT flow, show on a6
+    if (stepId === "a6" || stepId === "a3-demo") {
       // Provide sensible defaults if any field hasn't been collected yet
       const data: CollectedData = {
         email: currentCollected.email ?? "john@factory.com",
         assetName: currentCollected.assetName ?? "Injection Molding Machine",
-        connectionType: currentCollected.connectionType ?? "MQTT",
+        connectionType: currentCollected.connectionType ?? "Demo",
         splitCounter: currentCollected.splitCounter ?? "20",
         trainingSeconds: currentCollected.trainingSeconds ?? "200",
         dtmn: currentCollected.dtmn ?? "30",
@@ -1824,6 +1878,19 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100 text-slate-900">
+      {!chatCollapsed && (
+        <ChatSidebar
+          messages={chatMessages}
+          threads={THREADS}
+          activeThread={activeThread}
+          onSelectThread={handleThreadChange}
+          pendingStep={pendingStep}
+          onSendScripted={handleSendScripted}
+          onSendCustom={(text) => handleSendCustom(text)}
+          scriptRemaining={countRemainingSteps(currentStepIndex, flowType)}
+          isDashboard
+        />
+      )}
       <Sidebar
         active={activeNav}
         onSelect={setActiveNav}
@@ -1836,21 +1903,11 @@ export default function DashboardPage() {
           onToggleSidebar={() => setSidebarCollapsed((prev) => !prev)}
           sidebarCollapsed={sidebarCollapsed}
           onOpenShare={() => setShareOpen(true)}
+          notifications={notifications}
+          onMarkNotificationRead={handleMarkNotificationRead}
+          onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
         />
         <div className="flex flex-1 overflow-hidden">
-          {!chatCollapsed && (
-            <ChatSidebar
-              messages={chatMessages}
-              threads={THREADS}
-              activeThread={activeThread}
-              onSelectThread={handleThreadChange}
-              pendingStep={pendingStep}
-              onSendScripted={handleSendScripted}
-              onSendCustom={(text) => handleSendCustom(text)}
-              scriptRemaining={countRemainingSteps(currentStepIndex, flowType)}
-              isDashboard
-            />
-          )}
           <main className="flex-1 overflow-hidden">
             <DashboardMain
               activeNav={activeNav}
@@ -1874,7 +1931,7 @@ export default function DashboardPage() {
               notifications={DASHBOARD_NOTIFICATIONS}
               kpis={DASHBOARD_KPIS}
               charts={DASHBOARD_CHARTS}
-              tickets={filteredTickets}
+              tickets={paginatedTickets}
               allTickets={sortedTickets}
               sortState={sortState}
               onSort={handleSort}
@@ -1899,6 +1956,11 @@ export default function DashboardPage() {
               onNewTicketOpenChange={setNewTicketOpen}
               onDeleteTicket={handleDeleteTicket}
               onUpdateFields={handleUpdateTicketFields}
+              page={page}
+              pageSize={pageSize}
+              total={filteredTickets.length}
+              onPageChange={setPage}
+              onPageSizeChange={(n) => { setPageSize(n); setPage(1); }}
             />
           </main>
         </div>
@@ -1942,16 +2004,23 @@ function Sidebar({
       )}
       aria-label="Primary navigation"
     >
-      <div className="flex items-center gap-3 px-2">
-        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white font-semibold">
-          MA
-        </span>
-        {!collapsed && (
-          <div className="leading-tight">
-            <p className="text-sm font-semibold text-slate-900">
-              MicroAI Mock Flow
-            </p>
-            <p className="text-xs text-slate-500">Operator Suite</p>
+      <div className="flex items-center justify-center px-2">
+        {!collapsed ? (
+          <Image
+            src="/microai-logo-dark.svg"
+            alt="MicroAI"
+            width={120}
+            height={32}
+            className="h-8 w-auto"
+          />
+        ) : (
+          <div className="relative w-12 h-12 flex items-center justify-center">
+            <Image
+              src="/microai-logo-dark.svg"
+              alt="MicroAI"
+              fill
+              className="object-contain"
+            />
           </div>
         )}
       </div>
@@ -1987,23 +2056,23 @@ function TopBar({
   onToggleSidebar,
   sidebarCollapsed,
   onOpenShare,
+  notifications,
+  onMarkNotificationRead,
+  onMarkAllNotificationsRead,
 }: {
   onToggleChat: () => void;
   chatCollapsed: boolean;
   onToggleSidebar: () => void;
   sidebarCollapsed: boolean;
   onOpenShare: () => void;
+  notifications: NotificationItemWithRead[];
+  onMarkNotificationRead: (id: string) => void;
+  onMarkAllNotificationsRead: () => void;
 }) {
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
   return (
     <header className="flex h-16 items-center justify-between border-b border-purple-100 bg-white/70 px-6 backdrop-blur">
       <div className="flex items-center gap-3">
-        <button
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-purple-100 bg-white text-purple-500"
-          onClick={onToggleSidebar}
-          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <Menu className="h-4 w-4" />
-        </button>
         <button
           className={cn(
             "inline-flex items-center gap-2 rounded-full border border-purple-100 px-4 py-2 text-xs font-semibold",
@@ -2016,9 +2085,13 @@ function TopBar({
           <MessageSquare className="h-4 w-4" />
           {chatCollapsed ? "Show chat" : "Hide chat"}
         </button>
-        <div className="rounded-full border border-purple-100 bg-white px-4 py-2 text-xs font-semibold text-purple-600 flex items-center gap-2">
-          <Sparkles className="h-3.5 w-3.5" /> Dashboard Live
-        </div>
+        <button
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-purple-100 bg-white text-purple-500"
+          onClick={onToggleSidebar}
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <Menu className="h-4 w-4" />
+        </button>
       </div>
       <div className="flex items-center gap-3">
         <button
@@ -2027,9 +2100,86 @@ function TopBar({
         >
           <Sparkles className="h-4 w-4" /> Share workspace
         </button>
-        <button className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-4 py-2 text-xs font-semibold text-purple-600">
-          <Bell className="h-4 w-4" /> Notifications
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="relative inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-4 py-2 text-xs font-semibold text-purple-600 hover:bg-purple-50">
+              <Bell className="h-4 w-4" /> Notifications
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto bg-white">
+            <div className="flex items-center justify-between px-2 py-2">
+              <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                Notifications
+              </DropdownMenuLabel>
+              {unreadCount > 0 && (
+                <button
+                  onClick={onMarkAllNotificationsRead}
+                  className="text-xs font-semibold text-purple-600 hover:text-purple-700 hover:underline cursor-pointer transition-all"
+                >
+                  Mark all as read
+                </button>
+              )}
+            </div>
+            <DropdownMenuSeparator />
+            {notifications.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-slate-500">
+                No notifications
+              </div>
+            ) : (
+              notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={cn(
+                    "flex flex-col items-start gap-1 px-4 py-3 border-b border-slate-100 last:border-b-0",
+                    !notification.isRead && "bg-purple-50/30"
+                  )}
+                >
+                  <div className="flex w-full items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {notification.title}
+                        </p>
+                        {!notification.isRead && (
+                          <span className="h-2 w-2 rounded-full bg-purple-600" />
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-slate-600 line-clamp-2">
+                        {notification.body}
+                      </p>
+                    </div>
+                    {!notification.isRead && (
+                      <button
+                        onClick={() => onMarkNotificationRead(notification.id)}
+                        className="ml-2 text-xs text-purple-600 hover:text-purple-700 hover:underline font-medium cursor-pointer transition-all"
+                      >
+                        Mark read
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                        notification.tone === "critical" && "bg-red-100 text-red-700",
+                        notification.tone === "positive" && "bg-green-100 text-green-700",
+                        notification.tone === "neutral" && "bg-slate-100 text-slate-700"
+                      )}
+                    >
+                      {notification.tone}
+                    </span>
+                    <span className="text-xs text-slate-400">{notification.timestamp}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <div className="flex items-center gap-2 rounded-full border border-purple-100 bg-white px-3 py-1.5 text-left text-sm text-slate-600">
           <Avatar className="h-8 w-8">
             <AvatarFallback>JN</AvatarFallback>
@@ -2040,6 +2190,38 @@ function TopBar({
     </header>
   );
 }
+
+type PromptTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  content: string;
+  category: 'onboarding' | 'line' | 'bulk' | 'custom';
+};
+
+const DEFAULT_PROMPTS: PromptTemplate[] = [
+  {
+    id: 'onboard-asset',
+    name: 'Onboard Single Asset',
+    description: 'Template for onboarding a single machine or asset',
+    content: 'I need to onboard a new asset with the following details:\nAsset Name: [name]\nConnection Type: [MQTT/OPC UA]\nSensors: [list]',
+    category: 'onboarding',
+  },
+  {
+    id: 'create-line',
+    name: 'Create Production Line',
+    description: 'Set up a new production line with multiple assets',
+    content: 'Create a production line:\nLine Name: [name]\nAssets: [list]\nSequence: [order]',
+    category: 'line',
+  },
+  {
+    id: 'bulk-add',
+    name: 'Bulk Asset Addition',
+    description: 'Add multiple assets at once',
+    content: 'Bulk add assets from:\nSource: [CSV/Excel file]\nColumns: [mapping]',
+    category: 'bulk',
+  },
+];
 
 function ChatSidebar({
   messages,
@@ -2063,10 +2245,46 @@ function ChatSidebar({
   isDashboard: boolean;
 }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [threadSearchOpen, setThreadSearchOpen] = useState(false);
+  const [threadSearch, setThreadSearch] = useState('');
+  const [promptMenuOpen, setPromptMenuOpen] = useState(false);
+  const [savedPrompts, setSavedPrompts] = useState<PromptTemplate[]>(DEFAULT_PROMPTS);
+  const [showSavePrompt, setShowSavePrompt] = useState(false);
+  const [newPromptName, setNewPromptName] = useState('');
+  const [newPromptContent, setNewPromptContent] = useState('');
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesEndRef.current && chatContainerRef.current) {
+      // Scroll only the chat container, not the entire page
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    }
   }, [messages]);
+
+  const filteredThreads = threads.filter(thread => 
+    thread.toLowerCase().includes(threadSearch.toLowerCase())
+  );
+
+  const handleSavePrompt = () => {
+    if (newPromptName.trim() && newPromptContent.trim()) {
+      const newPrompt: PromptTemplate = {
+        id: `custom-${Date.now()}`,
+        name: newPromptName,
+        description: 'Custom prompt',
+        content: newPromptContent,
+        category: 'custom',
+      };
+      setSavedPrompts([...savedPrompts, newPrompt]);
+      setNewPromptName('');
+      setNewPromptContent('');
+      setShowSavePrompt(false);
+    }
+  };
+
+  const handleUsePrompt = (prompt: PromptTemplate) => {
+    onSendCustom(prompt.content);
+    setPromptMenuOpen(false);
+  };
 
   return (
     <aside
@@ -2076,87 +2294,225 @@ function ChatSidebar({
       )}
       aria-label="Chat sidebar"
     >
-      <div className="space-y-3 border-b border-purple-100 px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-slate-800">
-              Onboarding Copilot
-            </p>
-            <p className="text-xs text-slate-500">
-              Scripted machine onboarding
-            </p>
-          </div>
-          <button className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-purple-100 text-purple-500">
-            <Plus className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {threads.map((thread, index) => (
+      <div className="border-b border-purple-100 px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          {/* Thread Dropdown */}
+          <div className="relative flex-1">
             <button
-              key={thread}
-              onClick={() => onSelectThread(index)}
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-semibold",
-                activeThread === index
-                  ? "border-purple-400 bg-purple-50 text-purple-600"
-                  : "border-purple-100 text-slate-500 hover:border-purple-200",
-              )}
+              onClick={() => setThreadSearchOpen(!threadSearchOpen)}
+              className="w-full flex items-center justify-between rounded-lg border border-purple-200 bg-white px-2 py-1.5 text-left text-xs hover:bg-purple-50"
             >
-              {thread}
+              <span className="font-medium text-slate-700 truncate">{threads[activeThread]}</span>
+              <ChevronDown className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
             </button>
-          ))}
+            {threadSearchOpen && (
+              <div className="absolute left-0 top-9 z-50 w-full rounded-xl border border-purple-100 bg-white shadow-lg">
+              <div className="border-b border-purple-100 p-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search threads..."
+                    value={threadSearch}
+                    onChange={(e) => setThreadSearch(e.target.value)}
+                    className="w-full rounded-lg border border-purple-200 py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="max-h-60 overflow-y-auto p-2">
+                {filteredThreads.length > 0 ? (
+                  filteredThreads.map((thread, index) => {
+                    const originalIndex = threads.indexOf(thread);
+                    return (
+                      <button
+                        key={thread}
+                        onClick={() => {
+                          onSelectThread(originalIndex);
+                          setThreadSearchOpen(false);
+                          setThreadSearch('');
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                          activeThread === originalIndex
+                            ? "bg-purple-100 text-purple-700 font-semibold"
+                            : "text-slate-700 hover:bg-purple-50"
+                        )}
+                      >
+                        <span>{thread}</span>
+                        {activeThread === originalIndex && (
+                          <Check className="h-4 w-4 text-purple-600" />
+                        )}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <p className="px-3 py-4 text-center text-xs text-slate-400">No threads found</p>
+                )}
+                </div>
+              </div>
+            )}
+          </div>
+          <button 
+            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 flex-shrink-0"
+            onClick={() => {
+              // Create new thread logic
+              alert('Create new thread functionality');
+            }}
+            title="Create new thread"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
       <div
-        className="flex-1 space-y-4 overflow-y-auto px-4 py-4"
-        style={{ maxHeight: "calc(100vh - 220px)" }}
+        ref={chatContainerRef}
+        className="flex-1 space-y-3 overflow-y-auto px-3 py-3"
+        style={{ maxHeight: "calc(100vh - 180px)" }}
       >
         {messages.map((message) => (
           <ChatBubble key={message.id} message={message} />
         ))}
         {messages.length === 0 && (
-          <p className="rounded-2xl border border-dashed border-purple-200 bg-white px-4 py-3 text-sm text-slate-400">
-            Chat will appear here once you start a flow.
-          </p>
+          <div className="flex items-center justify-center h-full">
+            <p className="text-xs text-slate-400 text-center max-w-[200px]">
+              Start a conversation to begin onboarding
+            </p>
+          </div>
         )}
         <div ref={messagesEndRef} />
       </div>
       <div className="border-t border-purple-100 p-4">
-        <div className="space-y-3 text-xs">
-          <button
-            className={cn(
-              "flex w-full items-center justify-between rounded-full border px-4 py-2 font-semibold",
-              pendingStep
-                ? "border-purple-200 text-purple-600 hover:bg-purple-50"
-                : "border-slate-100 text-slate-300",
-            )}
-            onClick={onSendScripted}
-            disabled={!pendingStep}
-          >
-            {pendingStep
-              ? `Send: ${truncateText(pendingStep.text, 42)}`
-              : "Waiting for assistant"}
-            <span className="text-[11px] uppercase tracking-wide">
-              {scriptRemaining} left
-            </span>
-          </button>
+        <div className="space-y-3">
+          {/* Input Area with Plus and Attach Buttons */}
+          <div className="relative flex items-center gap-2">
+            {/* Plus Button - Prompt Library */}
+            <div className="relative">
+              <button 
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-purple-200 text-purple-500 hover:bg-purple-50"
+                onClick={() => setPromptMenuOpen(!promptMenuOpen)}
+                title="Prompt library"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+              {promptMenuOpen && (
+                <div className="absolute bottom-12 left-0 z-50 w-72 rounded-xl border border-purple-100 bg-white shadow-lg">
+                  <div className="border-b border-purple-100 p-3">
+                    <p className="text-xs font-semibold text-slate-700">Prompt Library</p>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto p-2">
+                    {savedPrompts.map(prompt => (
+                      <button
+                        key={prompt.id}
+                        onClick={() => handleUsePrompt(prompt)}
+                        className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-slate-800">{prompt.name}</p>
+                            <p className="text-xs text-slate-500 mt-1">{prompt.description}</p>
+                          </div>
+                          <FileText className="h-4 w-4 text-purple-400" />
+                        </div>
+                        <div className="mt-2 rounded bg-slate-50 p-2 text-xs text-slate-600 font-mono line-clamp-2">
+                          {prompt.content}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="border-t border-purple-100 p-2">
+                    {!showSavePrompt ? (
+                      <button
+                        onClick={() => setShowSavePrompt(true)}
+                        className="w-full flex items-center gap-2 rounded-lg border border-dashed border-purple-200 p-2 text-xs font-semibold text-purple-600 hover:bg-purple-50"
+                      >
+                        <Save className="h-3 w-3" />
+                        Save New Prompt
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          placeholder="Prompt name"
+                          value={newPromptName}
+                          onChange={(e) => setNewPromptName(e.target.value)}
+                          className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        />
+                        <textarea
+                          placeholder="Prompt content"
+                          value={newPromptContent}
+                          onChange={(e) => setNewPromptContent(e.target.value)}
+                          rows={3}
+                          className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleSavePrompt}
+                            className="flex-1 rounded bg-purple-600 px-2 py-1 text-xs font-semibold text-white hover:bg-purple-700"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowSavePrompt(false);
+                              setNewPromptName('');
+                              setNewPromptContent('');
+                            }}
+                            className="flex-1 rounded border border-purple-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Attach Button */}
+            <button
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-purple-200 px-3 text-xs font-medium text-purple-600 hover:bg-purple-50"
+              title="Attach files"
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+              Attach
+            </button>
+            {/* Send Button */}
+            <button
+              className={cn(
+                "flex-1 flex items-center justify-between rounded-full border px-4 py-2 text-xs font-semibold",
+                pendingStep
+                  ? "border-purple-200 text-purple-600 hover:bg-purple-50"
+                  : "border-slate-100 text-slate-300",
+              )}
+              onClick={onSendScripted}
+              disabled={!pendingStep}
+            >
+              {pendingStep
+                ? `Send: ${truncateText(pendingStep.text, 42)}`
+                : "Waiting for assistant"}
+              <span className="text-[11px] uppercase tracking-wide">
+                {scriptRemaining} left
+              </span>
+            </button>
+          </div>
 
           {pendingStep?.id === "u2" && (
             <div className="flex flex-wrap gap-2">
               <button
-                className="rounded-full border border-purple-200 bg-white px-3 py-1 font-semibold text-purple-600 hover:border-purple-300 hover:bg-purple-50"
+                className="rounded-full border border-purple-200 bg-white px-3 py-1 text-xs font-semibold text-purple-600 hover:border-purple-300 hover:bg-purple-50"
                 onClick={() => onSendCustom("MQTT")}
               >
                 MQTT
               </button>
               <button
-                className="rounded-full border border-purple-200 bg-white px-3 py-1 font-semibold text-purple-600 hover:border-purple-300 hover:bg-purple-50"
+                className="rounded-full border border-purple-200 bg-white px-3 py-1 text-xs font-semibold text-purple-600 hover:border-purple-300 hover:bg-purple-50"
                 onClick={() => onSendCustom("OPC UA")}
               >
                 OPC UA
               </button>
               <button
-                className="rounded-full border border-purple-200 bg-white px-3 py-1 font-semibold text-purple-600 hover:border-purple-300 hover:bg-purple-50"
+                className="rounded-full border border-purple-200 bg-white px-3 py-1 text-xs font-semibold text-purple-600 hover:border-purple-300 hover:bg-purple-50"
                 onClick={() => onSendCustom("Demo machine")}
               >
                 Demo machine
@@ -2179,14 +2535,15 @@ function ChatBubble({ message }: { message: ChatEntry }) {
   return (
     <div
       className={cn(
-        "flex gap-3",
+        "flex gap-2",
         isAssistant ? "flex-row" : "flex-row-reverse",
       )}
       role="listitem"
     >
-      <Avatar className="h-8 w-8">
+      <Avatar className="h-6 w-6 flex-shrink-0">
         <AvatarFallback
           className={cn(
+            "text-[10px] font-semibold",
             isAssistant
               ? "bg-purple-100 text-purple-700"
               : "bg-slate-900 text-white",
@@ -2195,26 +2552,29 @@ function ChatBubble({ message }: { message: ChatEntry }) {
           {isAssistant ? "M" : message.name.slice(0, 2).toUpperCase()}
         </AvatarFallback>
       </Avatar>
-      <div
-        className={cn(
-          "max-w-xs rounded-2xl border px-4 py-3 text-sm shadow-sm",
-          isAssistant
-            ? "border-purple-100 bg-white text-slate-700"
-            : "border-slate-900 bg-slate-900 text-white",
-        )}
-      >
-        <header className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide">
-          <span className={isAssistant ? "text-purple-500" : "text-white/70"}>
-            {message.name} · {message.role}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className={cn(
+            "text-[10px] font-semibold",
+            isAssistant ? "text-purple-600" : "text-slate-700"
+          )}>
+            {message.name}
           </span>
-          <span className="text-slate-400">{message.timestamp}</span>
-        </header>
-        <p className="mt-2 whitespace-pre-wrap leading-relaxed">
-          {message.text}
-        </p>
-        {message.attachment && (
-          <div className="mt-3 space-y-3">{message.attachment}</div>
-        )}
+          <span className="text-[9px] text-slate-400">{message.timestamp}</span>
+        </div>
+        <div
+          className={cn(
+            "rounded-2xl px-3 py-2 text-xs leading-relaxed",
+            isAssistant
+              ? "bg-purple-50 text-slate-700"
+              : "bg-slate-900 text-white",
+          )}
+        >
+          <p className="whitespace-pre-wrap">{message.text}</p>
+          {message.attachment && (
+            <div className="mt-2 space-y-2">{message.attachment}</div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -2345,6 +2705,11 @@ function DashboardMain({
   onNewTicketOpenChange,
   onDeleteTicket,
   onUpdateFields,
+  page,
+  pageSize,
+  total,
+  onPageChange,
+  onPageSizeChange,
 }: {
   activeNav: NavKey;
   collaborators: Collaborator[];
@@ -2385,6 +2750,11 @@ function DashboardMain({
   onNewTicketOpenChange: (open: boolean) => void;
   onDeleteTicket: (related: string) => void;
   onUpdateFields: (related: string, updates: Partial<TicketRow>) => void;
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
 }) {
   const selectedMachine = machines.find((m) => m.id === selectedMachineId);
 
@@ -2569,6 +2939,44 @@ function DashboardMain({
                     className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-purple-700"
                   >
                     <Plus className="h-4 w-4" /> New Ticket
+                  </button>
+                </div>
+              </div>
+
+              {/* Pagination controls */}
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-3 py-1">
+                  <span className="text-slate-400">Rows per page</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                    className="rounded-full border border-purple-100 bg-white px-2 py-1 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
+                  >
+                    {[5, 10, 20, 50].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onPageChange(Math.max(1, page - 1))}
+                    disabled={page <= 1}
+                    className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-3 py-1 font-semibold text-slate-600 disabled:opacity-50"
+                  >
+                    <ChevronLeft className="h-4 w-4" /> Prev
+                  </button>
+                  <span className="text-slate-500">
+                    Page <span className="font-semibold text-slate-800">{page}</span> of
+                    <span className="font-semibold text-slate-800"> {Math.max(1, Math.ceil(total / pageSize))}</span>
+                  </span>
+                  <button
+                    onClick={() => onPageChange(Math.min(Math.max(1, Math.ceil(total / pageSize)), page + 1))}
+                    disabled={page >= Math.max(1, Math.ceil(total / pageSize))}
+                    className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-3 py-1 font-semibold text-slate-600 disabled:opacity-50"
+                  >
+                    Next <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -2908,6 +3316,70 @@ function MachineDetailView({
     ? machines.filter((m) => m.profileId === selectedProfileId)
     : [];
 
+  // Real-time telemetry data state
+  const [telemetryData, setTelemetryData] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const channelsPerPage = 6;
+
+  // Pagination state for Recent Tickets
+  const [ticketsPage, setTicketsPage] = useState(1);
+  const [ticketsPageSize, setTicketsPageSize] = useState(5);
+
+  // Fetch telemetry data from API
+  useEffect(() => {
+    const fetchTelemetry = async () => {
+      try {
+        const response = await fetch(`/api/telemetry?machineId=${machine.id}&channels=14&points=30`);
+        const data = await response.json();
+        setTelemetryData(data);
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch telemetry:", error);
+        setIsLoading(false);
+      }
+    };
+
+    fetchTelemetry();
+    const interval = setInterval(fetchTelemetry, 3000); // Refresh every 3 seconds
+
+    return () => clearInterval(interval);
+  }, [machine.id]);
+
+  // Pagination logic
+  const totalPages = telemetryData
+    ? Math.ceil(telemetryData.channels.length / channelsPerPage)
+    : 0;
+  const paginatedChannels = telemetryData
+    ? telemetryData.channels.slice(
+        currentPage * channelsPerPage,
+        (currentPage + 1) * channelsPerPage
+      )
+    : [];
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage((prev) => prev - 1);
+    }
+  };
+
+  // Update machine health score with telemetry data
+  const displayHealthScore = telemetryData?.overallHealthScore ?? machine.healthScore;
+
+  // Paginate tickets
+  const totalTickets = tickets.length;
+  const totalTicketPages = Math.max(1, Math.ceil(totalTickets / ticketsPageSize));
+  const paginatedTickets = tickets.slice(
+    (ticketsPage - 1) * ticketsPageSize,
+    ticketsPage * ticketsPageSize
+  );
+
   return (
     <>
       <header className="space-y-4 rounded-3xl border border-purple-100 bg-white/80 p-6 shadow-lg backdrop-blur">
@@ -2953,7 +3425,7 @@ function MachineDetailView({
             </h1>
             <p className="text-sm text-slate-500">
               {machine.location} · Updated {machine.lastSync} ·{" "}
-              {machine.protocol} · Health {machine.healthScore}/100
+              {machine.protocol} · Health {displayHealthScore}/100
             </p>
           </div>
         </div>
@@ -2968,7 +3440,23 @@ function MachineDetailView({
       </header>
 
       <section className="grid gap-4 md:grid-cols-5">
-        {kpis.map((kpi) => (
+        {/* Live health score KPI */}
+        <div className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Health score
+          </p>
+          <div className="mt-3 flex items-end gap-2">
+            <span className="text-2xl font-semibold text-slate-900">
+              {displayHealthScore}
+            </span>
+            <span className="text-sm text-slate-400">/100</span>
+          </div>
+          <DeltaLabel tone={displayHealthScore > 85 ? "positive" : displayHealthScore > 70 ? "warning" : "critical"}>
+            {telemetryData ? "Live" : "Loading..."}
+          </DeltaLabel>
+        </div>
+        
+        {kpis.filter((kpi) => kpi.id !== "health-score").map((kpi) => (
           <div
             key={kpi.id}
             className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md"
@@ -2991,44 +3479,104 @@ function MachineDetailView({
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            {charts.map((chart) => (
-              <div
-                key={chart.id}
-                className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">
-                      {chart.title}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {chart.range} · {chart.unit}
-                    </p>
-                  </div>
-                  <TrendingUp className="h-4 w-4 text-purple-500" />
-                </div>
-                <div
-                  className={cn(
-                    "mt-4 h-32 rounded-2xl bg-gradient-to-br",
-                    chart.accent,
-                  )}
-                />
+          {/* Real-time Charts Section with Pagination */}
+          <div className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">
+                  Real-Time Sensor Channels
+                </h3>
+                <p className="text-sm text-slate-500">
+                  Live telemetry with upper/lower bounds · Auto-refresh every 3s
+                </p>
               </div>
-            ))}
+              {!isLoading && telemetryData && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 0}
+                    className={cn(
+                      "inline-flex h-8 w-8 items-center justify-center rounded-full border transition",
+                      currentPage === 0
+                        ? "border-slate-200 text-slate-300 cursor-not-allowed"
+                        : "border-purple-200 text-purple-600 hover:bg-purple-50"
+                    )}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="text-xs font-medium text-slate-600">
+                    Page {currentPage + 1} of {totalPages}
+                  </span>
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages - 1}
+                    className={cn(
+                      "inline-flex h-8 w-8 items-center justify-center rounded-full border transition",
+                      currentPage === totalPages - 1
+                        ? "border-slate-200 text-slate-300 cursor-not-allowed"
+                        : "border-purple-200 text-purple-600 hover:bg-purple-50"
+                    )}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {isLoading && (
+              <div className="flex h-64 items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+              </div>
+            )}
+
+            {!isLoading && telemetryData && (
+              <div className="grid gap-4 md:grid-cols-2">
+                {paginatedChannels.map((channel: any) => (
+                  <RealTimeChart key={channel.channelId} channel={channel} />
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Multi-Channel Analysis */}
+          {!isLoading && telemetryData && (
+            <MultiChannelChart channels={telemetryData.channels} />
+          )}
 
           {/* Recent Tickets for this machine */}
           <div className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md">
-            <p className="text-sm font-semibold text-slate-800">
-              Recent Tickets
-            </p>
-            <p className="text-xs text-slate-500">
-              Maintenance issues for this machine
-            </p>
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">
+                  Recent Tickets
+                </p>
+                <p className="text-xs text-slate-500">
+                  Maintenance issues for this machine
+                </p>
+              </div>
+              {totalTickets > 0 && (
+                <div className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-3 py-1">
+                  <span className="text-xs text-slate-400">Per page</span>
+                  <select
+                    value={ticketsPageSize}
+                    onChange={(e) => {
+                      setTicketsPageSize(Number(e.target.value));
+                      setTicketsPage(1);
+                    }}
+                    className="rounded border-none bg-transparent px-1 text-xs text-slate-600 focus:outline-none"
+                  >
+                    {[3, 5, 10].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
             <div className="mt-4 space-y-3">
-              {tickets.length > 0 ? (
-                tickets.slice(0, 3).map((ticket) => (
+              {paginatedTickets.length > 0 ? (
+                paginatedTickets.map((ticket) => (
                   <div
                     key={ticket.related}
                     className="rounded-2xl border border-purple-100 bg-white px-4 py-3 text-sm"
@@ -3063,6 +3611,30 @@ function MachineDetailView({
                 </p>
               )}
             </div>
+            {totalTickets > 0 && (
+              <div className="mt-4 flex items-center justify-between border-t border-purple-100 pt-4">
+                <button
+                  onClick={() => setTicketsPage(Math.max(1, ticketsPage - 1))}
+                  disabled={ticketsPage <= 1}
+                  className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-3 py-1 text-xs font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronLeft className="h-3 w-3" /> Prev
+                </button>
+                <span className="text-xs text-slate-500">
+                  Page <span className="font-semibold text-slate-800">{ticketsPage}</span> of{" "}
+                  <span className="font-semibold text-slate-800">{totalTicketPages}</span>
+                  {" "}·{" "}
+                  <span className="font-semibold text-slate-800">{totalTickets}</span> total
+                </span>
+                <button
+                  onClick={() => setTicketsPage(Math.min(totalTicketPages, ticketsPage + 1))}
+                  disabled={ticketsPage >= totalTicketPages}
+                  className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-3 py-1 text-xs font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next <ChevronRight className="h-3 w-3" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <aside className="flex flex-col gap-4">

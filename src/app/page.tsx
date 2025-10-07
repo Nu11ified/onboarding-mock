@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import {
   Gauge,
   Zap,
@@ -11,6 +12,7 @@ import {
   FileText,
   Database,
   Plus,
+  Save,
   Send,
   Shield,
   Plug,
@@ -67,6 +69,38 @@ Channel Name(s): [Comma-separated list of sensor tag names]
 Days to Maintenance: [Number of days between scheduled maintenance]
 Please generate a structured configuration and visualization based on these inputs.`;
 
+type PromptTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  content: string;
+  category: 'onboarding' | 'line' | 'bulk' | 'custom';
+};
+
+const DEFAULT_PROMPTS: PromptTemplate[] = [
+  {
+    id: 'onboard-asset',
+    name: 'Onboard Single Asset',
+    description: 'Template for onboarding a single machine or asset',
+    content: 'I need to onboard a new asset with the following details:\nAsset Name: [name]\nConnection Type: [MQTT/OPC UA]\nSensors: [list]',
+    category: 'onboarding',
+  },
+  {
+    id: 'create-line',
+    name: 'Create Production Line',
+    description: 'Set up a new production line with multiple assets',
+    content: 'Create a production line:\nLine Name: [name]\nAssets: [list]\nSequence: [order]',
+    category: 'line',
+  },
+  {
+    id: 'bulk-add',
+    name: 'Bulk Asset Addition',
+    description: 'Add multiple assets at once',
+    content: 'Bulk add assets from:\nSource: [CSV/Excel file]\nColumns: [mapping]',
+    category: 'bulk',
+  },
+];
+
 export default function LandingPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
@@ -74,6 +108,12 @@ export default function LandingPage() {
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [inputText, setInputText] = useState("");
   const [selectedScenario, setSelectedScenario] = useState<CtaKey | null>(null);
+  const [savedPrompts, setSavedPrompts] = useState<PromptTemplate[]>(DEFAULT_PROMPTS);
+  const [showSavePrompt, setShowSavePrompt] = useState(false);
+  const [newPromptName, setNewPromptName] = useState('');
+  const [newPromptContent, setNewPromptContent] = useState('');
+  const [buttonRect, setButtonRect] = useState<DOMRect | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const handleSelect = (scenario: CtaKey) => {
     if (isRouting || selectedScenario) return;
@@ -99,6 +139,58 @@ export default function LandingPage() {
     // Navigate to dashboard with the scenario
     router.push(`/dashboard?scenario=${selectedScenario}`);
   };
+
+  const handleSavePrompt = () => {
+    if (newPromptName.trim() && newPromptContent.trim()) {
+      const newPrompt: PromptTemplate = {
+        id: `custom-${Date.now()}`,
+        name: newPromptName,
+        description: 'Custom prompt',
+        content: newPromptContent,
+        category: 'custom',
+      };
+      setSavedPrompts([...savedPrompts, newPrompt]);
+      setNewPromptName('');
+      setNewPromptContent('');
+      setShowSavePrompt(false);
+    }
+  };
+
+  const handleUsePrompt = (prompt: PromptTemplate) => {
+    setInputText(prompt.content);
+    setShowAttachMenu(false);
+  };
+
+  useEffect(() => {
+    if (showAttachMenu && buttonRef.current) {
+      setButtonRect(buttonRef.current.getBoundingClientRect());
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showAttachMenu && buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
+        const dropdown = document.querySelector('[data-dropdown="prompt-library"]');
+        if (dropdown && !dropdown.contains(event.target as Node)) {
+          setShowAttachMenu(false);
+        }
+      }
+    };
+
+    const handleScroll = () => {
+      if (showAttachMenu && buttonRef.current) {
+        setButtonRect(buttonRef.current.getBoundingClientRect());
+      }
+    };
+
+    if (showAttachMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('scroll', handleScroll, true);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, [showAttachMenu]);
 
   return (
     <main className="landing-ambient relative flex min-h-screen flex-col overflow-hidden text-slate-900">
@@ -193,35 +285,100 @@ export default function LandingPage() {
               {/* Bottom Actions */}
               <div className="mt-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  {/* Plus Button with Attach Menu */}
+                  {/* Plus Button with Prompt Library */}
                   <div className="relative">
                     <button
+                      ref={buttonRef}
                       onClick={() => setShowAttachMenu(!showAttachMenu)}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-purple-200 text-slate-600 transition hover:border-purple-300 hover:bg-purple-50 hover:text-slate-900"
+                      title="Prompt library"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
-                    {showAttachMenu && (
-                      <div className="absolute bottom-full left-0 mb-2 w-56 rounded-2xl border border-purple-200 bg-white p-2 shadow-xl">
-                        <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-purple-50">
-                          <ImageIcon className="h-4 w-4" />
-                          <span>Upload photos</span>
-                        </button>
-                        <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-purple-50">
-                          <FileText className="h-4 w-4" />
-                          <span>Attach files</span>
-                        </button>
-                        <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-purple-50">
-                          <Database className="h-4 w-4" />
-                          <span>Connect data source</span>
-                        </button>
-                        <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-purple-50">
-                          <Gauge className="h-4 w-4" />
-                          <span>Import machine config</span>
-                        </button>
-                      </div>
+                    {showAttachMenu && buttonRect && createPortal(
+                      <div 
+                        data-dropdown="prompt-library"
+                        className="fixed w-72 rounded-xl border border-purple-100 bg-white shadow-xl"
+                        style={{
+                          top: buttonRect.bottom + 8,
+                          left: buttonRect.left,
+                          zIndex: 9999
+                        }}
+                      >
+                        <div className="border-b border-purple-100 p-3">
+                          <p className="text-xs font-semibold text-slate-700">Prompt Library</p>
+                        </div>
+                        <div className="max-h-80 overflow-y-auto p-2">
+                          {savedPrompts.map(prompt => (
+                            <button
+                              key={prompt.id}
+                              onClick={() => handleUsePrompt(prompt)}
+                              className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <p className="text-sm font-semibold text-slate-800">{prompt.name}</p>
+                                  <p className="text-xs text-slate-500 mt-1">{prompt.description}</p>
+                                </div>
+                                <FileText className="h-4 w-4 text-purple-400" />
+                              </div>
+                              <div className="mt-2 rounded bg-slate-50 p-2 text-xs text-slate-600 font-mono line-clamp-2">
+                                {prompt.content}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="border-t border-purple-100 p-2">
+                          {!showSavePrompt ? (
+                            <button
+                              onClick={() => setShowSavePrompt(true)}
+                              className="w-full flex items-center gap-2 rounded-lg border border-dashed border-purple-200 p-2 text-xs font-semibold text-purple-600 hover:bg-purple-50"
+                            >
+                              <Save className="h-3 w-3" />
+                              Save New Prompt
+                            </button>
+                          ) : (
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                placeholder="Prompt name"
+                                value={newPromptName}
+                                onChange={(e) => setNewPromptName(e.target.value)}
+                                className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                              />
+                              <textarea
+                                placeholder="Prompt content"
+                                value={newPromptContent}
+                                onChange={(e) => setNewPromptContent(e.target.value)}
+                                rows={3}
+                                className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={handleSavePrompt}
+                                  className="flex-1 rounded bg-purple-600 px-2 py-1 text-xs font-semibold text-white hover:bg-purple-700"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setShowSavePrompt(false);
+                                    setNewPromptName('');
+                                    setNewPromptContent('');
+                                  }}
+                                  className="flex-1 rounded border border-purple-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>,
+                      document.body
                     )}
                   </div>
+                  {/* Attach Button */}
                   <button className="inline-flex h-8 items-center gap-1.5 rounded-full border border-purple-200 px-3 text-xs font-medium text-slate-600 transition hover:border-purple-300 hover:bg-purple-50 hover:text-slate-900">
                     <Paperclip className="h-3.5 w-3.5" />
                     Attach
