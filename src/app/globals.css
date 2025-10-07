@@ -129,6 +129,67 @@ html {
   height: 100%;
 }
 
+.landing-ambient::after,
+.landing-ambient::before {
+  position: absolute;
+  inset: -25%;
+  content: "";
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(124, 58, 237, 0.12), transparent 60%);
+  animation: ambient-float 14s ease-in-out infinite;
+}
+
+.landing-ambient::after {
+  animation-delay: -7s;
+}
+
+.landing-glow {
+  background: radial-gradient(circle at top, rgba(124, 58, 237, 0.18), transparent 55%),
+    radial-gradient(circle at bottom, rgba(59, 130, 246, 0.12), transparent 60%);
+  filter: blur(80px);
+}
+
+.animate-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.65),
+    rgba(255, 255, 255, 0) 70%
+  );
+  transform: translateX(-100%);
+  animation: shimmer-slide 2.6s ease-in-out infinite;
+}
+
+@keyframes ambient-float {
+  0%,
+  100% {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: scale(1.1) translate3d(3%, -4%, 0);
+  }
+}
+
+@keyframes shimmer-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  60% {
+    transform: translateX(120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
 /*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still

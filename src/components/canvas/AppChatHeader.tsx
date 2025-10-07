@@ -2,7 +2,6 @@
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { X } from "lucide-react";
-import { useChatContext, HeaderProps } from "@copilotkit/react-ui";
 
 export function AppChatHeader({ onClose }: { onClose?: () => void }) {
   return (
@@ -37,9 +36,8 @@ export function AppChatHeader({ onClose }: { onClose?: () => void }) {
   );
 }
 
-export function PopupHeader({}: HeaderProps) {
-  const { setOpen } = useChatContext();
-  return <AppChatHeader onClose={() => setOpen(false)} />;
+export function PopupHeader() {
+  return <AppChatHeader />;
 }
 
 export default AppChatHeader;

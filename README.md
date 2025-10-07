@@ -1,3 +1,5 @@
+Initial commit content
+
 # Fullstack Agents Hackathon Starter
 
 Welcome to the Fullstack Agents hackathon! This starter gives you a complete AI-powered canvas application with real-world integrations. Utilizing [LlamaIndex](https://developers.llamaindex.ai), [Composio](https://docs.composio.dev), and [CopilotKit](https://docs.copilotkit.ai). 
