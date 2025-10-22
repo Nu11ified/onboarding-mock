@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import type { ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
+  Activity,
   AlertCircle,
   AppWindow,
   Bell,
@@ -46,6 +47,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useDashboardOnboarding } from "@/hooks/useDashboardOnboarding";
+import {
+  UserInvitationWidget,
+  NotificationPreferencesWidget,
+  DeviceStatusWidget,
+  MqttConnectionInfoWidget,
+  ProfileSelectionWidget,
+  ProfileConfigFormWidget,
+} from "@/components/onboarding";
 
 type AssetProfile = {
   id: string;
@@ -70,65 +80,14 @@ type Machine = {
 };
 
 const SIDENAV_ITEMS: Array<{ key: NavKey; label: string; icon: LucideIcon }> = [
+  { key: "ask-ai", label: "Ask AI", icon: MessageSquare },
   { key: "overview", label: "Overview", icon: LayoutDashboard },
-  { key: "view-machine", label: "View Machine", icon: Gauge },
-  { key: "security", label: "Security Monitoring", icon: Shield },
-  { key: "apm", label: "App Performance", icon: Zap },
+  { key: "view-machine", label: "Assets", icon: Gauge },
   { key: "tickets", label: "Tickets", icon: Ticket },
-  { key: "apps", label: "Apps", icon: AppWindow },
   { key: "settings", label: "Settings", icon: Settings },
 ];
 
 const THREADS = ["MI Onboarding", "Torque Press 4", "Fleet Ops"];
-
-const API_SEQUENCE: ApiTemplate[] = [
-  {
-    id: "register",
-    title: "Register individual user",
-    endpoint: "/api/v2/user/RegisterIndividualUser",
-    method: "POST",
-    payload: { email: "john@factory.com" },
-  },
-  {
-    id: "profile",
-    title: "Create device profile",
-    endpoint: "/api/v2/device/createdeviceprofile",
-    method: "POST",
-    payload: {
-      assetName: "Injection Molding Machine",
-      splitCycle: 20,
-      trainingSeconds: 200,
-      daysToMaintenance: 30,
-    },
-  },
-  {
-    id: "generate-id",
-    title: "Generate device ID",
-    endpoint: "/api/v1/device/generateID",
-    method: "POST",
-    payload: {},
-  },
-  {
-    id: "get-id",
-    title: "Get device ID",
-    endpoint: "/api/v1/device/getDeviceID",
-    method: "GET",
-  },
-  {
-    id: "agent-start",
-    title: "Start MI agent",
-    endpoint: "/api/v1/agent/start",
-    method: "POST",
-    payload: { profileId: "profile-1", deviceId: "dev-a1b2c3d4e5f6" },
-  },
-  {
-    id: "validate-schema",
-    title: "Validate schema",
-    endpoint: "/api/v1/ingest/validate-schema",
-    method: "POST",
-    payload: { topic: "/ext/a1b2c3d4-e5f6", shouldFail: false },
-  },
-];
 
 const INITIAL_COLLABORATORS: Collaborator[] = [
   {
@@ -250,286 +209,13 @@ const DASHBOARD_NOTIFICATIONS: NotificationItem[] = [
   },
 ];
 
-// Common start for both flows
-const COMMON_START_FLOW: ScriptStep[] = [
-  {
-    id: "a1",
-    author: "assistant",
-    text: "Welcome! Let's add your machine. First, I'll need your email to create your account.",
-  },
-  {
-    id: "u1",
-    author: "user",
-    text: "john@factory.com",
-  },
-  {
-    id: "a1b",
-    author: "assistant",
-    text: "Perfect! Account created. Now, can you connect a machine to our MQTT or OPC UA public broker?",
-    action: "register-user",
-  },
-  {
-    id: "a1c",
-    author: "assistant",
-    text: "If you don't have MQTT/OPC UA available, I can set you up with a demo using our test machine instead. Just reply with 'MQTT', 'OPC UA', or 'Demo'.",
-  },
-  {
-    id: "u2",
-    author: "user",
-    text: "MQTT",
-  },
-];
 
-// MQTT/OPC UA Flow (Original)
-const MQTT_FLOW: ScriptStep[] = [
-  {
-    id: "a2",
-    author: "assistant",
-    text: "Great! Let's configure your device profile. What's your machine's name?",
-  },
-  { id: "u3", author: "user", text: "Injection Molding Machine" },
-  {
-    id: "a3",
-    author: "assistant",
-    text: "How long does one machine cycle take in seconds? (Split Counter)",
-  },
-  { id: "u4", author: "user", text: "20" },
-  {
-    id: "a4",
-    author: "assistant",
-    text: "How long should the training period be in seconds?",
-  },
-  { id: "u5", author: "user", text: "200" },
-  {
-    id: "a5",
-    author: "assistant",
-    text: "How many days are there between scheduled maintenance?",
-  },
-  { id: "u6", author: "user", text: "30" },
-  {
-    id: "a6",
-    author: "assistant",
-    text: "Please review the configuration summary above. Does this look correct?",
-  },
-  { id: "u6a", author: "user", text: "Yes, looks correct." },
-  {
-    id: "a6b",
-    author: "assistant",
-    text: "Great — creating your device profile…",
-    action: "create-profile",
-  },
-  {
-    id: "a7",
-    author: "assistant",
-    text: "Device profile created successfully. Now generating your Device ID and starting the MI Agent…",
-    action: "start-agent",
-  },
-  {
-    id: "a9",
-    author: "assistant",
-    text: "Your agent is live. Please connect to our broker:\nmqtt://broker.micro.ai:1883\nTopic: /ext/a1b2c3d4-e5f6\nLet me know when you're connected.",
-    action: "show-broker",
-  },
-  { id: "u8", author: "user", text: "Connected." },
-  {
-    id: "a10",
-    author: "assistant",
-    text: "Validating your connection and schema…",
-    action: "start-schema-validation",
-  },
-  {
-    id: "a11",
-    author: "assistant",
-    text: `The payload format doesn't match. Please update to:
-{
-  "CycleTime": [{ "v": <number>, "t": <timestamp_ms> }],
-  "1": [{ "v": <number>, "t": <timestamp_ms> }],
-  "2": [{ "v": <number>, "t": <timestamp_ms> }]
-}
 
-Each numeric key is a sensor channel. v = measurement, t = timestamp (ms since epoch).`,
-    action: "schema-error",
-  },
-  { id: "u9", author: "user", text: "Updated, please check." },
-  {
-    id: "a12",
-    author: "assistant",
-    text: "Re-validating…",
-    action: "schema-retry",
-  },
-  {
-    id: "a13",
-    author: "assistant",
-    text: "Success! Your data is streaming. Training your model now — this will take about 200 seconds.",
-    action: "start-training",
-  },
-  {
-    id: "a14",
-    author: "assistant",
-    text: "Thanks for verifying your email — your account is now active.",
-    action: "await-training-complete",
-    runActionBeforeMessage: true,
-  },
-  {
-    id: "a15",
-    author: "assistant",
-    text: "Your machine setup is complete. Health scoring and predictive maintenance are active. Would you like to add another user?",
-  },
-  { id: "u10", author: "user", text: "Yes." },
-];
 
-// Demo Machine Flow (New)
-const DEMO_FLOW: ScriptStep[] = [
-  {
-    id: "a2-demo",
-    author: "assistant",
-    text: "Excellent! I'll set you up with our demo environment. What would you like to name this demo machine?",
-  },
-  { id: "u3-demo", author: "user", text: "Injection Molding Machine" },
-  {
-    id: "a3-demo",
-    author: "assistant",
-    text: "Perfect! For the demo machine, I'll use pre-configured settings. Here's what we're setting up:",
-    action: "show-demo-config",
-  },
-  {
-    id: "a4-demo",
-    author: "assistant",
-    text: "Please review the configuration above. Does this look correct?",
-  },
-  { id: "u4-demo", author: "user", text: "Yes." },
-  {
-    id: "a6-demo",
-    author: "assistant",
-    text: "",
-    action: "create-profile",
-    runActionBeforeMessage: true,
-  },
-  {
-    id: "a7-demo",
-    author: "assistant",
-    text: "Device profile created. Generating Device ID and starting the MI Agent…",
-    action: "start-agent",
-  },
-  {
-    id: "a9-demo",
-    author: "assistant",
-    text: "Normally, you would connect your machine to our public MQTT/OPC UA broker at this step. The broker validates your machine's sensor data and begins ingesting telemetry. Since this is our demo machine, it's already connected and streaming data.",
-    action: "show-broker-explanation",
-  },
-  {
-    id: "a10-demo",
-    author: "assistant",
-    text: "Now validating the data schema. We check that your sensor data matches our expected format with proper timestamps and value structures. The demo machine data is pre-validated, so this step completes automatically.",
-    action: "auto-validate-demo",
-  },
-  {
-    id: "a13-demo",
-    author: "assistant",
-    text: "Schema validated! Training your anomaly detection model now — this will take about 200 seconds.",
-    action: "start-training",
-  },
-  {
-    id: "a14-demo",
-    author: "assistant",
-    text: "Training complete! Your account is now active.",
-    action: "await-training-complete",
-    runActionBeforeMessage: true,
-  },
-  {
-    id: "a15-demo",
-    author: "assistant",
-    text: "Demo environment setup complete! You can now:\n\n1. Add your own machine with real sensor data\n2. Invite team members to collaborate\n3. Explore the dashboard and features\n\nWhat would you like to do next?",
-  },
-  { id: "u10-demo", author: "user", text: "Invite team members" },
-];
 
-// Common ending flow (collaborators, tickets, notifications)
-const COMMON_END_FLOW: ScriptStep[] = [
-  {
-    id: "a16",
-    author: "assistant",
-    text: "Please provide name, email, and role.",
-  },
-  {
-    id: "u11",
-    author: "user",
-    text: "Add Jane (jane@factory.com) as Operator, and Jake (jake@factory.com) as Operator.",
-  },
-  {
-    id: "a17",
-    author: "assistant",
-    text: "Done. Jane and Jake have been added as Operators. Verification emails have been sent.",
-    action: "add-operators",
-  },
-  {
-    id: "a18",
-    author: "assistant",
-    text: "Would you like to create a test ticket?",
-  },
-  { id: "u12", author: "user", text: "Yes." },
-  {
-    id: "a19",
-    author: "assistant",
-    text: "Test ticket generated:",
-    action: "create-ticket",
-    runActionBeforeMessage: true,
-  },
-  {
-    id: "a20",
-    author: "assistant",
-    text: "Do you want to assign Ticket #T-1025 to yourself or another user?",
-  },
-  { id: "u13", author: "user", text: "Assign to Jane." },
-  {
-    id: "a21",
-    author: "assistant",
-    text: "Ticket #T-1025 assigned to Jane. Would you like to add context?",
-    action: "assign-ticket",
-  },
-  {
-    id: "u14",
-    author: "user",
-    text: "Add: The coolant pump needs to be checked; there may be motor casing dust buildup near Gyro X.",
-  },
-  {
-    id: "a22",
-    author: "assistant",
-    text: "Added context to Ticket #T-1025. Close ticket?",
-    action: "add-ticket-context",
-  },
-  { id: "u15", author: "user", text: "Yes." },
-  {
-    id: "a23",
-    author: "assistant",
-    text: "Ticket #T-1025 resolved. Would you like notifications for new tickets?",
-    action: "close-ticket",
-  },
-  { id: "u16", author: "user", text: "Yes, email only." },
-  {
-    id: "a24",
-    author: "assistant",
-    text: "You'll now get ticket notifications at john@factory.com. Setup complete! You can manage users, tickets, and notifications right here in chat.",
-    action: "subscribe-notifications",
-  },
-];
 
-// Helper function to construct active flow based on selected flowType
-function getActiveFlow(flowType: 'mqtt' | 'demo' | null): ScriptStep[] {
-  if (flowType === null) {
-    // Before the user has chosen, only show the common start
-    return COMMON_START_FLOW;
-  } else if (flowType === 'mqtt') {
-    return [...COMMON_START_FLOW, ...MQTT_FLOW, ...COMMON_END_FLOW];
-  } else if (flowType === 'demo') {
-    return [...COMMON_START_FLOW, ...DEMO_FLOW, ...COMMON_END_FLOW];
-  }
-  return COMMON_START_FLOW;
-}
-
-type Phase = "onboarding" | "dashboard";
-type ScenarioKey = "visualize" | "protect" | "monitor";
 type NavKey =
+  | "ask-ai"
   | "overview"
   | "view-machine"
   | "machines"
@@ -539,87 +225,6 @@ type NavKey =
   | "apps"
   | "settings";
 
-type ApiMethod = "GET" | "POST";
-
-type ApiTemplate = {
-  id: string;
-  title: string;
-  endpoint: string;
-  method: ApiMethod;
-  payload?: Record<string, unknown>;
-};
-
-type ApiStep = ApiTemplate & {
-  status: ApiStatus;
-  time: string;
-};
-
-type ApiStatus = "pending" | "running" | "success";
-
-type ChatEntry = {
-  id: string;
-  author: ChatAuthor;
-  name: string;
-  role: string;
-  text: string;
-  timestamp: string;
-  attachment?: ReactNode;
-};
-
-type ChatAuthor = "assistant" | "user";
-
-type ScriptAction =
-  | "register-user"
-  | "create-profile"
-  | "show-demo-config"
-  | "show-broker-explanation"
-  | "auto-validate-demo"
-  | "show-summary-card"
-  | "start-agent"
-  | "show-broker"
-  | "start-schema-validation"
-  | "schema-error"
-  | "schema-retry"
-  | "start-training"
-  | "await-training-complete"
-  | "add-operators"
-  | "create-ticket"
-  | "assign-ticket"
-  | "add-ticket-context"
-  | "close-ticket"
-  | "subscribe-notifications";
-
-type ScriptStep = {
-  id: string;
-  author: ChatAuthor;
-  text: string;
-  action?: ScriptAction;
-  runActionBeforeMessage?: boolean;
-};
-
-type CollectedData = {
-  name?: string;
-  email?: string;
-  assetName?: string;
-  connectionType?: string;
-  splitCounter?: string;
-  trainingSeconds?: string;
-  dtmn?: string;
-};
-
-type PlaceholderState = {
-  headline: string;
-  message: string;
-  tone: "idle" | "loading" | "warning" | "success" | "training";
-  broker?: BrokerInfo | null;
-  schemaHint?: string | null;
-  trainingProgress?: number;
-};
-
-type BrokerInfo = {
-  url: string;
-  topic: string;
-};
 
 type CollaboratorStatus = "Active" | "Invited" | "Pending Verification";
 
@@ -701,27 +306,382 @@ type TicketTimelineEntry = {
   timestamp: string;
 };
 
-export default function DashboardPage() {
+type ChatEntry = {
+  id: string;
+  author: "user" | "assistant";
+  name: string;
+  role: string;
+  text: string;
+  timestamp: string;
+  attachment?: ReactNode;
+};
+
+// Onboarding Chat Input Component
+function OnboardingChatInput({ onSend, isProcessing }: { onSend: (text: string) => Promise<void>; isProcessing: boolean }) {
+  const [input, setInput] = useState("");
+
+  const handleSend = async () => {
+    if (input.trim() && !isProcessing) {
+      await onSend(input);
+      setInput("");
+    }
+  };
+
+  return (
+    <div className="border-t border-purple-100 p-4">
+      <div className="space-y-3">
+        <div className="relative flex items-center gap-2">
+          <button
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-purple-200 text-purple-500 hover:bg-purple-50"
+            title="Quick actions"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+          <button
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-purple-200 px-3 text-xs font-medium text-purple-600 hover:bg-purple-50"
+            title="Attach files"
+          >
+            <Paperclip className="h-3.5 w-3.5" />
+            Attach
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && input.trim() && !isProcessing) {
+                void handleSend();
+              }
+            }}
+            placeholder="Ask me to add a machine, manage users, or anything else..."
+            className="flex-1 rounded-full border border-purple-200 px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+            disabled={isProcessing}
+          />
+          <button
+            onClick={() => void handleSend()}
+            disabled={!input.trim() || isProcessing}
+            className={cn(
+              "rounded-full border px-4 py-2 text-xs font-semibold",
+              input.trim() && !isProcessing
+                ? "border-purple-600 bg-purple-600 text-white hover:bg-purple-700"
+                : "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed",
+            )}
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Ask AI Full-Page Chat Component
+function AskAIPage({
+  messages,
+  onSendMessage,
+  isProcessing,
+  renderWidget,
+}: {
+  messages: any[];
+  onSendMessage: (text: string) => Promise<void>;
+  isProcessing: boolean;
+  renderWidget?: (widgetDef: any) => React.ReactNode;
+}) {
+  const [input, setInput] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (input.trim() && !isProcessing) {
+      await onSendMessage(input);
+      setInput("");
+    }
+  };
+
+  return (
+    <div className="flex h-full flex-col bg-slate-50">
+      {/* Header - Outside the card */}
+      <div className="px-6 py-5 bg-white border-b border-slate-200">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-purple-600">
+            <MessageSquare className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-slate-900">Ask AI</h1>
+            <p className="text-sm text-slate-500">
+              Your intelligent assistant for device management, onboarding, and support
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Chat Container */}
+      <div className="flex-1 flex items-center justify-center p-6 overflow-hidden">
+        <div className="w-full max-w-4xl h-full flex flex-col">
+          {/* White Card with Chat */}
+          <div className="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            {/* Chat Messages Area */}
+            <div className="flex-1 p-6 overflow-y-auto">
+              {messages.length === 0 ? (
+                <div className="flex h-full items-center justify-center">
+                  <div className="text-center max-w-lg">
+                    <div className="mb-6 inline-flex rounded-full bg-purple-50 p-6">
+                      <MessageSquare className="h-12 w-12 text-purple-600" />
+                    </div>
+                    <h2 className="text-2xl font-semibold text-slate-900 mb-3">
+                      Welcome to Ask AI
+                    </h2>
+                    <p className="text-slate-600 mb-8 leading-relaxed">
+                      I can help you add machines, manage asset profiles, create tickets, configure settings, and answer questions about your devices.
+                    </p>
+                    <div className="space-y-3">
+                      <p className="text-sm font-semibold text-slate-700 text-left">Try asking:</p>
+                      <ul className="space-y-2.5 text-sm text-slate-600">
+                        <li className="flex items-start gap-2.5 text-left">
+                          <span className="text-purple-500 mt-0.5">•</span>
+                          <span>&quot;Add a new machine to monitor&quot;</span>
+                        </li>
+                        <li className="flex items-start gap-2.5 text-left">
+                          <span className="text-purple-500 mt-0.5">•</span>
+                          <span>&quot;Show me my machine health scores&quot;</span>
+                        </li>
+                        <li className="flex items-start gap-2.5 text-left">
+                          <span className="text-purple-500 mt-0.5">•</span>
+                          <span>&quot;Create a maintenance ticket&quot;</span>
+                        </li>
+                        <li className="flex items-start gap-2.5 text-left">
+                          <span className="text-purple-500 mt-0.5">•</span>
+                          <span>&quot;Invite team members to view the dashboard&quot;</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6 max-w-3xl mx-auto">
+                  {messages.map((msg: any) => (
+                    <div key={msg.id} className="group">
+                      <div className="flex items-start gap-3">
+                        <Avatar className="h-9 w-9 shrink-0">
+                          <AvatarFallback
+                            className={cn(
+                              "text-sm font-semibold",
+                              msg.actor === "assistant"
+                                ? "bg-purple-100 text-purple-700"
+                                : "bg-slate-800 text-white",
+                            )}
+                          >
+                            {msg.actor === "assistant" ? "AI" : "YO"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-slate-700">
+                              {msg.actor === "assistant"
+                                ? "Onboarding Copilot"
+                                : "You"}
+                            </p>
+                            <p className="text-xs text-slate-400">Just now</p>
+                          </div>
+                          {msg.message && (
+                            <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                              <p className="whitespace-pre-wrap leading-relaxed">
+                                {msg.message}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {msg.widget && msg.actor === "assistant" && renderWidget && (
+                        <div className="ml-12 mt-3">
+                          {renderWidget(msg.widget)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  
+                  {/* Processing Indicator */}
+                  {isProcessing && (
+                    <div className="flex gap-3">
+                      <Avatar className="h-9 w-9 shrink-0">
+                        <AvatarFallback className="bg-purple-100 text-purple-700 text-sm font-semibold">
+                          AI
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="rounded-2xl bg-slate-100 px-4 py-3">
+                        <div className="flex gap-1">
+                          <div
+                            className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
+                            style={{ animationDelay: "0ms" }}
+                          />
+                          <div
+                            className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
+                            style={{ animationDelay: "150ms" }}
+                          />
+                          <div
+                            className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
+                            style={{ animationDelay: "300ms" }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </div>
+
+            {/* Input Area - At bottom of white card */}
+            <div className="border-t border-slate-200 p-4">
+              <div className="flex items-center gap-2">
+                <button 
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  title="Quick actions"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !isProcessing) {
+                      void handleSend();
+                    }
+                  }}
+                  placeholder="Ask me anything about your devices, onboarding, or dashboard..."
+                  className="flex-1 rounded-lg bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  disabled={isProcessing}
+                />
+                <button 
+                  onClick={() => void handleSend()}
+                  disabled={!input.trim() || isProcessing}
+                  className={cn(
+                    "inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors",
+                    input.trim() && !isProcessing
+                      ? "bg-purple-600 text-white hover:bg-purple-700"
+                      : "bg-slate-200 text-slate-400 cursor-not-allowed",
+                  )}
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Onboarding Content Area Component
+function OnboardingContentArea() {
+  return (
+    <main className="flex-1 flex items-center justify-center px-12 py-16">
+      <div className="max-w-2xl">
+        <div className="mb-8 inline-flex rounded-2xl bg-purple-100 p-4">
+          <Gauge className="h-12 w-12 text-purple-600" />
+        </div>
+        <h1 className="mb-4 text-4xl font-bold text-slate-900">
+          Add a new device
+        </h1>
+        <p className="mb-8 text-lg text-slate-600">
+          Get started by adding your machine to the platform
+        </p>
+        
+        <div className="mb-12 space-y-4">
+          <h2 className="text-xl font-semibold text-slate-800">How it works</h2>
+          <div className="space-y-3">
+            <div className="flex gap-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-sm font-bold text-purple-700 flex-shrink-0">
+                1
+              </div>
+              <p className="text-sm text-slate-600 pt-1">
+                Choose between a demo device or configure your own machine
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-sm font-bold text-purple-700 flex-shrink-0">
+                2
+              </div>
+              <p className="text-sm text-slate-600 pt-1">
+                Configure your machine profile with cycle time and maintenance schedule
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-sm font-bold text-purple-700 flex-shrink-0">
+                3
+              </div>
+              <p className="text-sm text-slate-600 pt-1">
+                Connect to our broker and start streaming telemetry data
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-sm font-bold text-purple-700 flex-shrink-0">
+                4
+              </div>
+              <p className="text-sm text-slate-600 pt-1">
+                Train the anomaly detection model and activate monitoring
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border-2 border-dashed border-purple-200 bg-purple-50/50 px-6 py-4">
+          <p className="text-sm text-slate-600">
+            <span className="font-semibold text-purple-700">← Use the chat on the left</span> to begin the onboarding process
+          </p>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function DashboardPageContent() {
   const searchParams = useSearchParams();
 
-  const [phase, setPhase] = useState<Phase>("onboarding");
-  const [scenario, setScenario] = useState<ScenarioKey>("visualize");
-  const [activeNav, setActiveNav] = useState<NavKey>("overview");
-  const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
-  const [activeThread, setActiveThread] = useState<number>(0);
+  // New onboarding system
+  const {
+    messages: onboardingMessages,
+    isProcessing: onboardingProcessing,
+    isActive: onboardingActive,
+    currentStep: onboardingStep,
+    handleUserInput: handleOnboardingInput,
+    getCurrentWidget,
+    getContext: getOnboardingContext,
+  } = useDashboardOnboarding();
 
-  const [chatMessages, setChatMessages] = useState<ChatEntry[]>([]);
-  const [apiSteps, setApiSteps] = useState<ApiStep[]>(initialiseApiSteps);
-  const [placeholder, setPlaceholder] = useState<PlaceholderState>({
-    headline: "Let’s get your machine online",
-    message: "Answer the questions in chat to onboard your machine.",
-    tone: "idle",
-    broker: null,
-    schemaHint: null,
-    trainingProgress: 0,
+  
+  // Check URL params early to set initial state correctly
+  const scenarioParam = searchParams.get("scenario");
+  const onboardedParam = searchParams.get("onboarded");
+  const showDashboard = searchParams.get("showDashboard");
+  const autoSelectMachine = searchParams.get("autoSelectMachine");
+
+  console.log("🚀 Dashboard initializing with params:", {
+    onboarded: onboardedParam,
+    showDashboard,
+    autoSelectMachine,
+    scenario: scenarioParam,
   });
-  const [collected, setCollected] = useState<CollectedData>({});
-  const [flowType, setFlowType] = useState<'mqtt' | 'demo' | null>(null);
+
+  // Initialize activeNav - default to 'ask-ai' for new users, or based on params
+  const [activeNav, setActiveNav] = useState<NavKey>(
+    autoSelectMachine === "true" ? "machines" : "ask-ai",
+  );
+  const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
+  const [chatWidth, setChatWidth] = useState<number>(380);
+  const [isResizing, setIsResizing] = useState<boolean>(false);
+  const [chatOverlay, setChatOverlay] = useState<boolean>(false);
+  const DOCK_MAX = 420; // px threshold where chat snaps from docked to overlay mode
+  const chatResizeRef = useRef<{ startX: number; startWidth: number }>({ startX: 0, startWidth: 0 });
+  const [activeThread, setActiveThread] = useState<number>(0);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [assetProfiles, setAssetProfiles] = useState<AssetProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
@@ -747,120 +707,112 @@ export default function DashboardPage() {
   const [shareOpen, setShareOpen] = useState(false);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [newTicketOpen, setNewTicketOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItemWithRead[]>(
-    DASHBOARD_NOTIFICATIONS.map((n) => ({ ...n, isRead: false }))
-  );
+  const [notifications, setNotifications] = useState<
+    NotificationItemWithRead[]
+  >(DASHBOARD_NOTIFICATIONS.map((n) => ({ ...n, isRead: false })));
 
   // Pagination state for Tickets view
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
   const testTicketRef = useRef<TicketRow | null>(null);
-  const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const scenarioInitialisedRef = useRef<ScenarioKey | null>(null);
-  const automationResumeRef = useRef<number | null>(null);
 
-  const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
-  const [pendingStepIndex, setPendingStepIndex] = useState<number | null>(null);
 
-  const messageIdRef = useRef(0);
-  const trainingTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const trainingResolveRef = useRef<(() => void) | null>(null);
-  const agentSequenceRef = useRef<Promise<void> | null>(null);
+  // URL params are now read at the top of the component
 
-  const cleanupTraining = useCallback(() => {
-    if (trainingTimerRef.current) {
-      clearInterval(trainingTimerRef.current);
-      trainingTimerRef.current = null;
-    }
-  }, []);
+  // Check if user just completed onboarding - do this BEFORE other effects
+  useEffect(() => {
+    if (onboardedParam === "true") {
+      const onboardingData = localStorage.getItem("onboarding_complete");
+      if (onboardingData) {
+        const data = JSON.parse(onboardingData);
+        console.log("✅ Onboarding completed:", data);
 
-  const runAgentSequence = useCallback(async () => {
-    if (agentSequenceRef.current) {
-      await agentSequenceRef.current;
-      return;
-    }
-    const sequence = (async () => {
-      for (let i = 0; i < API_SEQUENCE.length; i += 1) {
-        setApiSteps((prev) =>
-          prev.map((step, idx) =>
-            idx === i ? { ...step, status: "running", time: "…" } : step,
-          ),
-        );
-        const template = API_SEQUENCE[i];
-        const started = performance.now();
-        await fetch(template.endpoint, {
-          method: template.method,
-          headers: template.payload
-            ? { "Content-Type": "application/json" }
-            : undefined,
-          body: template.payload ? JSON.stringify(template.payload) : undefined,
-        })
-          .then((response) => response.json())
-          .catch(() => ({}));
-        const latency = `${Math.max(120, Math.round(performance.now() - started + 60))}ms`;
-        setApiSteps((prev) =>
-          prev.map((step, idx) =>
-            idx === i ? { ...step, status: "success", time: latency } : step,
-          ),
-        );
+        // Chat should be visible for post-onboarding flow
+        setChatCollapsed(false);
+
+        // Clear the flags
+        localStorage.removeItem("onboarding_complete");
       }
-    })();
-    agentSequenceRef.current = sequence;
-    await sequence;
-    agentSequenceRef.current = null;
-  }, []);
-
-  const validateSchema = useCallback(async (shouldFail: boolean) => {
-    const response = await fetch("/api/v1/ingest/validate-schema", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic: "/ext/a1b2c3d4-e5f6", shouldFail }),
-    });
-    const result = await response.json();
-    if (shouldFail) {
-      setPlaceholder((prev) => ({
-        ...prev,
-        tone: "warning",
-        schemaHint: result.expectedMessage ?? "Schema mismatch detected.",
-      }));
-    } else {
-      setPlaceholder((prev) => ({
-        ...prev,
-        tone: "success",
-        schemaHint: null,
-      }));
     }
-  }, []);
+  }, [onboardedParam]);
 
-  const startTrainingCountdown = useCallback(() => {
-    cleanupTraining();
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress = Math.min(100, progress + 8);
-      setPlaceholder((prev) => ({ ...prev, trainingProgress: progress }));
-      if (progress >= 100) {
-        cleanupTraining();
-        if (trainingResolveRef.current) {
-          trainingResolveRef.current();
-          trainingResolveRef.current = null;
+  // Auto-select newly onboarded machine
+  useEffect(() => {
+    // Only run this if autoSelectMachine flag is set and we have machines
+    if (autoSelectMachine === "true" && machines.length > 0) {
+      console.log("🔍 Auto-selecting machine...");
+      console.log(
+        "Available machines:",
+        machines.map((m) => ({
+          id: m.id,
+          name: m.name,
+          profileId: m.profileId,
+        })),
+      );
+
+      const onboardingState = localStorage.getItem("onboarding_state");
+      if (onboardingState) {
+        try {
+          const state = JSON.parse(onboardingState);
+          console.log("Onboarding state:", state);
+
+          if (state.deviceId) {
+            // Try to find the machine by deviceId
+            const newMachine = machines.find((m) => m.id === state.deviceId);
+            if (newMachine) {
+              setSelectedMachineId(newMachine.id);
+              // Also select the correct profile for this machine
+              if (newMachine.profileId) {
+                setSelectedProfileId(newMachine.profileId);
+              }
+              console.log(
+                "✅ Auto-selected machine:",
+                newMachine.id,
+                "Name:",
+                newMachine.name,
+                "Profile:",
+                newMachine.profileId,
+              );
+              console.log("🎯 ActiveNav should be: machines");
+            } else {
+              // Fallback: select the first available machine (Injection Molding Machine)
+              const defaultMachine =
+                machines.find((m: Machine) => m.id === "m456") || machines[0];
+              setSelectedMachineId(defaultMachine.id);
+              if (defaultMachine.profileId) {
+                setSelectedProfileId(defaultMachine.profileId);
+              }
+              console.log(
+                "✅ Fallback - Auto-selected default machine:",
+                defaultMachine.id,
+                "Name:",
+                defaultMachine.name,
+              );
+            }
+          }
+        } catch (error) {
+          console.error("Failed to parse onboarding state:", error);
         }
+      } else {
+        // No onboarding state, just select the demo machine
+        console.log("No onboarding state found, selecting demo machine...");
+        const defaultMachine =
+          machines.find((m: Machine) => m.id === "m456") || machines[0];
+        setSelectedMachineId(defaultMachine.id);
+        if (defaultMachine.profileId) {
+          setSelectedProfileId(defaultMachine.profileId);
+        }
+        console.log(
+          "✅ No onboarding state - Auto-selected demo machine:",
+          defaultMachine.id,
+          "Name:",
+          defaultMachine.name,
+        );
       }
-    }, 400);
-    trainingTimerRef.current = interval;
-  }, [cleanupTraining]);
+    }
+  }, [autoSelectMachine, machines]);
 
-  const waitForTraining = useCallback(() => {
-    return new Promise<void>((resolve) => {
-      if ((placeholder.trainingProgress ?? 0) >= 100) {
-        resolve();
-        return;
-      }
-      trainingResolveRef.current = resolve;
-    });
-  }, [placeholder.trainingProgress]);
-
-  const scenarioParam = searchParams.get("scenario");
   // Load asset profiles, machines and tickets from API on mount
   useEffect(() => {
     const loadData = async () => {
@@ -900,7 +852,10 @@ export default function DashboardPage() {
         } else {
           setCollaborators(INITIAL_COLLABORATORS);
         }
-        if (Array.isArray(stateData.state?.tickets) && stateData.state.tickets.length > 0) {
+        if (
+          Array.isArray(stateData.state?.tickets) &&
+          stateData.state.tickets.length > 0
+        ) {
           setTickets(stateData.state.tickets);
           if (!selectedTicketId) {
             setSelectedTicketId(stateData.state.tickets[0].related);
@@ -924,66 +879,6 @@ export default function DashboardPage() {
     void loadData();
   }, [selectedMachineId, selectedTicketId]);
 
-  useEffect(() => {
-    if (scenarioParam === "protect" || scenarioParam === "monitor") {
-      setScenario(scenarioParam);
-    } else {
-      setScenario("visualize");
-    }
-  }, [scenarioParam]);
-
-  useEffect(() => {
-    if (scenarioInitialisedRef.current === scenario) {
-      return;
-    }
-    scenarioInitialisedRef.current = scenario;
-
-    // Start immediately if coming from landing page
-    if (chatMessages.length === 0 && currentStepIndex === 0) {
-      cleanupTraining();
-      messageIdRef.current = 0;
-      setPhase("onboarding");
-      setChatCollapsed(false);
-      setActiveNav("overview");
-      setActiveThread(0);
-      setChatMessages([]);
-      setApiSteps(initialiseApiSteps());
-      setPlaceholder({
-        headline: "Let's get your machine online",
-        message: "Answer the questions in chat to onboard your machine.",
-        tone: "idle",
-        broker: null,
-        schemaHint: null,
-        trainingProgress: 0,
-      });
-      setCollected({});
-      setSortState({ column: "timestamp", direction: "desc" });
-      setStatusFilter("All");
-      setSeverityFilter("All");
-      setCurrentStepIndex(0);
-      setPendingStepIndex(null);
-      automationResumeRef.current = null;
-
-      // Start script immediately without delay
-      setTimeout(() => {
-        void advanceScript(0);
-      }, 50);
-    } else {
-      resetExperience();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scenario]);
-
-  useEffect(() => () => void cleanupTraining(), [cleanupTraining]);
-  useEffect(
-    () => () => {
-      if (resetTimerRef.current) {
-        clearTimeout(resetTimerRef.current);
-        resetTimerRef.current = null;
-      }
-    },
-    [],
-  );
 
   const sortedTickets = useMemo(() => {
     return [...tickets].sort((a, b) => {
@@ -1016,7 +911,10 @@ export default function DashboardPage() {
 
   // When filters or total change, ensure we are on a valid page
   useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(filteredTickets.length / pageSize));
+    const totalPages = Math.max(
+      1,
+      Math.ceil(filteredTickets.length / pageSize),
+    );
     if (page > totalPages) {
       setPage(1);
     }
@@ -1040,15 +938,6 @@ export default function DashboardPage() {
     [sortedTickets, selectedTicketId],
   );
 
-  const appendMessage = useCallback(
-    (entry: Omit<ChatEntry, "id" | "timestamp"> & { timestamp?: string }) => {
-      const timestamp = entry.timestamp ?? "Just now";
-      const id = `msg-${(messageIdRef.current += 1)}`;
-      setChatMessages((prev) => [...prev, { ...entry, id, timestamp }]);
-    },
-    [],
-  );
-
   const handleSort = (column: keyof TicketRow) => {
     setSortState((prev) => {
       if (prev.column === column) {
@@ -1060,6 +949,38 @@ export default function DashboardPage() {
 
   const handleToggleChat = () => {
     setChatCollapsed((prev) => !prev);
+    if (chatCollapsed) {
+      // When re-opening, default to docked mode if width is small
+      setChatOverlay(chatWidth > DOCK_MAX);
+    }
+  };
+
+  const startChatResize = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsResizing(true);
+    chatResizeRef.current = { startX: e.clientX, startWidth: chatWidth };
+    // Attach listeners on window to track mouse movements outside the handle
+    window.addEventListener("mousemove", handleChatResizeMove);
+    window.addEventListener("mouseup", stopChatResize);
+  };
+
+  const handleChatResizeMove = (e: MouseEvent) => {
+    if (!isResizing) return;
+    const delta = e.clientX - chatResizeRef.current.startX;
+    const maxWidth = Math.max(300, window.innerWidth - 80);
+    const next = Math.min(
+      Math.max(chatResizeRef.current.startWidth + delta, 300),
+      maxWidth,
+    );
+    setChatWidth(next);
+    setChatOverlay(next > DOCK_MAX);
+  };
+
+  const stopChatResize = () => {
+    setIsResizing(false);
+    // Snap overlay mode based on final width
+    setChatOverlay((prev) => (chatWidth > DOCK_MAX));
+    window.removeEventListener("mousemove", handleChatResizeMove);
+    window.removeEventListener("mouseup", stopChatResize);
   };
 
   const handleAddCollaborator = (payload: {
@@ -1191,21 +1112,24 @@ export default function DashboardPage() {
     [],
   );
 
-  const handleTicketAssign = useCallback((related: string, owner: string) => {
-    setTickets((prev) => {
-      const updated = prev.map((ticket) =>
-        ticket.related === related ? { ...ticket, owner } : ticket,
-      );
-      void saveState(collaborators, updated);
-      return updated;
-    });
-    appendTimeline(related, {
-      id: `assign-${Date.now()}`,
-      author: "Onboarding Copilot",
-      body: `Assigned to ${owner}.`,
-      timestamp: new Date().toLocaleString(),
-    });
-  }, [collaborators]);
+  const handleTicketAssign = useCallback(
+    (related: string, owner: string) => {
+      setTickets((prev) => {
+        const updated = prev.map((ticket) =>
+          ticket.related === related ? { ...ticket, owner } : ticket,
+        );
+        void saveState(collaborators, updated);
+        return updated;
+      });
+      appendTimeline(related, {
+        id: `assign-${Date.now()}`,
+        author: "Onboarding Copilot",
+        body: `Assigned to ${owner}.`,
+        timestamp: new Date().toLocaleString(),
+      });
+    },
+    [collaborators],
+  );
 
   const handleTicketSeverityChange = useCallback(
     (related: string, severity: TicketRow["severity"]) => {
@@ -1254,7 +1178,8 @@ export default function DashboardPage() {
     [],
   );
 
-  const generateId = (prefix: string) => `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const generateId = (prefix: string) =>
+    `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
 
   const handleCreateTicket = useCallback(
     async (payload: {
@@ -1272,7 +1197,8 @@ export default function DashboardPage() {
       remediationSteps?: string;
     }) => {
       try {
-        const legacySeverity: TicketRow["severity"] = payload.alertCategory ?? "Warning";
+        const legacySeverity: TicketRow["severity"] =
+          payload.alertCategory ?? "Warning";
         const ticket: TicketRow = {
           timestamp: new Date().toLocaleString(),
           workorder: generateId("WO"),
@@ -1354,7 +1280,9 @@ export default function DashboardPage() {
   const handleUpdateTicketFields = useCallback(
     (related: string, updates: Partial<TicketRow>) => {
       setTickets((prev) => {
-        const updated = prev.map((t) => (t.related === related ? { ...t, ...updates } : t));
+        const updated = prev.map((t) =>
+          t.related === related ? { ...t, ...updates } : t,
+        );
         void saveState(collaborators, updated);
         return updated;
       });
@@ -1364,7 +1292,7 @@ export default function DashboardPage() {
 
   const handleMarkNotificationRead = useCallback((id: string) => {
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
     );
   }, []);
 
@@ -1372,531 +1300,103 @@ export default function DashboardPage() {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
   }, []);
 
-  // Build a contextual chat attachment for a given script step.
-  // For now, return null for all steps to keep the demo lightweight.
-  function buildAttachment(
-    stepId: string,
-    currentCollected: CollectedData,
-    ticketsArg: TicketRow[],
-    testTicket: TicketRow | null,
-  ): ReactNode | null {
-    // Show configuration summary after collecting onboarding fields
-    // For demo flow, only show on a3-demo (not a6-demo which is empty)
-    // For MQTT flow, show on a6
-    if (stepId === "a6" || stepId === "a3-demo") {
-      // Provide sensible defaults if any field hasn't been collected yet
-      const data: CollectedData = {
-        email: currentCollected.email ?? "john@factory.com",
-        assetName: currentCollected.assetName ?? "Injection Molding Machine",
-        connectionType: currentCollected.connectionType ?? "Demo",
-        splitCounter: currentCollected.splitCounter ?? "20",
-        trainingSeconds: currentCollected.trainingSeconds ?? "200",
-        dtmn: currentCollected.dtmn ?? "30",
-      };
-      return <SummaryCard data={data} />;
-    }
-
-    return null;
-  }
-
-  const appendAssistantStep = useCallback(
-    (step: ScriptStep, currentCollected: CollectedData) => {
-      return new Promise<void>((resolve) => {
-        setTimeout(() => {
-          const attachment = buildAttachment(
-            step.id,
-            currentCollected,
-            tickets,
-            testTicketRef.current,
-          );
-
-          // Skip rendering a bubble when there is no text and no attachment
-          if (!attachment && (!step.text || step.text.trim() === "")) {
-            resolve();
-            return;
-          }
-
-          appendMessage({
-            author: "assistant",
-            name: "Onboarding Copilot",
-            role: "Assistant",
-            text: step.text,
-            attachment,
-          });
-          resolve();
-        }, 450);
-      });
-    },
-    [appendMessage, tickets],
-  );
-
-  const performAction = useCallback(
-    async (action?: ScriptAction): Promise<"continue" | "await"> => {
-      if (!action) return "continue";
-      switch (action) {
-        case "register-user":
-          setPlaceholder((prev) => ({
-            ...prev,
-            headline: "Creating your account",
-            message: "Registering your user account with MicroAI...",
-            tone: "loading",
-          }));
-          // Simulate API call
-          await fetch("/api/v2/user/RegisterIndividualUser", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: collected.email || "john@factory.com" }),
-          });
-          setPlaceholder((prev) => ({
-            ...prev,
-            headline: "Account created",
-            message: "Your account is ready. Let's set up your machine.",
-            tone: "success",
-          }));
-          return "continue";
-        case "create-profile":
-          setPlaceholder((prev) => ({
-            ...prev,
-            headline: "Creating device profile",
-            message: "Setting up your machine configuration...",
-            tone: "loading",
-          }));
-          // Simulate API call
-          await fetch("/api/v2/device/createdeviceprofile", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              assetName: collected.assetName || "Injection Molding Machine",
-              splitCycle: collected.splitCounter || "20",
-              trainingSeconds: "200",
-              daysToMaintenance: collected.dtmn || "30",
-            }),
-          });
-          setPlaceholder((prev) => ({
-            ...prev,
-            headline: "Profile created",
-            message: "Device profile configured successfully.",
-            tone: "success",
-          }));
-          return "continue";
-        case "show-demo-config":
-          setPlaceholder((prev) => ({
-            ...prev,
-            headline: "Demo configuration ready",
-            message: "Pre-configured settings: 20s cycle, 200s training, 30 days maintenance.",
-            tone: "idle",
-          }));
-          return "continue";
-        case "show-summary-card":
-          setPlaceholder((prev) => ({
-            ...prev,
-            headline: "Review configuration",
-            message: "Confirm the details before we create your asset profile.",
-            tone: "idle",
-          }));
-          return "continue";
-        case "start-agent": {
-          setPlaceholder({
-            headline: "Setting up your agent…",
-            message:
-              "Registering your account, creating the asset profile, and bootstrapping orchestration.",
-            tone: "loading",
-            broker: null,
-            schemaHint: null,
-            trainingProgress: 0,
-          });
-          await runAgentSequence();
-          return "continue";
-        }
-        case "show-broker":
-          setPlaceholder((prev) => ({
-            ...prev,
-            headline: "Agent live",
-            message: "Connect your client to begin streaming telemetry.",
-            tone: "success",
-            broker: {
-              url: "mqtt://broker.micro.ai:1883",
-              topic: "/ext/a1b2c3d4-e5f6",
-            },
-          }));
-          return "continue";
-        case "show-broker-explanation":
-          setPlaceholder((prev) => ({
-            ...prev,
-            headline: "Demo broker connection",
-            message: "Demo machine is pre-connected and streaming data.",
-            tone: "success",
-            broker: {
-              url: "mqtt://demo.micro.ai:1883",
-              topic: "/demo/machine-1",
-            },
-          }));
-          return "continue";
-        case "auto-validate-demo":
-          setPlaceholder((prev) => ({
-            ...prev,
-            headline: "Schema validated",
-            message: "Demo data schema is pre-validated and compliant.",
-            tone: "success",
-          }));
-          return "continue";
-        case "start-schema-validation":
-          await validateSchema(true);
-          return "continue";
-        case "schema-error":
-          setPlaceholder((prev) => ({
-            ...prev,
-            tone: "warning",
-            schemaHint:
-              "Schema mismatch detected. Update payload keys to match the expected format.",
-          }));
-          return "continue";
-        case "schema-retry":
-          await validateSchema(false);
-          return "continue";
-        case "start-training":
-          startTrainingCountdown();
-          setPlaceholder((prev) => ({
-            ...prev,
-            tone: "training",
-            headline: "Training in progress",
-            message: "Building anomaly models and baselines (~200s)…",
-          }));
-          return "await";
-        case "await-training-complete": {
-          await waitForTraining();
-          setPhase("dashboard");
-          setActiveNav("machines"); // Navigate to machines view to show the instantiated machine
-          setChatCollapsed(false);
-          setPlaceholder((prev) => ({
-            ...prev,
-            tone: "success",
-            headline: "Account activated",
-            message: "Health scoring and predictive maintenance are live.",
-            trainingProgress: 100,
-          }));
-          return "continue";
-        }
-        case "add-operators":
-          setCollaborators((prev) => addDemoCollaborators(prev));
-          return "continue";
-        case "create-ticket": {
-          const ticket: TicketRow = {
-            timestamp: "2024-11-18 14:36",
-            workorder: "WO-8125",
-            summary: "Torque spike beyond tolerance",
-            related: "T-1025",
-            severity: "Error",
-            owner: "Unassigned",
-            note: "Cause: Testing, Linked Sensor: Gyro X",
-            status: "New",
-            timeline: [
-              {
-                id: "t-init",
-                author: "Onboarding Copilot",
-                body: "Test ticket generated for demo purposes.",
-                timestamp: new Date().toLocaleString(),
-              },
-            ],
-          };
-          testTicketRef.current = ticket;
-          setTickets((prev) => {
-            const updated = [
-              ticket,
-              ...prev.filter((item) => item.related !== ticket.related),
-            ];
-            void saveState(collaborators, updated);
-            return updated;
-          });
-          setSelectedTicketId(ticket.related);
-          return "continue";
-        }
-        case "assign-ticket":
-          handleTicketAssign("T-1025", "Jane Cooper");
-          return "continue";
-        case "add-ticket-context":
-          setTickets((prev) =>
-            prev.map((ticket) =>
-              ticket.related === "T-1025"
-                ? {
-                    ...ticket,
-                    note: "The coolant pump needs to be checked; there may be motor casing dust buildup near Gyro X.",
-                  }
-                : ticket,
-            ),
-          );
-          handleTicketAddNote(
-            "T-1025",
-            "John",
-            "The coolant pump needs to be checked; there may be motor casing dust buildup near Gyro X.",
-          );
-          return "continue";
-        case "close-ticket":
-          handleTicketSeverityChange("T-1025", "Resolved");
-          handleTicketStatusChange("T-1025", "Resolved");
-          return "continue";
-        case "subscribe-notifications":
-          setPlaceholder((prev) => ({
-            ...prev,
-            tone: "success",
-            headline: "Notifications configured",
-            message: "Ticket alerts will reach john@factory.com.",
-          }));
-          return "continue";
-        default:
-          return "continue";
-      }
-    },
-    [
-      collected,
-      collaborators,
-      runAgentSequence,
-      validateSchema,
-      startTrainingCountdown,
-      waitForTraining,
-      handleTicketAssign,
-      handleTicketAddNote,
-      handleTicketSeverityChange,
-      handleTicketStatusChange,
-    ],
-  );
-
-  const advanceScript = useCallback(
-    async (
-      startIndex?: number,
-      currentCollected?: CollectedData,
-      flowOverride?: 'mqtt' | 'demo' | null,
-    ) => {
-      let index = startIndex ?? currentStepIndex;
-      const collectedData = currentCollected ?? collected;
-      const activeFlow = getActiveFlow(
-        typeof flowOverride !== 'undefined' ? flowOverride : flowType,
-      );
-
-      while (index < activeFlow.length) {
-        const step = activeFlow[index];
-        if (step.author === "user") {
-          setPendingStepIndex(index);
-          setCurrentStepIndex(index);
-          return;
-        }
-
-        if (step.runActionBeforeMessage && step.action) {
-          const actionResult = await performAction(step.action);
-          if (actionResult === "await") {
-            automationResumeRef.current = index + 1;
-            setCurrentStepIndex(index + 1);
-            return;
-          }
-        }
-
-        await appendAssistantStep(step, collectedData);
-
-        if (!step.runActionBeforeMessage && step.action) {
-          const actionResult = await performAction(step.action);
-          if (actionResult === "await") {
-            automationResumeRef.current = index + 1;
-            setCurrentStepIndex(index + 1);
-            return;
-          }
-        }
-
-        index += 1;
-        setCurrentStepIndex(index);
-      }
-      setPendingStepIndex(null);
-    },
-    [appendAssistantStep, currentStepIndex, performAction, collected, flowType],
-  );
-
-  const pendingStep =
-    typeof pendingStepIndex === "number" ? getActiveFlow(flowType)[pendingStepIndex] : null;
-
-  const handleSendScripted = () => {
-    if (!pendingStep || pendingStep.author !== "user") return;
-    const stepId = pendingStep.id;
-    const text = pendingStep.text;
-
-    appendMessage({ author: "user", name: "You", role: "Operator", text });
-
-    // Update collected data and get the new value immediately
-    const updatedCollected = applyUserInput(collected, stepId, text);
-    setCollected(updatedCollected);
-
-    // Determine flow override if user just chose a path
-    let flowOverride: 'mqtt' | 'demo' | null | undefined;
-    if (stepId === "u2") {
-      const normalizedText = text.toLowerCase().trim();
-      if (normalizedText.includes("demo")) {
-        flowOverride = 'demo';
-        setFlowType('demo');
-      } else if (normalizedText.includes("mqtt") || normalizedText.includes("opc")) {
-        flowOverride = 'mqtt';
-        setFlowType('mqtt');
-      } else {
-        flowOverride = 'mqtt';
-        setFlowType('mqtt');
-      }
-    }
-
-    if (stepId === "u8") {
-      setPlaceholder((prev) => ({
-        ...prev,
-        headline: "Validating connection",
-        message: "Checking schema compliance for your MQTT feed…",
-        tone: "loading",
-        schemaHint: null,
-      }));
-    }
-
-    if (stepId === "u9") {
-      setPlaceholder((prev) => ({
-        ...prev,
-        headline: "Schema update received",
-        message: "Re-running schema checks with your latest payload…",
-        tone: "loading",
-        schemaHint: null,
-      }));
-    }
-
-    if (stepId === "u16") {
-      setPlaceholder((prev) => ({
-        ...prev,
-        headline: "Notifications configured",
-        message: "Ticket alerts will be delivered to john@factory.com.",
-        tone: "success",
-      }));
-    }
-
-    const nextIndex = pendingStepIndex! + 1;
-    setPendingStepIndex(null);
-    setCurrentStepIndex(nextIndex);
-    void advanceScript(nextIndex, updatedCollected, flowOverride);
-  };
-
-  useEffect(() => {
-    if (
-      automationResumeRef.current !== null &&
-      phase === "onboarding" &&
-      (placeholder.trainingProgress ?? 0) >= 100
-    ) {
-      const resumeIndex = automationResumeRef.current;
-      automationResumeRef.current = null;
-      void advanceScript(resumeIndex);
-    }
-  }, [advanceScript, phase, placeholder.trainingProgress]);
-
-  const resetExperience = () => {
-    cleanupTraining();
-    messageIdRef.current = 0;
-    setPhase("onboarding");
-    setChatCollapsed(false);
-    setActiveNav("overview");
-    setActiveThread(0);
-    setChatMessages([]);
-    setApiSteps(initialiseApiSteps());
-    setPlaceholder({
-      headline: "Let’s get your machine online",
-      message: "Answer the questions in chat to begin the scripted demo.",
-      tone: "idle",
-      broker: null,
-      schemaHint: null,
-      trainingProgress: 0,
-    });
-    setCollected({});
-    setFlowType(null);
-    setCollaborators(INITIAL_COLLABORATORS);
-    setTickets(INITIAL_TICKETS);
-    setSortState({ column: "timestamp", direction: "desc" });
-    setSelectedTicketId(INITIAL_TICKETS[0]?.related ?? null);
-    setStatusFilter("All");
-    setSeverityFilter("All");
-    setCurrentStepIndex(0);
-    setPendingStepIndex(null);
-    automationResumeRef.current = null;
-    if (resetTimerRef.current) {
-      clearTimeout(resetTimerRef.current);
-    }
-    resetTimerRef.current = setTimeout(() => {
-      void advanceScript(0);
-    }, 100);
-  };
 
   const handleThreadChange = (index: number) => {
     setActiveThread(index);
   };
 
-  // Allow sending a custom reply (e.g., clicking quick-reply buttons)
-  const handleSendCustom = (text: string) => {
-    if (!pendingStep || pendingStep.author !== "user") return;
-    const stepId = pendingStep.id;
+  const renderOnboardingWidget = useCallback(
+    (widgetDef: any) => {
+      const context = getOnboardingContext();
 
-    appendMessage({ author: "user", name: "You", role: "Operator", text });
+      switch (widgetDef.type) {
+        case "profile-selection-form":
+          return (
+            <ProfileSelectionWidget
+              onSelectExisting={async (profileKey: string, profileName: string) => {
+                await handleOnboardingInput({
+                  profileKey,
+                  profileConfig: {
+                    profileName,
+                    trainingSeconds: 200,
+                    daysToMaintenance: 30,
+                    cycleDuration: 20,
+                  },
+                });
+              }}
+              onCreateNew={async () => {
+                await handleOnboardingInput({
+                  profileKey: null,
+                  profileConfig: null,
+                });
+              }}
+            />
+          );
 
-    const updatedCollected = applyUserInput(collected, stepId, text);
-    setCollected(updatedCollected);
+        case "profile-config-form":
+          return (
+            <ProfileConfigFormWidget
+              onSubmit={async (config: any) => {
+                await handleOnboardingInput({ profileConfig: config });
+              }}
+            />
+          );
 
-    let flowOverride: 'mqtt' | 'demo' | null | undefined;
-    if (stepId === 'u2') {
-      const normalizedText = text.toLowerCase().trim();
-      if (normalizedText.includes('demo')) {
-        flowOverride = 'demo';
-        setFlowType('demo');
-      } else if (normalizedText.includes('mqtt') || normalizedText.includes('opc')) {
-        flowOverride = 'mqtt';
-        setFlowType('mqtt');
-      } else {
-        flowOverride = 'mqtt';
-        setFlowType('mqtt');
+        case "device-status-widget":
+          return context.deviceId ? (
+            <DeviceStatusWidget
+              deviceId={context.deviceId}
+              status="spawning"
+              onComplete={() => {
+                console.log("✅ Device spawn complete");
+                handleOnboardingInput({ deviceStatus: "active" });
+              }}
+            />
+          ) : null;
+
+        case "mqtt-connection-info":
+          return context.mqttConnection ? (
+            <MqttConnectionInfoWidget connection={context.mqttConnection} />
+          ) : null;
+
+        case "user-invitation-form":
+          return (
+            <UserInvitationWidget
+              onSubmit={async (users) => {
+                await handleOnboardingInput({ invitedUsers: users });
+              }}
+            />
+          );
+
+        case "notification-preferences-form":
+          return (
+            <NotificationPreferencesWidget
+              onConfirm={async (enabled) => {
+                await handleOnboardingInput({ notificationsEnabled: enabled });
+              }}
+            />
+          );
+
+        default:
+          return null;
       }
-    }
-
-    const nextIndex = (pendingStepIndex ?? 0) + 1;
-    setPendingStepIndex(null);
-    setCurrentStepIndex(nextIndex);
-    void advanceScript(nextIndex, updatedCollected, flowOverride);
-  };
-
-  if (phase === "onboarding") {
-    return (
-      <div className="flex min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100 text-slate-900">
-        <ChatSidebar
-          messages={chatMessages}
-          threads={THREADS}
-          activeThread={activeThread}
-          onSelectThread={handleThreadChange}
-          pendingStep={pendingStep}
-          onSendScripted={handleSendScripted}
-          onSendCustom={(text) => handleSendCustom(text)}
-          scriptRemaining={countRemainingSteps(currentStepIndex, flowType)}
-          isDashboard={false}
-        />
-        <OnboardingPlaceholder state={placeholder} apiSteps={apiSteps} />
-      </div>
-    );
-  }
+    },
+    [getOnboardingContext, handleOnboardingInput],
+  );
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100 text-slate-900">
-      {!chatCollapsed && (
-        <ChatSidebar
-          messages={chatMessages}
-          threads={THREADS}
-          activeThread={activeThread}
-          onSelectThread={handleThreadChange}
-          pendingStep={pendingStep}
-          onSendScripted={handleSendScripted}
-          onSendCustom={(text) => handleSendCustom(text)}
-          scriptRemaining={countRemainingSteps(currentStepIndex, flowType)}
-          isDashboard
-        />
-      )}
+    <div className="relative flex h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100 text-slate-900">
       <Sidebar
         active={activeNav}
-        onSelect={setActiveNav}
+        onSelect={(key) => {
+          setActiveNav(key);
+          if (key === "ask-ai") {
+            setChatCollapsed(true);
+          }
+        }}
         collapsed={sidebarCollapsed}
       />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="relative flex flex-1 flex-col overflow-hidden">
         <TopBar
           onToggleChat={handleToggleChat}
           chatCollapsed={chatCollapsed}
@@ -1906,63 +1406,214 @@ export default function DashboardPage() {
           notifications={notifications}
           onMarkNotificationRead={handleMarkNotificationRead}
           onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+          isAskAIActive={activeNav === "ask-ai"}
         />
-        <div className="flex flex-1 overflow-hidden">
-          <main className="flex-1 overflow-hidden">
-            <DashboardMain
-              activeNav={activeNav}
-              collaborators={collaborators}
-              assetProfiles={assetProfiles}
-              machines={machines}
-              selectedProfileId={selectedProfileId}
-              selectedMachineId={selectedMachineId}
-              onProfileChange={(profileId) => {
-                setSelectedProfileId(profileId);
-                // Select first machine in the new profile
-                const profileMachines = machines.filter(
-                  (m) => m.profileId === profileId,
-                );
-                if (profileMachines.length > 0) {
-                  setSelectedMachineId(profileMachines[0].id);
-                }
-              }}
-              onMachineChange={setSelectedMachineId}
-              onSelect={setActiveNav}
-              notifications={DASHBOARD_NOTIFICATIONS}
-              kpis={DASHBOARD_KPIS}
-              charts={DASHBOARD_CHARTS}
-              tickets={paginatedTickets}
-              allTickets={sortedTickets}
-              sortState={sortState}
-              onSort={handleSort}
-              selectedTicket={selectedTicket}
-              onSelectTicket={setSelectedTicketId}
-              onStatusFilterChange={setStatusFilter}
-              onSeverityFilterChange={setSeverityFilter}
-              onMachineFilterChange={setMachineFilter}
-              statusFilter={statusFilter}
-              severityFilter={severityFilter}
-              machineFilter={machineFilter}
-              ticketView={ticketView}
-              onTicketViewChange={setTicketView}
-              ticketModalOpen={ticketModalOpen}
-              onTicketModalChange={setTicketModalOpen}
-              onStatusChange={handleTicketStatusChange}
-              onAssign={handleTicketAssign}
-              onSeverityChange={handleTicketSeverityChange}
-              onAddNote={handleTicketAddNote}
-              chatCollapsed={chatCollapsed}
-              sidebarCollapsed={sidebarCollapsed}
-              onNewTicketOpenChange={setNewTicketOpen}
-              onDeleteTicket={handleDeleteTicket}
-              onUpdateFields={handleUpdateTicketFields}
-              page={page}
-              pageSize={pageSize}
-              total={filteredTickets.length}
-              onPageChange={setPage}
-              onPageSizeChange={(n) => { setPageSize(n); setPage(1); }}
-            />
-          </main>
+        <div className="relative flex-1 overflow-hidden">
+          {/* Docked layout (chat consumes its own space) */}
+          {!chatCollapsed && !chatOverlay && activeNav !== "ask-ai" ? (
+            <div className="h-full min-h-0 flex">
+              <div className="relative" style={{ width: `${chatWidth}px` }}>
+                <ChatSidebar
+                  messages={onboardingMessages}
+                  threads={THREADS}
+                  activeThread={activeThread}
+                  onSelectThread={handleThreadChange}
+                  onSendCustom={async (text: string) => {
+                    await handleOnboardingInput(text);
+                  }}
+                  isDashboard
+                  isOnboarding={true}
+                  onboardingProcessing={onboardingProcessing}
+                  renderWidget={renderOnboardingWidget}
+                  fullWidth
+                  onExpandThread={(index) => {
+                    setActiveThread(index);
+                    setChatCollapsed(true);
+                    setActiveNav("ask-ai");
+                    setChatOverlay(false);
+                  }}
+                />
+                {/* Resize Handle (docked) */}
+                <div
+                  className={cn(
+                    "absolute top-0 right-0 h-full w-1 cursor-ew-resize bg-transparent",
+                    isResizing ? "bg-purple-300/50" : "hover:bg-purple-300/40",
+                  )}
+                  onMouseDown={startChatResize}
+                  title="Resize (docked)"
+                />
+              </div>
+              <main className="h-full flex-1 overflow-hidden">
+                <DashboardMain
+                  activeNav={activeNav}
+                  collaborators={collaborators}
+                  assetProfiles={assetProfiles}
+                  machines={machines}
+                  selectedProfileId={selectedProfileId}
+                  selectedMachineId={selectedMachineId}
+                  onProfileChange={(profileId) => {
+                    setSelectedProfileId(profileId);
+                    const profileMachines = machines.filter((m) => m.profileId === profileId);
+                    if (profileMachines.length > 0) {
+                      setSelectedMachineId(profileMachines[0].id);
+                    }
+                  }}
+                  onMachineChange={setSelectedMachineId}
+                  onSelect={(key) => {
+                    setActiveNav(key);
+                    if (key === "ask-ai") {
+                      setChatCollapsed(true);
+                    }
+                  }}
+                  notifications={DASHBOARD_NOTIFICATIONS}
+                  kpis={DASHBOARD_KPIS}
+                  charts={DASHBOARD_CHARTS}
+                  tickets={paginatedTickets}
+                  allTickets={sortedTickets}
+                  sortState={sortState}
+                  onSort={handleSort}
+                  selectedTicket={selectedTicket}
+                  onSelectTicket={setSelectedTicketId}
+                  onStatusFilterChange={setStatusFilter}
+                  onSeverityFilterChange={setSeverityFilter}
+                  onMachineFilterChange={setMachineFilter}
+                  statusFilter={statusFilter}
+                  severityFilter={severityFilter}
+                  machineFilter={machineFilter}
+                  ticketView={ticketView}
+                  onTicketViewChange={setTicketView}
+                  ticketModalOpen={ticketModalOpen}
+                  onTicketModalChange={setTicketModalOpen}
+                  onStatusChange={handleTicketStatusChange}
+                  onAssign={handleTicketAssign}
+                  onSeverityChange={handleTicketSeverityChange}
+                  onAddNote={handleTicketAddNote}
+                  chatCollapsed={chatCollapsed}
+                  sidebarCollapsed={sidebarCollapsed}
+                  onNewTicketOpenChange={setNewTicketOpen}
+                  onDeleteTicket={handleDeleteTicket}
+                  onUpdateFields={handleUpdateTicketFields}
+                  page={page}
+                  pageSize={pageSize}
+                  total={filteredTickets.length}
+                  onPageChange={setPage}
+                  onPageSizeChange={(n) => {
+                    setPageSize(n);
+                    setPage(1);
+                  }}
+                  onboardingMessages={onboardingMessages}
+                  onboardingProcessing={onboardingProcessing}
+                  onHandleOnboardingInput={handleOnboardingInput}
+                  renderOnboardingWidget={renderOnboardingWidget}
+                />
+              </main>
+            </div>
+          ) : (
+            <main className="h-full overflow-hidden">
+              <DashboardMain
+                activeNav={activeNav}
+                collaborators={collaborators}
+                assetProfiles={assetProfiles}
+                machines={machines}
+                selectedProfileId={selectedProfileId}
+                selectedMachineId={selectedMachineId}
+                onProfileChange={(profileId) => {
+                  setSelectedProfileId(profileId);
+                  const profileMachines = machines.filter((m) => m.profileId === profileId);
+                  if (profileMachines.length > 0) {
+                    setSelectedMachineId(profileMachines[0].id);
+                  }
+                }}
+                onMachineChange={setSelectedMachineId}
+                onSelect={(key) => {
+                  setActiveNav(key);
+                  if (key === "ask-ai") {
+                    setChatCollapsed(true);
+                  }
+                }}
+                notifications={DASHBOARD_NOTIFICATIONS}
+                kpis={DASHBOARD_KPIS}
+                charts={DASHBOARD_CHARTS}
+                tickets={paginatedTickets}
+                allTickets={sortedTickets}
+                sortState={sortState}
+                onSort={handleSort}
+                selectedTicket={selectedTicket}
+                onSelectTicket={setSelectedTicketId}
+                onStatusFilterChange={setStatusFilter}
+                onSeverityFilterChange={setSeverityFilter}
+                onMachineFilterChange={setMachineFilter}
+                statusFilter={statusFilter}
+                severityFilter={severityFilter}
+                machineFilter={machineFilter}
+                ticketView={ticketView}
+                onTicketViewChange={setTicketView}
+                ticketModalOpen={ticketModalOpen}
+                onTicketModalChange={setTicketModalOpen}
+                onStatusChange={handleTicketStatusChange}
+                onAssign={handleTicketAssign}
+                onSeverityChange={handleTicketSeverityChange}
+                onAddNote={handleTicketAddNote}
+                chatCollapsed={chatCollapsed}
+                sidebarCollapsed={sidebarCollapsed}
+                onNewTicketOpenChange={setNewTicketOpen}
+                onDeleteTicket={handleDeleteTicket}
+                onUpdateFields={handleUpdateTicketFields}
+                page={page}
+                pageSize={pageSize}
+                total={filteredTickets.length}
+                onPageChange={setPage}
+                onPageSizeChange={(n) => {
+                  setPageSize(n);
+                  setPage(1);
+                }}
+                onboardingMessages={onboardingMessages}
+                onboardingProcessing={onboardingProcessing}
+                onHandleOnboardingInput={handleOnboardingInput}
+                renderOnboardingWidget={renderOnboardingWidget}
+              />
+            </main>
+          )}
+
+          {/* Overlay layout (chat floats over content) */}
+          {!chatCollapsed && chatOverlay && activeNav !== "ask-ai" && (
+            <div
+              className={cn(
+                "absolute top-16 left-0 bottom-0 z-40 shadow-2xl",
+              )}
+              style={{ width: `${chatWidth}px` }}
+            >
+              <ChatSidebar
+                messages={onboardingMessages}
+                threads={THREADS}
+                activeThread={activeThread}
+                onSelectThread={handleThreadChange}
+                onSendCustom={async (text: string) => {
+                  await handleOnboardingInput(text);
+                }}
+                isDashboard
+                isOnboarding={true}
+                onboardingProcessing={onboardingProcessing}
+                renderWidget={renderOnboardingWidget}
+                fullWidth
+                onExpandThread={(index) => {
+                  setActiveThread(index);
+                  setChatCollapsed(true);
+                  setActiveNav("ask-ai");
+                  setChatOverlay(false);
+                }}
+              />
+              {/* Resize Handle (overlay) */}
+              <div
+                className={cn(
+                  "absolute top-0 right-0 h-full w-1 cursor-ew-resize bg-transparent",
+                  isResizing ? "bg-purple-300/50" : "hover:bg-purple-300/40",
+                )}
+                onMouseDown={startChatResize}
+                title="Resize (overlay)"
+              />
+            </div>
+          )}
         </div>
       </div>
       <ShareModal
@@ -1987,6 +1638,23 @@ export default function DashboardPage() {
   );
 }
 
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 via-white to-purple-100">
+        <div className="text-center">
+          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+          </div>
+          <p className="text-sm text-slate-600">Loading dashboard...</p>
+        </div>
+      </div>
+    }>
+      <DashboardPageContent />
+    </Suspense>
+  );
+}
+
 function Sidebar({
   active,
   onSelect,
@@ -1999,22 +1667,23 @@ function Sidebar({
   return (
     <nav
       className={cn(
-        "flex flex-col border-r border-purple-100 bg-white/70 py-6 backdrop-blur transition-all",
-        collapsed ? "w-[72px] px-2" : "w-60 px-4",
+        "flex flex-col border-r border-purple-100 bg-white/70 backdrop-blur transition-all",
+        collapsed ? "w-[72px] px-2 py-4" : "w-60 px-3 py-4",
       )}
       aria-label="Primary navigation"
     >
-      <div className="flex items-center justify-center px-2">
+      {/* Logo Section */}
+      <div className="flex items-center px-3 mb-8">
         {!collapsed ? (
           <Image
             src="/microai-logo-dark.svg"
             alt="MicroAI"
-            width={120}
-            height={32}
-            className="h-8 w-auto"
+            width={100}
+            height={28}
+            className="h-7 w-auto"
           />
         ) : (
-          <div className="relative w-12 h-12 flex items-center justify-center">
+          <div className="relative w-10 h-10 flex items-center justify-center">
             <Image
               src="/microai-logo-dark.svg"
               alt="MicroAI"
@@ -2024,7 +1693,9 @@ function Sidebar({
           </div>
         )}
       </div>
-      <div className="mt-8 space-y-2">
+
+      {/* Navigation Items */}
+      <div className="flex-1 space-y-1">
         {SIDENAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const activeStyle = active === item.key;
@@ -2033,19 +1704,42 @@ function Sidebar({
               key={item.key}
               onClick={() => onSelect(item.key)}
               className={cn(
-                "flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-sm font-semibold transition",
+                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
                 activeStyle
-                  ? "bg-slate-900 text-white shadow"
-                  : "text-slate-600 hover:bg-purple-50 hover:text-slate-900",
+                  ? "bg-purple-600 text-white shadow-sm"
+                  : "text-slate-700 hover:bg-purple-50 hover:text-purple-700",
+                collapsed && "justify-center",
               )}
               aria-current={activeStyle ? "page" : undefined}
+              title={collapsed ? item.label : undefined}
             >
-              <Icon className="h-4 w-4" />
+              <Icon
+                className={cn("h-5 w-5", collapsed ? "" : "flex-shrink-0")}
+              />
               {!collapsed && <span>{item.label}</span>}
             </button>
           );
         })}
       </div>
+
+      {/* Bottom Section - User Profile Area (optional) */}
+      {!collapsed && (
+        <div className="mt-auto pt-4 border-t border-purple-100">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-purple-50 transition-colors cursor-pointer">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-purple-600 text-xs font-semibold">
+              D
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-900 truncate">
+                Demo User
+              </p>
+              <p className="text-xs text-slate-500 truncate">
+                demo@microai.com
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
@@ -2059,6 +1753,7 @@ function TopBar({
   notifications,
   onMarkNotificationRead,
   onMarkAllNotificationsRead,
+  isAskAIActive,
 }: {
   onToggleChat: () => void;
   chatCollapsed: boolean;
@@ -2068,6 +1763,7 @@ function TopBar({
   notifications: NotificationItemWithRead[];
   onMarkNotificationRead: (id: string) => void;
   onMarkAllNotificationsRead: () => void;
+  isAskAIActive: boolean;
 }) {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   return (
@@ -2076,11 +1772,16 @@ function TopBar({
         <button
           className={cn(
             "inline-flex items-center gap-2 rounded-full border border-purple-100 px-4 py-2 text-xs font-semibold",
-            chatCollapsed
-              ? "bg-white text-purple-600"
-              : "bg-purple-600 text-white",
+            isAskAIActive
+              ? "bg-white text-purple-600 opacity-50 cursor-not-allowed"
+              : chatCollapsed
+                ? "bg-white text-purple-600"
+                : "bg-purple-600 text-white",
           )}
           onClick={onToggleChat}
+          disabled={isAskAIActive}
+          aria-disabled={isAskAIActive}
+          title={isAskAIActive ? "Chat is managed by Ask AI view" : undefined}
         >
           <MessageSquare className="h-4 w-4" />
           {chatCollapsed ? "Show chat" : "Hide chat"}
@@ -2111,7 +1812,10 @@ function TopBar({
               )}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto bg-white">
+          <DropdownMenuContent
+            align="end"
+            className="w-80 max-h-96 overflow-y-auto bg-white"
+          >
             <div className="flex items-center justify-between px-2 py-2">
               <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                 Notifications
@@ -2136,7 +1840,7 @@ function TopBar({
                   key={notification.id}
                   className={cn(
                     "flex flex-col items-start gap-1 px-4 py-3 border-b border-slate-100 last:border-b-0",
-                    !notification.isRead && "bg-purple-50/30"
+                    !notification.isRead && "bg-purple-50/30",
                   )}
                 >
                   <div className="flex w-full items-start justify-between gap-2">
@@ -2166,26 +1870,25 @@ function TopBar({
                     <span
                       className={cn(
                         "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                        notification.tone === "critical" && "bg-red-100 text-red-700",
-                        notification.tone === "positive" && "bg-green-100 text-green-700",
-                        notification.tone === "neutral" && "bg-slate-100 text-slate-700"
+                        notification.tone === "critical" &&
+                          "bg-red-100 text-red-700",
+                        notification.tone === "positive" &&
+                          "bg-green-100 text-green-700",
+                        notification.tone === "neutral" &&
+                          "bg-slate-100 text-slate-700",
                       )}
                     >
                       {notification.tone}
                     </span>
-                    <span className="text-xs text-slate-400">{notification.timestamp}</span>
+                    <span className="text-xs text-slate-400">
+                      {notification.timestamp}
+                    </span>
                   </div>
                 </div>
               ))
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-        <div className="flex items-center gap-2 rounded-full border border-purple-100 bg-white px-3 py-1.5 text-left text-sm text-slate-600">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback>JN</AvatarFallback>
-          </Avatar>
-          <span className="hidden sm:block">John</span>
-        </div>
       </div>
     </header>
   );
@@ -2196,73 +1899,119 @@ type PromptTemplate = {
   name: string;
   description: string;
   content: string;
-  category: 'onboarding' | 'line' | 'bulk' | 'custom';
+  category: "onboarding" | "line" | "bulk" | "custom";
 };
 
 const DEFAULT_PROMPTS: PromptTemplate[] = [
   {
-    id: 'onboard-asset',
-    name: 'Onboard Single Asset',
-    description: 'Template for onboarding a single machine or asset',
-    content: 'I need to onboard a new asset with the following details:\nAsset Name: [name]\nConnection Type: [MQTT/OPC UA]\nSensors: [list]',
-    category: 'onboarding',
+    id: "onboard-asset",
+    name: "Onboard Single Asset",
+    description: "Template for onboarding a single machine or asset",
+    content:
+      "I need to onboard a new asset with the following details:\nAsset Name: [name]\nConnection Type: [MQTT/OPC UA]\nSensors: [list]",
+    category: "onboarding",
   },
   {
-    id: 'create-line',
-    name: 'Create Production Line',
-    description: 'Set up a new production line with multiple assets',
-    content: 'Create a production line:\nLine Name: [name]\nAssets: [list]\nSequence: [order]',
-    category: 'line',
+    id: "create-line",
+    name: "Create Production Line",
+    description: "Set up a new production line with multiple assets",
+    content:
+      "Create a production line:\nLine Name: [name]\nAssets: [list]\nSequence: [order]",
+    category: "line",
   },
   {
-    id: 'bulk-add',
-    name: 'Bulk Asset Addition',
-    description: 'Add multiple assets at once',
-    content: 'Bulk add assets from:\nSource: [CSV/Excel file]\nColumns: [mapping]',
-    category: 'bulk',
+    id: "bulk-add",
+    name: "Bulk Asset Addition",
+    description: "Add multiple assets at once",
+    content:
+      "Bulk add assets from:\nSource: [CSV/Excel file]\nColumns: [mapping]",
+    category: "bulk",
   },
 ];
 
+function ChatBubble({ message }: { message: any }) {
+  const actor = message?.actor || message?.author || "assistant";
+  const text = message?.message || message?.text || "";
+  return (
+    <div className="group">
+      <div className="flex items-start gap-2">
+        <Avatar className="h-7 w-7 shrink-0">
+          <AvatarFallback className={cn(
+            "text-xs font-semibold",
+            actor === "assistant" ? "bg-purple-100 text-purple-700" : "bg-slate-800 text-white",
+          )}>
+            {actor === "assistant" ? "AI" : "YO"}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-semibold text-slate-700">{actor === "assistant" ? "Onboarding Copilot" : "You"}</p>
+            <p className="text-xs text-slate-400">Just now</p>
+          </div>
+          {text && (
+            <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <p className="whitespace-pre-wrap leading-relaxed">{text}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ChatSidebar({
   messages,
-  pendingStep,
-  onSendScripted,
   onSendCustom,
-  scriptRemaining,
   threads,
   activeThread,
   onSelectThread,
   isDashboard,
+  isOnboarding,
+  onboardingProcessing,
+  renderWidget,
+  fullWidth,
+  onExpandThread,
 }: {
-  messages: ChatEntry[];
-  pendingStep: ScriptStep | null;
-  onSendScripted: () => void;
+  messages: any[];
   onSendCustom: (text: string) => void;
-  scriptRemaining: number;
   threads: string[];
   activeThread: number;
   onSelectThread: (index: number) => void;
   isDashboard: boolean;
+  isOnboarding?: boolean;
+  onboardingProcessing?: boolean;
+  renderWidget?: (widgetDef: any) => React.ReactNode;
+  fullWidth?: boolean;
+  onExpandThread?: (index: number) => void;
 }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [threadSearchOpen, setThreadSearchOpen] = useState(false);
-  const [threadSearch, setThreadSearch] = useState('');
+  const [threadSearch, setThreadSearch] = useState("");
   const [promptMenuOpen, setPromptMenuOpen] = useState(false);
-  const [savedPrompts, setSavedPrompts] = useState<PromptTemplate[]>(DEFAULT_PROMPTS);
+  const [activeMenuSection, setActiveMenuSection] = useState<
+    "templates" | "library"
+  >("templates");
+  const [savedPrompts, setSavedPrompts] =
+    useState<PromptTemplate[]>(DEFAULT_PROMPTS);
   const [showSavePrompt, setShowSavePrompt] = useState(false);
-  const [newPromptName, setNewPromptName] = useState('');
-  const [newPromptContent, setNewPromptContent] = useState('');
+  const [newPromptName, setNewPromptName] = useState("");
+  const [newPromptContent, setNewPromptContent] = useState("");
+  const [customInput, setCustomInput] = useState("");
 
   useEffect(() => {
     if (messagesEndRef.current && chatContainerRef.current) {
       // Scroll only the chat container, not the entire page
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+      messagesEndRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "nearest",
+      });
     }
   }, [messages]);
 
-  const filteredThreads = threads.filter(thread => 
-    thread.toLowerCase().includes(threadSearch.toLowerCase())
+  const filteredThreads = threads.filter((thread) =>
+    thread.toLowerCase().includes(threadSearch.toLowerCase()),
   );
 
   const handleSavePrompt = () => {
@@ -2270,13 +2019,13 @@ function ChatSidebar({
       const newPrompt: PromptTemplate = {
         id: `custom-${Date.now()}`,
         name: newPromptName,
-        description: 'Custom prompt',
+        description: "Custom prompt",
         content: newPromptContent,
-        category: 'custom',
+        category: "custom",
       };
       setSavedPrompts([...savedPrompts, newPrompt]);
-      setNewPromptName('');
-      setNewPromptContent('');
+      setNewPromptName("");
+      setNewPromptContent("");
       setShowSavePrompt(false);
     }
   };
@@ -2289,8 +2038,8 @@ function ChatSidebar({
   return (
     <aside
       className={cn(
-        "flex w-[340px] flex-col border-r border-purple-100 bg-white/80",
-        isDashboard ? "" : "backdrop-blur",
+        "h-full min-h-0 flex flex-col border-r border-purple-100 bg-white",
+        fullWidth ? "w-full" : "w-[340px]",
       )}
       aria-label="Chat sidebar"
     >
@@ -2302,81 +2051,173 @@ function ChatSidebar({
               onClick={() => setThreadSearchOpen(!threadSearchOpen)}
               className="w-full flex items-center justify-between rounded-lg border border-purple-200 bg-white px-2 py-1.5 text-left text-xs hover:bg-purple-50"
             >
-              <span className="font-medium text-slate-700 truncate">{threads[activeThread]}</span>
+              <span className="font-medium text-slate-700 truncate">
+                {threads[activeThread]}
+              </span>
               <ChevronDown className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
             </button>
             {threadSearchOpen && (
               <div className="absolute left-0 top-9 z-50 w-full rounded-xl border border-purple-100 bg-white shadow-lg">
-              <div className="border-b border-purple-100 p-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search threads..."
-                    value={threadSearch}
-                    onChange={(e) => setThreadSearch(e.target.value)}
-                    className="w-full rounded-lg border border-purple-200 py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                    autoFocus
-                  />
+                <div className="border-b border-purple-100 p-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search threads..."
+                      value={threadSearch}
+                      onChange={(e) => setThreadSearch(e.target.value)}
+                      className="w-full rounded-lg border border-purple-200 py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      autoFocus
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="max-h-60 overflow-y-auto p-2">
-                {filteredThreads.length > 0 ? (
-                  filteredThreads.map((thread, index) => {
-                    const originalIndex = threads.indexOf(thread);
-                    return (
-                      <button
-                        key={thread}
-                        onClick={() => {
-                          onSelectThread(originalIndex);
-                          setThreadSearchOpen(false);
-                          setThreadSearch('');
-                        }}
-                        className={cn(
-                          "w-full flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                          activeThread === originalIndex
-                            ? "bg-purple-100 text-purple-700 font-semibold"
-                            : "text-slate-700 hover:bg-purple-50"
-                        )}
-                      >
-                        <span>{thread}</span>
-                        {activeThread === originalIndex && (
-                          <Check className="h-4 w-4 text-purple-600" />
-                        )}
-                      </button>
-                    );
-                  })
-                ) : (
-                  <p className="px-3 py-4 text-center text-xs text-slate-400">No threads found</p>
-                )}
+                <div className="max-h-60 overflow-y-auto p-2">
+                  {filteredThreads.length > 0 ? (
+                    filteredThreads.map((thread, index) => {
+                      const originalIndex = threads.indexOf(thread);
+                      return (
+                        <button
+                          key={thread}
+                          onClick={() => {
+                            onSelectThread(originalIndex);
+                            setThreadSearchOpen(false);
+                            setThreadSearch("");
+                          }}
+                          className={cn(
+                            "w-full flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                            activeThread === originalIndex
+                              ? "bg-purple-100 text-purple-700 font-semibold"
+                              : "text-slate-700 hover:bg-purple-50",
+                          )}
+                        >
+                          <span>{thread}</span>
+                          {activeThread === originalIndex && (
+                            <Check className="h-4 w-4 text-purple-600" />
+                          )}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <p className="px-3 py-4 text-center text-xs text-slate-400">
+                      No threads found
+                    </p>
+                  )}
                 </div>
               </div>
             )}
           </div>
-          <button 
+          <button
             className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 flex-shrink-0"
             onClick={() => {
               // Create new thread logic
-              alert('Create new thread functionality');
+              alert("Create new thread functionality");
             }}
             title="Create new thread"
           >
             <Plus className="h-3.5 w-3.5" />
+          </button>
+          <button
+            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 flex-shrink-0"
+            onClick={() => onExpandThread?.(activeThread)}
+            title="Expand to Ask AI"
+            aria-label="Expand chat"
+          >
+            <AppWindow className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
       <div
         ref={chatContainerRef}
         className="flex-1 space-y-3 overflow-y-auto px-3 py-3"
-        style={{ maxHeight: "calc(100vh - 180px)" }}
       >
-        {messages.map((message) => (
-          <ChatBubble key={message.id} message={message} />
-        ))}
-        {messages.length === 0 && (
+        {isOnboarding
+          ? // ✅ Render onboarding messages with widgets
+            messages.map((msg: any) => (
+              <div key={msg.id} className="group">
+                <div className="flex items-start gap-2">
+                  <Avatar className="h-7 w-7 shrink-0">
+                    <AvatarFallback
+                      className={cn(
+                        "text-xs font-semibold",
+                        msg.actor === "assistant"
+                          ? "bg-purple-100 text-purple-700"
+                          : "bg-slate-800 text-white",
+                      )}
+                    >
+                      {msg.actor === "assistant" ? "AI" : "YO"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-semibold text-slate-700">
+                        {msg.actor === "assistant"
+                          ? "Onboarding Copilot"
+                          : "You"}
+                      </p>
+                      <p className="text-xs text-slate-400">Just now</p>
+                    </div>
+                    {msg.message && (
+                      <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                        <p className="whitespace-pre-wrap leading-relaxed">
+                          {msg.message}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {msg.widget && msg.actor === "assistant" && renderWidget && (
+                  <div className="ml-9 mt-2 max-w-[calc(100%-2.25rem)] overflow-x-auto">
+                    {renderWidget(msg.widget)}
+                  </div>
+                )}
+              </div>
+            ))
+          : // Regular dashboard messages
+            messages.map((message: any) => (
+              <ChatBubble key={message.id} message={message} />
+            ))}
+        {onboardingProcessing && (
+          <div className="flex gap-3">
+            <Avatar className="h-8 w-8 shrink-0">
+              <AvatarFallback className="bg-purple-100 text-purple-700 text-xs font-semibold">
+                AI
+              </AvatarFallback>
+            </Avatar>
+            <div className="rounded-2xl bg-slate-100 px-4 py-3">
+              <div className="flex gap-1">
+                <div
+                  className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <div
+                  className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
+                  style={{ animationDelay: "150ms" }}
+                />
+                <div
+                  className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
+                  style={{ animationDelay: "300ms" }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        {messages.length === 0 && !isOnboarding && (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-slate-400 text-center max-w-[200px]">
-              Start a conversation to begin onboarding
+              Start a conversation
+            </p>
+          </div>
+        )}
+        {messages.length === 0 && isOnboarding && (
+          <div className="flex flex-col items-center justify-center h-full px-6 py-8">
+            <div className="mb-4 rounded-full bg-purple-100 p-4">
+              <MessageSquare className="h-8 w-8 text-purple-600" />
+            </div>
+            <h3 className="text-sm font-semibold text-slate-700 mb-2">
+              Welcome to your Dashboard
+            </h3>
+            <p className="text-xs text-slate-500 text-center max-w-[240px]">
+              Ask me anything! I can help you add machines, manage users, create tickets, and more.
             </p>
           </div>
         )}
@@ -2386,86 +2227,220 @@ function ChatSidebar({
         <div className="space-y-3">
           {/* Input Area with Plus and Attach Buttons */}
           <div className="relative flex items-center gap-2">
-            {/* Plus Button - Prompt Library */}
+            {/* Plus Button - Quick Actions & Prompt Library */}
             <div className="relative">
-              <button 
+              <button
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-purple-200 text-purple-500 hover:bg-purple-50"
-                onClick={() => setPromptMenuOpen(!promptMenuOpen)}
-                title="Prompt library"
+                onClick={() => {
+                  setPromptMenuOpen(!promptMenuOpen);
+                  setActiveMenuSection("templates");
+                }}
+                title="Quick actions & prompts"
               >
                 <Plus className="h-4 w-4" />
               </button>
               {promptMenuOpen && (
                 <div className="absolute bottom-12 left-0 z-50 w-72 rounded-xl border border-purple-100 bg-white shadow-lg">
-                  <div className="border-b border-purple-100 p-3">
-                    <p className="text-xs font-semibold text-slate-700">Prompt Library</p>
+                  {/* Tab Headers */}
+                  <div className="flex border-b border-purple-100">
+                    <button
+                      onClick={() => setActiveMenuSection("templates")}
+                      className={cn(
+                        "flex-1 p-3 text-xs font-semibold transition-colors",
+                        activeMenuSection === "templates"
+                          ? "text-purple-600 border-b-2 border-purple-600"
+                          : "text-slate-500 hover:text-slate-700",
+                      )}
+                    >
+                      Quick Templates
+                    </button>
+                    <button
+                      onClick={() => setActiveMenuSection("library")}
+                      className={cn(
+                        "flex-1 p-3 text-xs font-semibold transition-colors",
+                        activeMenuSection === "library"
+                          ? "text-purple-600 border-b-2 border-purple-600"
+                          : "text-slate-500 hover:text-slate-700",
+                      )}
+                    >
+                      Prompt Library
+                    </button>
                   </div>
-                  <div className="max-h-80 overflow-y-auto p-2">
-                    {savedPrompts.map(prompt => (
+
+                  {/* Quick Templates Section */}
+                  {activeMenuSection === "templates" && (
+                    <div className="p-2">
                       <button
-                        key={prompt.id}
-                        onClick={() => handleUsePrompt(prompt)}
-                        className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors"
+                        onClick={() => {
+                          setCustomInput("Show me my device's health score");
+                          setPromptMenuOpen(false);
+                        }}
+                        className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-slate-800">{prompt.name}</p>
-                            <p className="text-xs text-slate-500 mt-1">{prompt.description}</p>
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                            <Gauge className="h-4 w-4" />
                           </div>
-                          <FileText className="h-4 w-4 text-purple-400" />
-                        </div>
-                        <div className="mt-2 rounded bg-slate-50 p-2 text-xs text-slate-600 font-mono line-clamp-2">
-                          {prompt.content}
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-slate-800">
+                              See My Device Health Score
+                            </p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              View the operational health score of your machines
+                            </p>
+                          </div>
                         </div>
                       </button>
-                    ))}
-                  </div>
-                  <div className="border-t border-purple-100 p-2">
-                    {!showSavePrompt ? (
+
                       <button
-                        onClick={() => setShowSavePrompt(true)}
-                        className="w-full flex items-center gap-2 rounded-lg border border-dashed border-purple-200 p-2 text-xs font-semibold text-purple-600 hover:bg-purple-50"
+                        onClick={() => {
+                          setCustomInput("Show me tickets for my machines");
+                          setPromptMenuOpen(false);
+                        }}
+                        className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
                       >
-                        <Save className="h-3 w-3" />
-                        Save New Prompt
-                      </button>
-                    ) : (
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          placeholder="Prompt name"
-                          value={newPromptName}
-                          onChange={(e) => setNewPromptName(e.target.value)}
-                          className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
-                        />
-                        <textarea
-                          placeholder="Prompt content"
-                          value={newPromptContent}
-                          onChange={(e) => setNewPromptContent(e.target.value)}
-                          rows={3}
-                          className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleSavePrompt}
-                            className="flex-1 rounded bg-purple-600 px-2 py-1 text-xs font-semibold text-white hover:bg-purple-700"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={() => {
-                              setShowSavePrompt(false);
-                              setNewPromptName('');
-                              setNewPromptContent('');
-                            }}
-                            className="flex-1 rounded border border-purple-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                          >
-                            Cancel
-                          </button>
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                            <FileText className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-slate-800">
+                              See Tickets for My Machines
+                            </p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Review maintenance tickets and service history
+                            </p>
+                          </div>
                         </div>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setCustomInput(
+                            "Show me predictive maintenance for my machine",
+                          );
+                          setPromptMenuOpen(false);
+                        }}
+                        className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                            <Zap className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-slate-800">
+                              See Predictive Maintenance
+                            </p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              View upcoming maintenance predictions and alerts
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setCustomInput(
+                            "Monitor my machine's real-time telemetry data",
+                          );
+                          setPromptMenuOpen(false);
+                        }}
+                        className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                            <Activity className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-slate-800">
+                              Monitor Real-Time Telemetry
+                            </p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              View live sensor data and telemetry streams
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Prompt Library Section */}
+                  {activeMenuSection === "library" && (
+                    <>
+                      <div className="max-h-80 overflow-y-auto p-2">
+                        {savedPrompts.map((prompt) => (
+                          <button
+                            key={prompt.id}
+                            onClick={() => handleUsePrompt(prompt)}
+                            className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold text-slate-800">
+                                  {prompt.name}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-1">
+                                  {prompt.description}
+                                </p>
+                              </div>
+                              <FileText className="h-4 w-4 text-purple-400" />
+                            </div>
+                            <div className="mt-2 rounded bg-slate-50 p-2 text-xs text-slate-600 font-mono line-clamp-2">
+                              {prompt.content}
+                            </div>
+                          </button>
+                        ))}
                       </div>
-                    )}
-                  </div>
+                      <div className="border-t border-purple-100 p-2">
+                        {!showSavePrompt ? (
+                          <button
+                            onClick={() => setShowSavePrompt(true)}
+                            className="w-full flex items-center gap-2 rounded-lg border border-dashed border-purple-200 p-2 text-xs font-semibold text-purple-600 hover:bg-purple-50"
+                          >
+                            <Save className="h-3 w-3" />
+                            Save New Prompt
+                          </button>
+                        ) : (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              placeholder="Prompt name"
+                              value={newPromptName}
+                              onChange={(e) => setNewPromptName(e.target.value)}
+                              className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                            />
+                            <textarea
+                              placeholder="Prompt content"
+                              value={newPromptContent}
+                              onChange={(e) =>
+                                setNewPromptContent(e.target.value)
+                              }
+                              rows={3}
+                              className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={handleSavePrompt}
+                                className="flex-1 rounded bg-purple-600 px-2 py-1 text-xs font-semibold text-white hover:bg-purple-700"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setShowSavePrompt(false);
+                                  setNewPromptName("");
+                                  setNewPromptContent("");
+                                }}
+                                className="flex-1 rounded border border-purple-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -2477,193 +2452,50 @@ function ChatSidebar({
               <Paperclip className="h-3.5 w-3.5" />
               Attach
             </button>
-            {/* Send Button */}
-            <button
-              className={cn(
-                "flex-1 flex items-center justify-between rounded-full border px-4 py-2 text-xs font-semibold",
-                pendingStep
-                  ? "border-purple-200 text-purple-600 hover:bg-purple-50"
-                  : "border-slate-100 text-slate-300",
-              )}
-              onClick={onSendScripted}
-              disabled={!pendingStep}
-            >
-              {pendingStep
-                ? `Send: ${truncateText(pendingStep.text, 42)}`
-                : "Waiting for assistant"}
-              <span className="text-[11px] uppercase tracking-wide">
-                {scriptRemaining} left
-              </span>
-            </button>
           </div>
 
-          {pendingStep?.id === "u2" && (
-            <div className="flex flex-wrap gap-2">
+          {/* Text input - always shown for onboarding */}
+          {isOnboarding && (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && customInput.trim()) {
+                    onSendCustom(customInput);
+                    setCustomInput("");
+                  }
+                }}
+                placeholder="Type anything to continue..."
+                className="flex-1 rounded-full border border-purple-200 px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
               <button
-                className="rounded-full border border-purple-200 bg-white px-3 py-1 text-xs font-semibold text-purple-600 hover:border-purple-300 hover:bg-purple-50"
-                onClick={() => onSendCustom("MQTT")}
+                onClick={() => {
+                  if (customInput.trim()) {
+                    onSendCustom(customInput);
+                    setCustomInput("");
+                  }
+                }}
+                disabled={!customInput.trim()}
+                className={cn(
+                  "rounded-full border px-4 py-2 text-xs font-semibold",
+                  customInput.trim()
+                    ? "border-purple-600 bg-purple-600 text-white hover:bg-purple-700"
+                    : "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed",
+                )}
               >
-                MQTT
-              </button>
-              <button
-                className="rounded-full border border-purple-200 bg-white px-3 py-1 text-xs font-semibold text-purple-600 hover:border-purple-300 hover:bg-purple-50"
-                onClick={() => onSendCustom("OPC UA")}
-              >
-                OPC UA
-              </button>
-              <button
-                className="rounded-full border border-purple-200 bg-white px-3 py-1 text-xs font-semibold text-purple-600 hover:border-purple-300 hover:bg-purple-50"
-                onClick={() => onSendCustom("Demo machine")}
-              >
-                Demo machine
+                Send
               </button>
             </div>
           )}
-
-          <p className="rounded-2xl border border-purple-100 bg-white px-3 py-2 text-[11px] leading-relaxed text-slate-500">
-            This mock keeps you on script so you can rehearse the full
-            onboarding narrative end-to-end.
-          </p>
         </div>
       </div>
     </aside>
   );
 }
 
-function ChatBubble({ message }: { message: ChatEntry }) {
-  const isAssistant = message.author === "assistant";
-  return (
-    <div
-      className={cn(
-        "flex gap-2",
-        isAssistant ? "flex-row" : "flex-row-reverse",
-      )}
-      role="listitem"
-    >
-      <Avatar className="h-6 w-6 flex-shrink-0">
-        <AvatarFallback
-          className={cn(
-            "text-[10px] font-semibold",
-            isAssistant
-              ? "bg-purple-100 text-purple-700"
-              : "bg-slate-900 text-white",
-          )}
-        >
-          {isAssistant ? "M" : message.name.slice(0, 2).toUpperCase()}
-        </AvatarFallback>
-      </Avatar>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2 mb-1">
-          <span className={cn(
-            "text-[10px] font-semibold",
-            isAssistant ? "text-purple-600" : "text-slate-700"
-          )}>
-            {message.name}
-          </span>
-          <span className="text-[9px] text-slate-400">{message.timestamp}</span>
-        </div>
-        <div
-          className={cn(
-            "rounded-2xl px-3 py-2 text-xs leading-relaxed",
-            isAssistant
-              ? "bg-purple-50 text-slate-700"
-              : "bg-slate-900 text-white",
-          )}
-        >
-          <p className="whitespace-pre-wrap">{message.text}</p>
-          {message.attachment && (
-            <div className="mt-2 space-y-2">{message.attachment}</div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function OnboardingPlaceholder({
-  state,
-  apiSteps,
-}: {
-  state: PlaceholderState;
-  apiSteps: ApiStep[];
-}) {
-  return (
-    <section className="flex flex-1 flex-col gap-5 px-8 py-12">
-      <div className="rounded-3xl border border-purple-100 bg-white/80 p-6 shadow-lg">
-        <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-purple-600">
-          <Loader2
-            className={cn(
-              "h-4 w-4",
-              state.tone === "loading" || state.tone === "training"
-                ? "animate-spin"
-                : "",
-            )}
-          />
-          {state.headline}
-        </div>
-        <p className="mt-3 text-sm text-slate-600">{state.message}</p>
-        {state.broker && (
-          <div className="mt-5 rounded-2xl border border-purple-100 bg-purple-50/50 p-4 text-xs text-slate-600">
-            <p className="font-semibold text-purple-600">
-              Broker connection details
-            </p>
-            <p className="mt-2 font-mono text-[11px]">
-              URL: {state.broker.url}
-            </p>
-            <p className="mt-1 font-mono text-[11px]">
-              Topic: {state.broker.topic}
-            </p>
-          </div>
-        )}
-        {state.schemaHint && (
-          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-700">
-            {state.schemaHint}
-          </div>
-        )}
-        {state.tone === "training" && (
-          <div className="mt-6 space-y-2">
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>Training progress</span>
-              <span>{state.trainingProgress ?? 0}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-purple-100">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 transition-all"
-                style={{ width: `${state.trainingProgress ?? 0}%` }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-      <div className="rounded-3xl border border-purple-100 bg-white/80 p-6 shadow-lg">
-        <p className="text-sm font-semibold text-slate-800">
-          Mock API orchestration
-        </p>
-        <ul className="mt-4 space-y-3 text-xs text-slate-600">
-          {apiSteps.map((step) => (
-            <li
-              key={step.id}
-              className="rounded-2xl border border-purple-100 bg-white px-3 py-2"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-700">
-                  {step.title}
-                </span>
-                <StatusPill status={step.status} />
-              </div>
-              <p className="mt-1 font-mono text-[11px] text-slate-400">
-                {step.endpoint}
-              </p>
-              <p className="mt-1 text-[11px] text-slate-400">
-                Latency: {step.time}
-              </p>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
+// Legacy components removed - no longer needed with new onboarding system
 
 const INITIAL_TICKETS: TicketRow[] = [];
 
@@ -2710,6 +2542,10 @@ function DashboardMain({
   total,
   onPageChange,
   onPageSizeChange,
+  onboardingMessages,
+  onboardingProcessing,
+  onHandleOnboardingInput,
+  renderOnboardingWidget,
 }: {
   activeNav: NavKey;
   collaborators: Collaborator[];
@@ -2755,10 +2591,31 @@ function DashboardMain({
   total: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
+  onboardingMessages: any[];
+  onboardingProcessing: boolean;
+  onHandleOnboardingInput: (input: string | any) => Promise<void>;
+  renderOnboardingWidget?: (widgetDef: any) => React.ReactNode;
 }) {
   const selectedMachine = machines.find((m) => m.id === selectedMachineId);
 
   // Render different views based on activeNav
+  // Ask AI - Full-page chat interface
+  if (activeNav === "ask-ai") {
+    return (
+      <div className="flex h-full flex-col overflow-hidden bg-gradient-to-br from-purple-50/30 via-white to-purple-50/30">
+        <div className="flex-1 overflow-hidden">
+          {/* This will be the AskAIPage component with full-page chat */}
+          <AskAIPage
+            messages={onboardingMessages}
+            onSendMessage={onHandleOnboardingInput}
+            isProcessing={onboardingProcessing}
+            renderWidget={renderOnboardingWidget}
+          />
+        </div>
+      </div>
+    );
+  }
+
   // Overview shows list of all machines (and future SM/APM cards)
   if (activeNav === "overview") {
     return (
@@ -2766,6 +2623,57 @@ function DashboardMain({
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-6xl space-y-8 px-6 py-10">
             <OverviewPage machines={machines} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Onboarding - full-page onboarding experience for logged-in users
+  if (activeNav === "onboarding") {
+    return (
+      <div className="flex h-full flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-3xl space-y-8 px-6 py-10">
+            <div className="text-center mb-8">
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-purple-100">
+                <Sparkles className="h-10 w-10 text-purple-600" />
+              </div>
+              <h1 className="mb-4 text-4xl font-semibold tracking-tight text-slate-900">
+                Add a new device
+              </h1>
+              <p className="text-lg text-slate-600">
+                Get started by adding your machine to the platform
+              </p>
+            </div>
+            <div className="rounded-3xl border border-purple-200 bg-white p-8 shadow-lg">
+              <h3 className="mb-6 text-lg font-semibold text-slate-900">
+                How it works
+              </h3>
+              <ul className="space-y-4 text-sm text-slate-600">
+                <li className="flex gap-3">
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-600">1</span>
+                  <span>Choose between a demo device or configure your own machine</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-600">2</span>
+                  <span>Configure your machine profile with cycle time and maintenance schedule</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-600">3</span>
+                  <span>Connect to our broker and start streaming telemetry data</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-600">4</span>
+                  <span>Train the anomaly detection model and activate monitoring</span>
+                </li>
+              </ul>
+              <div className="mt-8 text-center">
+                <p className="mb-4 text-sm text-slate-500">
+                  Use the chat on the left to begin the onboarding process
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2968,11 +2876,23 @@ function DashboardMain({
                     <ChevronLeft className="h-4 w-4" /> Prev
                   </button>
                   <span className="text-slate-500">
-                    Page <span className="font-semibold text-slate-800">{page}</span> of
-                    <span className="font-semibold text-slate-800"> {Math.max(1, Math.ceil(total / pageSize))}</span>
+                    Page{" "}
+                    <span className="font-semibold text-slate-800">{page}</span>{" "}
+                    of
+                    <span className="font-semibold text-slate-800">
+                      {" "}
+                      {Math.max(1, Math.ceil(total / pageSize))}
+                    </span>
                   </span>
                   <button
-                    onClick={() => onPageChange(Math.min(Math.max(1, Math.ceil(total / pageSize)), page + 1))}
+                    onClick={() =>
+                      onPageChange(
+                        Math.min(
+                          Math.max(1, Math.ceil(total / pageSize)),
+                          page + 1,
+                        ),
+                      )
+                    }
                     disabled={page >= Math.max(1, Math.ceil(total / pageSize))}
                     className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-3 py-1 font-semibold text-slate-600 disabled:opacity-50"
                   >
@@ -3320,31 +3240,82 @@ function MachineDetailView({
   const [telemetryData, setTelemetryData] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isTrainingComplete, setIsTrainingComplete] = useState(false);
+  const [showStreamingBanner, setShowStreamingBanner] = useState(false);
+  const hasShownBannerRef = useRef(false);
   const channelsPerPage = 6;
+
+  // Check if training is complete
+  useEffect(() => {
+    const checkTrainingStatus = () => {
+      const trainingData = localStorage.getItem("training_complete");
+      if (trainingData) {
+        try {
+          const data = JSON.parse(trainingData);
+          setIsTrainingComplete(true);
+          console.log("✅ Training is complete, showing live data");
+        } catch (error) {
+          console.error("Failed to parse training data:", error);
+        }
+      } else {
+        setIsTrainingComplete(false);
+        console.log("⏳ Training not complete yet, showing empty state");
+      }
+    };
+
+    // Check immediately
+    checkTrainingStatus();
+
+    // Also listen for training completion via storage event
+    const interval = setInterval(checkTrainingStatus, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Pagination state for Recent Tickets
   const [ticketsPage, setTicketsPage] = useState(1);
   const [ticketsPageSize, setTicketsPageSize] = useState(5);
 
-  // Fetch telemetry data from API
+  // Fetch telemetry data from API (only after training completes)
   useEffect(() => {
+    // Don't fetch if training isn't complete
+    if (!isTrainingComplete) {
+      setIsLoading(true);
+      setTelemetryData(null);
+      return;
+    }
+
     const fetchTelemetry = async () => {
       try {
-        const response = await fetch(`/api/telemetry?machineId=${machine.id}&channels=14&points=30`);
+        const response = await fetch(
+          `/api/telemetry?machineId=${machine.id}&channels=14&points=30`,
+        );
         const data = await response.json();
+
+        // Show streaming banner only once when first data arrives
+        if (!hasShownBannerRef.current && data) {
+          hasShownBannerRef.current = true;
+          setShowStreamingBanner(true);
+        }
+
         setTelemetryData(data);
         setIsLoading(false);
+        console.log("📈 Telemetry data loaded");
       } catch (error) {
         console.error("Failed to fetch telemetry:", error);
         setIsLoading(false);
       }
     };
 
-    fetchTelemetry();
+    // Small delay to make the data "flow in" effect more visible
+    setTimeout(() => {
+      fetchTelemetry();
+    }, 500);
+
     const interval = setInterval(fetchTelemetry, 3000); // Refresh every 3 seconds
 
     return () => clearInterval(interval);
-  }, [machine.id]);
+  }, [machine.id, isTrainingComplete]);
 
   // Pagination logic
   const totalPages = telemetryData
@@ -3353,7 +3324,7 @@ function MachineDetailView({
   const paginatedChannels = telemetryData
     ? telemetryData.channels.slice(
         currentPage * channelsPerPage,
-        (currentPage + 1) * channelsPerPage
+        (currentPage + 1) * channelsPerPage,
       )
     : [];
 
@@ -3370,14 +3341,18 @@ function MachineDetailView({
   };
 
   // Update machine health score with telemetry data
-  const displayHealthScore = telemetryData?.overallHealthScore ?? machine.healthScore;
+  const displayHealthScore =
+    telemetryData?.overallHealthScore ?? machine.healthScore;
 
   // Paginate tickets
   const totalTickets = tickets.length;
-  const totalTicketPages = Math.max(1, Math.ceil(totalTickets / ticketsPageSize));
+  const totalTicketPages = Math.max(
+    1,
+    Math.ceil(totalTickets / ticketsPageSize),
+  );
   const paginatedTickets = tickets.slice(
     (ticketsPage - 1) * ticketsPageSize,
-    ticketsPage * ticketsPageSize
+    ticketsPage * ticketsPageSize,
   );
 
   return (
@@ -3439,6 +3414,33 @@ function MachineDetailView({
         </div>
       </header>
 
+      {/* Streaming Data Banner */}
+      {showStreamingBanner && (
+        <div className="animate-fade-in-up rounded-2xl border border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+              <Activity className="h-5 w-5 animate-pulse text-green-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-green-900">
+                🎉 Data Streaming Started!
+              </p>
+              <p className="text-xs text-green-700">
+                Your machine is now sending live telemetry data. Sensor channels
+                will populate below.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowStreamingBanner(false)}
+              className="flex h-6 w-6 items-center justify-center rounded-full text-green-600 hover:bg-green-100 transition"
+              aria-label="Close notification"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <section className="grid gap-4 md:grid-cols-5">
         {/* Live health score KPI */}
         <div className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md">
@@ -3446,35 +3448,67 @@ function MachineDetailView({
             Health score
           </p>
           <div className="mt-3 flex items-end gap-2">
-            <span className="text-2xl font-semibold text-slate-900">
-              {displayHealthScore}
-            </span>
-            <span className="text-sm text-slate-400">/100</span>
+            {isTrainingComplete ? (
+              <>
+                <span className="text-2xl font-semibold text-slate-900">
+                  {displayHealthScore}
+                </span>
+                <span className="text-sm text-slate-400">/100</span>
+              </>
+            ) : (
+              <div className="h-8 w-16 bg-slate-200 rounded animate-pulse"></div>
+            )}
           </div>
-          <DeltaLabel tone={displayHealthScore > 85 ? "positive" : displayHealthScore > 70 ? "warning" : "critical"}>
-            {telemetryData ? "Live" : "Loading..."}
+          <DeltaLabel
+            tone={
+              displayHealthScore > 85
+                ? "positive"
+                : displayHealthScore > 70
+                  ? "warning"
+                  : "critical"
+            }
+          >
+            {!isTrainingComplete
+              ? "Training..."
+              : telemetryData
+                ? "Live"
+                : "Loading..."}
           </DeltaLabel>
         </div>
-        
-        {kpis.filter((kpi) => kpi.id !== "health-score").map((kpi) => (
-          <div
-            key={kpi.id}
-            className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md"
-          >
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {kpi.label}
-            </p>
-            <div className="mt-3 flex items-end gap-2">
-              <span className="text-2xl font-semibold text-slate-900">
-                {kpi.value}
-              </span>
-              {kpi.suffix && (
-                <span className="text-sm text-slate-400">{kpi.suffix}</span>
-              )}
+
+        {kpis
+          .filter((kpi) => kpi.id !== "health-score")
+          .map((kpi) => (
+            <div
+              key={kpi.id}
+              className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {kpi.label}
+              </p>
+              <div className="mt-3 flex items-end gap-2">
+                {isTrainingComplete ? (
+                  <>
+                    <span className="text-2xl font-semibold text-slate-900">
+                      {kpi.value}
+                    </span>
+                    {kpi.suffix && (
+                      <span className="text-sm text-slate-400">
+                        {kpi.suffix}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <div className="h-8 w-20 bg-slate-200 rounded animate-pulse"></div>
+                )}
+              </div>
+              {isTrainingComplete && kpi.delta ? (
+                <DeltaLabel tone={kpi.tone}>{kpi.delta}</DeltaLabel>
+              ) : !isTrainingComplete ? (
+                <div className="mt-2 h-4 w-16 bg-slate-200 rounded animate-pulse"></div>
+              ) : null}
             </div>
-            {kpi.delta && <DeltaLabel tone={kpi.tone}>{kpi.delta}</DeltaLabel>}
-          </div>
-        ))}
+          ))}
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -3499,7 +3533,7 @@ function MachineDetailView({
                       "inline-flex h-8 w-8 items-center justify-center rounded-full border transition",
                       currentPage === 0
                         ? "border-slate-200 text-slate-300 cursor-not-allowed"
-                        : "border-purple-200 text-purple-600 hover:bg-purple-50"
+                        : "border-purple-200 text-purple-600 hover:bg-purple-50",
                     )}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -3514,7 +3548,7 @@ function MachineDetailView({
                       "inline-flex h-8 w-8 items-center justify-center rounded-full border transition",
                       currentPage === totalPages - 1
                         ? "border-slate-200 text-slate-300 cursor-not-allowed"
-                        : "border-purple-200 text-purple-600 hover:bg-purple-50"
+                        : "border-purple-200 text-purple-600 hover:bg-purple-50",
                     )}
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -3523,160 +3557,229 @@ function MachineDetailView({
               )}
             </div>
 
-            {isLoading && (
+            {/* Training incomplete state */}
+            {!isTrainingComplete && (
+              <div className="space-y-4">
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-500 mb-4" />
+                  <p className="text-sm font-semibold text-slate-700">
+                    Waiting for training to complete...
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Model training must finish before data can stream
+                  </p>
+                </div>
+
+                {/* Empty chart placeholders */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl border border-purple-100 bg-slate-50/50 p-4 animate-pulse"
+                    >
+                      <div className="h-4 w-32 bg-slate-200 rounded mb-2"></div>
+                      <div className="h-32 bg-slate-100 rounded"></div>
+                      <div className="mt-2 flex gap-2">
+                        <div className="h-3 w-16 bg-slate-200 rounded"></div>
+                        <div className="h-3 w-20 bg-slate-200 rounded"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Loading telemetry data */}
+            {isTrainingComplete && isLoading && (
               <div className="flex h-64 items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+                <div className="text-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-500 mb-3 mx-auto" />
+                  <p className="text-sm font-semibold text-slate-700">
+                    Loading telemetry data...
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Connecting to sensor streams
+                  </p>
+                </div>
               </div>
             )}
 
             {!isLoading && telemetryData && (
               <div className="grid gap-4 md:grid-cols-2">
-                {paginatedChannels.map((channel: any) => (
-                  <RealTimeChart key={channel.channelId} channel={channel} />
+                {paginatedChannels.map((channel: any, index: number) => (
+                  <div
+                    key={channel.channelId}
+                    className="animate-fade-in-up"
+                    style={{
+                      animationDelay: `${index * 100}ms`,
+                      opacity: 0,
+                      animationFillMode: "forwards",
+                    }}
+                  >
+                    <RealTimeChart channel={channel} />
+                  </div>
                 ))}
               </div>
             )}
           </div>
 
           {/* Multi-Channel Analysis */}
-          {!isLoading && telemetryData && (
+          {isTrainingComplete && !isLoading && telemetryData && (
             <MultiChannelChart channels={telemetryData.channels} />
           )}
 
           {/* Recent Tickets for this machine */}
-          <div className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-800">
-                  Recent Tickets
-                </p>
-                <p className="text-xs text-slate-500">
-                  Maintenance issues for this machine
-                </p>
+          {isTrainingComplete && (
+            <div className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">
+                    Recent Tickets
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Maintenance issues for this machine
+                  </p>
+                </div>
+                {totalTickets > 0 && (
+                  <div className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-3 py-1">
+                    <span className="text-xs text-slate-400">Per page</span>
+                    <select
+                      value={ticketsPageSize}
+                      onChange={(e) => {
+                        setTicketsPageSize(Number(e.target.value));
+                        setTicketsPage(1);
+                      }}
+                      className="rounded border-none bg-transparent px-1 text-xs text-slate-600 focus:outline-none"
+                    >
+                      {[3, 5, 10].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 space-y-3">
+                {paginatedTickets.length > 0 ? (
+                  paginatedTickets.map((ticket) => (
+                    <div
+                      key={ticket.related}
+                      className="rounded-2xl border border-purple-100 bg-white px-4 py-3 text-sm"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="font-semibold text-slate-800">
+                            {ticket.summary}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {ticket.workorder} · {ticket.owner}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "inline-flex rounded-full px-2 py-1 text-[10px] font-semibold uppercase",
+                            ticket.severity === "Error"
+                              ? "bg-rose-100 text-rose-700"
+                              : ticket.severity === "Resolved"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-amber-100 text-amber-700",
+                          )}
+                        >
+                          {ticket.severity}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="rounded-2xl border border-dashed border-purple-200 bg-white px-4 py-3 text-center text-xs text-slate-400">
+                    No tickets for this machine
+                  </p>
+                )}
               </div>
               {totalTickets > 0 && (
-                <div className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-3 py-1">
-                  <span className="text-xs text-slate-400">Per page</span>
-                  <select
-                    value={ticketsPageSize}
-                    onChange={(e) => {
-                      setTicketsPageSize(Number(e.target.value));
-                      setTicketsPage(1);
-                    }}
-                    className="rounded border-none bg-transparent px-1 text-xs text-slate-600 focus:outline-none"
+                <div className="mt-4 flex items-center justify-between border-t border-purple-100 pt-4">
+                  <button
+                    onClick={() => setTicketsPage(Math.max(1, ticketsPage - 1))}
+                    disabled={ticketsPage <= 1}
+                    className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-3 py-1 text-xs font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {[3, 5, 10].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
+                    <ChevronLeft className="h-3 w-3" /> Prev
+                  </button>
+                  <span className="text-xs text-slate-500">
+                    Page{" "}
+                    <span className="font-semibold text-slate-800">
+                      {ticketsPage}
+                    </span>{" "}
+                    of{" "}
+                    <span className="font-semibold text-slate-800">
+                      {totalTicketPages}
+                    </span>{" "}
+                    ·{" "}
+                    <span className="font-semibold text-slate-800">
+                      {totalTickets}
+                    </span>{" "}
+                    total
+                  </span>
+                  <button
+                    onClick={() =>
+                      setTicketsPage(
+                        Math.min(totalTicketPages, ticketsPage + 1),
+                      )
+                    }
+                    disabled={ticketsPage >= totalTicketPages}
+                    className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-3 py-1 text-xs font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next <ChevronRight className="h-3 w-3" />
+                  </button>
                 </div>
               )}
             </div>
-            <div className="mt-4 space-y-3">
-              {paginatedTickets.length > 0 ? (
-                paginatedTickets.map((ticket) => (
+          )}
+        </div>
+        {isTrainingComplete && (
+          <aside className="flex flex-col gap-4">
+            <div className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md">
+              <p className="text-sm font-semibold text-slate-800">
+                Notifications
+              </p>
+              <p className="text-xs text-slate-500">
+                Recent alerts from orchestration agent
+              </p>
+              <div className="mt-4 space-y-3">
+                {notifications.map((notification) => (
                   <div
-                    key={ticket.related}
+                    key={notification.id}
                     className="rounded-2xl border border-purple-100 bg-white px-4 py-3 text-sm"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle
+                        className={cn(
+                          "mt-0.5 h-5 w-5",
+                          notification.tone === "critical" && "text-rose-500",
+                          notification.tone === "positive" &&
+                            "text-emerald-500",
+                          notification.tone === "neutral" && "text-purple-400",
+                        )}
+                      />
+                      <div>
                         <p className="font-semibold text-slate-800">
-                          {ticket.summary}
+                          {notification.title}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          {ticket.workorder} · {ticket.owner}
+                          {notification.body}
+                        </p>
+                        <p className="mt-2 text-[11px] uppercase tracking-wide text-purple-500">
+                          {notification.timestamp}
                         </p>
                       </div>
-                      <span
-                        className={cn(
-                          "inline-flex rounded-full px-2 py-1 text-[10px] font-semibold uppercase",
-                          ticket.severity === "Error"
-                            ? "bg-rose-100 text-rose-700"
-                            : ticket.severity === "Resolved"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-amber-100 text-amber-700",
-                        )}
-                      >
-                        {ticket.severity}
-                      </span>
                     </div>
                   </div>
-                ))
-              ) : (
-                <p className="rounded-2xl border border-dashed border-purple-200 bg-white px-4 py-3 text-center text-xs text-slate-400">
-                  No tickets for this machine
-                </p>
-              )}
-            </div>
-            {totalTickets > 0 && (
-              <div className="mt-4 flex items-center justify-between border-t border-purple-100 pt-4">
-                <button
-                  onClick={() => setTicketsPage(Math.max(1, ticketsPage - 1))}
-                  disabled={ticketsPage <= 1}
-                  className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-3 py-1 text-xs font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <ChevronLeft className="h-3 w-3" /> Prev
-                </button>
-                <span className="text-xs text-slate-500">
-                  Page <span className="font-semibold text-slate-800">{ticketsPage}</span> of{" "}
-                  <span className="font-semibold text-slate-800">{totalTicketPages}</span>
-                  {" "}·{" "}
-                  <span className="font-semibold text-slate-800">{totalTickets}</span> total
-                </span>
-                <button
-                  onClick={() => setTicketsPage(Math.min(totalTicketPages, ticketsPage + 1))}
-                  disabled={ticketsPage >= totalTicketPages}
-                  className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-3 py-1 text-xs font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Next <ChevronRight className="h-3 w-3" />
-                </button>
+                ))}
               </div>
-            )}
-          </div>
-        </div>
-        <aside className="flex flex-col gap-4">
-          <div className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md">
-            <p className="text-sm font-semibold text-slate-800">
-              Notifications
-            </p>
-            <p className="text-xs text-slate-500">
-              Recent alerts from orchestration agent
-            </p>
-            <div className="mt-4 space-y-3">
-              {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className="rounded-2xl border border-purple-100 bg-white px-4 py-3 text-sm"
-                >
-                  <div className="flex items-start gap-3">
-                    <AlertCircle
-                      className={cn(
-                        "mt-0.5 h-5 w-5",
-                        notification.tone === "critical" && "text-rose-500",
-                        notification.tone === "positive" && "text-emerald-500",
-                        notification.tone === "neutral" && "text-purple-400",
-                      )}
-                    />
-                    <div>
-                      <p className="font-semibold text-slate-800">
-                        {notification.title}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {notification.body}
-                      </p>
-                      <p className="mt-2 text-[11px] uppercase tracking-wide text-purple-500">
-                        {notification.timestamp}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
-          </div>
-        </aside>
+          </aside>
+        )}
       </section>
     </>
   );
@@ -3709,22 +3812,43 @@ function TicketModal({
 }) {
   const [noteDraft, setNoteDraft] = useState("");
   const [ownerDraft, setOwnerDraft] = useState("");
-  const [severityLevelDraft, setSeverityLevelDraft] = useState<TicketRow["severityLevel"]>(ticket?.severityLevel ?? "High");
-  const [alertCategoryDraft, setAlertCategoryDraft] = useState<TicketRow["alertCategory"]>(ticket?.alertCategory ?? (ticket?.severity === "Error" ? "Error" : "Warning"));
+  const [severityLevelDraft, setSeverityLevelDraft] = useState<
+    TicketRow["severityLevel"]
+  >(ticket?.severityLevel ?? "High");
+  const [alertCategoryDraft, setAlertCategoryDraft] = useState<
+    TicketRow["alertCategory"]
+  >(
+    ticket?.alertCategory ??
+      (ticket?.severity === "Error" ? "Error" : "Warning"),
+  );
   const [alertDateTimeDraft, setAlertDateTimeDraft] = useState<string>("");
-  const [predictedRootCauseDraft, setPredictedRootCauseDraft] = useState<string>("");
-  const [confidenceLevelDraft, setConfidenceLevelDraft] = useState<number>(ticket?.confidenceLevel ?? 85);
-  const [assetMacDraft, setAssetMacDraft] = useState<string>(ticket?.assetMacAddress ?? "");
-  const [alertDescriptionDraft, setAlertDescriptionDraft] = useState<string>(ticket?.alertDescription ?? "");
-  const [remediationStepsDraft, setRemediationStepsDraft] = useState<string>(ticket?.remediationSteps ?? "");
+  const [predictedRootCauseDraft, setPredictedRootCauseDraft] =
+    useState<string>("");
+  const [confidenceLevelDraft, setConfidenceLevelDraft] = useState<number>(
+    ticket?.confidenceLevel ?? 85,
+  );
+  const [assetMacDraft, setAssetMacDraft] = useState<string>(
+    ticket?.assetMacAddress ?? "",
+  );
+  const [alertDescriptionDraft, setAlertDescriptionDraft] = useState<string>(
+    ticket?.alertDescription ?? "",
+  );
+  const [remediationStepsDraft, setRemediationStepsDraft] = useState<string>(
+    ticket?.remediationSteps ?? "",
+  );
 
   useEffect(() => {
     if (ticket) {
       setOwnerDraft(ticket.owner);
       setNoteDraft(ticket.note ?? "");
       setSeverityLevelDraft(ticket.severityLevel ?? "High");
-      setAlertCategoryDraft(ticket.alertCategory ?? (ticket.severity === "Error" ? "Error" : "Warning"));
-      setAlertDateTimeDraft(ticket.alertDateTime ?? new Date().toISOString().slice(0,16));
+      setAlertCategoryDraft(
+        ticket.alertCategory ??
+          (ticket.severity === "Error" ? "Error" : "Warning"),
+      );
+      setAlertDateTimeDraft(
+        ticket.alertDateTime ?? new Date().toISOString().slice(0, 16),
+      );
       setPredictedRootCauseDraft(ticket.predictedRootCause ?? "");
       setConfidenceLevelDraft(ticket.confidenceLevel ?? 85);
       setAssetMacDraft(ticket.assetMacAddress ?? "");
@@ -3819,26 +3943,38 @@ function TicketModal({
                   className="min-w-0 flex-1 max-w-[200px] rounded-full border border-purple-100 bg-white px-3 py-2 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
                 >
                   {collaborators.map((c) => (
-                    <option key={c.email} value={c.name}>{c.name}</option>
+                    <option key={c.email} value={c.name}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
               </div>
               <div className="flex items-center justify-between gap-3 rounded-2xl bg-purple-50/50 px-4 py-3">
-                <span className="font-semibold text-slate-700">Alert Category</span>
+                <span className="font-semibold text-slate-700">
+                  Alert Category
+                </span>
                 <select
-                  value={alertCategoryDraft ?? (ticket.severity === "Error" ? "Error" : "Warning")}
+                  value={
+                    alertCategoryDraft ??
+                    (ticket.severity === "Error" ? "Error" : "Warning")
+                  }
                   onChange={(e) => {
-                    const cat = (e.target.value as TicketRow["alertCategory"]) ?? "Warning";
+                    const cat =
+                      (e.target.value as TicketRow["alertCategory"]) ??
+                      "Warning";
                     setAlertCategoryDraft(cat);
                     // keep legacy severity in sync for chips
-                    const sev: TicketRow["severity"] = cat === "Error" ? "Error" : "Warning";
+                    const sev: TicketRow["severity"] =
+                      cat === "Error" ? "Error" : "Warning";
                     onSeverityChange(ticket.related, sev);
                     onUpdateFields(ticket.related, { alertCategory: cat });
                   }}
                   className="min-w-0 max-w-[160px] rounded-full border border-purple-100 bg-white px-3 py-1 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
                 >
                   {(["Error", "Warning"] as const).map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -3849,38 +3985,55 @@ function TicketModal({
                 <select
                   value={severityLevelDraft}
                   onChange={(event) => {
-                    const lvl = event.target.value as TicketRow["severityLevel"];
+                    const lvl = event.target
+                      .value as TicketRow["severityLevel"];
                     setSeverityLevelDraft(lvl);
                     onUpdateFields(ticket.related, { severityLevel: lvl });
                   }}
                   className="min-w-0 max-w-[160px] rounded-full border border-purple-100 bg-white px-3 py-1 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
                 >
-                  {(["Low", "Medium", "High", "Very High"] as const).map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
+                  {(["Low", "Medium", "High", "Very High"] as const).map(
+                    (s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ),
+                  )}
                 </select>
               </div>
               <div className="flex items-center justify-between gap-3 rounded-2xl bg-purple-50/50 px-3 py-2">
-                <span className="font-semibold text-slate-700 shrink-0">Machine</span>
+                <span className="font-semibold text-slate-700 shrink-0">
+                  Machine
+                </span>
                 <select
                   value={ticket.machine ?? ""}
-                  onChange={(event) => onUpdateFields(ticket.related, { machine: event.target.value || undefined })}
+                  onChange={(event) =>
+                    onUpdateFields(ticket.related, {
+                      machine: event.target.value || undefined,
+                    })
+                  }
                   className="min-w-0 max-w-[160px] rounded-full border border-purple-100 bg-white px-3 py-1 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
                 >
                   <option value="">Unassigned</option>
                   {machines.map((m) => (
-                    <option key={m.id} value={m.name}>{m.name}</option>
+                    <option key={m.id} value={m.name}>
+                      {m.name}
+                    </option>
                   ))}
                 </select>
               </div>
               <div className="flex items-center justify-between gap-3 rounded-2xl bg-purple-50/50 px-3 py-2">
-                <span className="font-semibold text-slate-700 shrink-0">Alert date/time</span>
+                <span className="font-semibold text-slate-700 shrink-0">
+                  Alert date/time
+                </span>
                 <input
                   type="datetime-local"
                   value={alertDateTimeDraft}
                   onChange={(e) => {
                     setAlertDateTimeDraft(e.target.value);
-                    onUpdateFields(ticket.related, { alertDateTime: e.target.value });
+                    onUpdateFields(ticket.related, {
+                      alertDateTime: e.target.value,
+                    });
                   }}
                   className="min-w-0 max-w-[200px] rounded-full border border-purple-100 bg-white px-3 py-1 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
                 />
@@ -3893,14 +4046,18 @@ function TicketModal({
                 value={alertDescriptionDraft}
                 onChange={(e) => {
                   setAlertDescriptionDraft(e.target.value);
-                  onUpdateFields(ticket.related, { alertDescription: e.target.value });
+                  onUpdateFields(ticket.related, {
+                    alertDescription: e.target.value,
+                  });
                 }}
                 placeholder="Describe the alert details (separate from context)"
                 rows={3}
                 className="w-full resize-none rounded-2xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-600 focus:border-purple-400 focus:outline-none"
               />
 
-              <p className="font-semibold text-slate-700">Most recent note (context)</p>
+              <p className="font-semibold text-slate-700">
+                Most recent note (context)
+              </p>
               <p className="rounded-2xl border border-purple-100 bg-purple-50/30 px-4 py-3 text-slate-600 break-words">
                 {ticket.note ?? "No context added yet."}
               </p>
@@ -3924,19 +4081,25 @@ function TicketModal({
             </div>
 
             <div className="space-y-3 text-sm">
-              <p className="font-semibold text-slate-700">Predicted root cause</p>
+              <p className="font-semibold text-slate-700">
+                Predicted root cause
+              </p>
               <input
                 value={predictedRootCauseDraft}
                 onChange={(e) => {
                   setPredictedRootCauseDraft(e.target.value);
-                  onUpdateFields(ticket.related, { predictedRootCause: e.target.value });
+                  onUpdateFields(ticket.related, {
+                    predictedRootCause: e.target.value,
+                  });
                 }}
                 placeholder="e.g., Coolant pump wear"
                 className="w-full rounded-2xl border border-purple-100 bg-white px-4 py-2 text-sm text-slate-600 focus:border-purple-400 focus:outline-none"
               />
               <div className="grid grid-cols-2 gap-3">
                 <label className="space-y-1">
-                  <span className="font-semibold text-slate-700">Confidence level</span>
+                  <span className="font-semibold text-slate-700">
+                    Confidence level
+                  </span>
                   <input
                     type="number"
                     min={0}
@@ -3951,24 +4114,32 @@ function TicketModal({
                   />
                 </label>
                 <label className="space-y-1">
-                  <span className="font-semibold text-slate-700">Asset MAC</span>
+                  <span className="font-semibold text-slate-700">
+                    Asset MAC
+                  </span>
                   <input
                     value={assetMacDraft}
                     onChange={(e) => {
                       setAssetMacDraft(e.target.value);
-                      onUpdateFields(ticket.related, { assetMacAddress: e.target.value });
+                      onUpdateFields(ticket.related, {
+                        assetMacAddress: e.target.value,
+                      });
                     }}
                     placeholder="AA:BB:CC:DD:EE:FF"
                     className="w-full rounded-2xl border border-purple-100 bg-white px-3 py-2 text-sm text-slate-600 focus:border-purple-400 focus:outline-none"
                   />
                 </label>
               </div>
-              <p className="font-semibold text-slate-700">Remediation steps taken</p>
+              <p className="font-semibold text-slate-700">
+                Remediation steps taken
+              </p>
               <textarea
                 value={remediationStepsDraft}
                 onChange={(e) => {
                   setRemediationStepsDraft(e.target.value);
-                  onUpdateFields(ticket.related, { remediationSteps: e.target.value });
+                  onUpdateFields(ticket.related, {
+                    remediationSteps: e.target.value,
+                  });
                 }}
                 placeholder="Document any steps or mitigations performed"
                 rows={3}
@@ -4054,9 +4225,13 @@ function NewTicketModal({
   const [owner, setOwner] = useState("");
   const [machine, setMachine] = useState("");
   const [note, setNote] = useState("");
-  const [alertCategory, setAlertCategory] = useState<TicketRow["alertCategory"]>("Warning");
-  const [severityLevel, setSeverityLevel] = useState<TicketRow["severityLevel"]>("High");
-  const [alertDateTime, setAlertDateTime] = useState<string>(new Date().toISOString().slice(0,16));
+  const [alertCategory, setAlertCategory] =
+    useState<TicketRow["alertCategory"]>("Warning");
+  const [severityLevel, setSeverityLevel] =
+    useState<TicketRow["severityLevel"]>("High");
+  const [alertDateTime, setAlertDateTime] = useState<string>(
+    new Date().toISOString().slice(0, 16),
+  );
   const [predictedRootCause, setPredictedRootCause] = useState<string>("");
   const [confidenceLevel, setConfidenceLevel] = useState<number>(85);
   const [assetMacAddress, setAssetMacAddress] = useState<string>("");
@@ -4074,7 +4249,7 @@ function NewTicketModal({
     setNote("");
     setAlertCategory("Warning");
     setSeverityLevel("High");
-    setAlertDateTime(new Date().toISOString().slice(0,16));
+    setAlertDateTime(new Date().toISOString().slice(0, 16));
     setPredictedRootCause("");
     setConfidenceLevel(85);
     setAssetMacAddress("");
@@ -4109,8 +4284,12 @@ function NewTicketModal({
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w/full max-w-lg max-h-[85vh] overflow-y-auto -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-purple-100 bg-white p-6 shadow-2xl">
           <div className="flex items-start justify-between">
             <div>
-              <Dialog.Title className="text-lg font-semibold text-slate-900">New Ticket</Dialog.Title>
-              <Dialog.Description className="text-sm text-slate-500">Create a ticket that will persist in server memory.</Dialog.Description>
+              <Dialog.Title className="text-lg font-semibold text-slate-900">
+                New Ticket
+              </Dialog.Title>
+              <Dialog.Description className="text-sm text-slate-500">
+                Create a ticket that will persist in server memory.
+              </Dialog.Description>
             </div>
             <Dialog.Close asChild>
               <button className="rounded-full border border-purple-100 p-2 text-slate-400 transition hover:text-slate-700">
@@ -4135,11 +4314,17 @@ function NewTicketModal({
                 <span className="text-slate-600">Alert Category</span>
                 <select
                   value={alertCategory}
-                  onChange={(e) => setAlertCategory(e.target.value as TicketRow["alertCategory"])}
+                  onChange={(e) =>
+                    setAlertCategory(
+                      e.target.value as TicketRow["alertCategory"],
+                    )
+                  }
                   className="w-full rounded-2xl border border-purple-100 bg-white px-3 py-2 text-sm text-slate-700 focus:border-purple-400 focus:outline-none"
                 >
                   {(["Error", "Warning"] as const).map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -4147,12 +4332,20 @@ function NewTicketModal({
                 <span className="text-slate-600">Severity level</span>
                 <select
                   value={severityLevel}
-                  onChange={(e) => setSeverityLevel(e.target.value as TicketRow["severityLevel"])}
+                  onChange={(e) =>
+                    setSeverityLevel(
+                      e.target.value as TicketRow["severityLevel"],
+                    )
+                  }
                   className="w-full rounded-2xl border border-purple-100 bg-white px-3 py-2 text-sm text-slate-700 focus:border-purple-400 focus:outline-none"
                 >
-                  {(["Low", "Medium", "High", "Very High"] as const).map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
+                  {(["Low", "Medium", "High", "Very High"] as const).map(
+                    (s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ),
+                  )}
                 </select>
               </label>
             </div>
@@ -4166,7 +4359,9 @@ function NewTicketModal({
                   className="w-full rounded-2xl border border-purple-100 bg-white px-3 py-2 text-sm text-slate-700 focus:border-purple-400 focus:outline-none"
                 >
                   {collaborators.map((c) => (
-                    <option key={c.email} value={c.name}>{c.name}</option>
+                    <option key={c.email} value={c.name}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -4179,7 +4374,9 @@ function NewTicketModal({
                 >
                   <option value="">Unassigned</option>
                   {machines.map((m) => (
-                    <option key={m.id} value={m.name}>{m.name}</option>
+                    <option key={m.id} value={m.name}>
+                      {m.name}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -4502,7 +4699,9 @@ function SummaryCard({ data }: { data: CollectedData }) {
         </div>
         <div className="flex justify-between gap-4">
           <dt className="w-32 text-slate-400">Training Duration</dt>
-          <dd className="flex-1 text-slate-700">{data.trainingSeconds} seconds</dd>
+          <dd className="flex-1 text-slate-700">
+            {data.trainingSeconds} seconds
+          </dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt className="w-32 text-slate-400">Maintenance Cycle</dt>
@@ -4935,7 +5134,9 @@ function TicketWorkspace({
                 </div>
                 <div className="mt-3 flex items-center justify-between border-t border-purple-100 pt-3 text-xs">
                   <span className="text-slate-500">{selectedTicket.owner}</span>
-                  <span className="text-slate-400">{selectedTicket.timestamp.split(" ")[0]}</span>
+                  <span className="text-slate-400">
+                    {selectedTicket.timestamp.split(" ")[0]}
+                  </span>
                 </div>
               </div>
             )}
@@ -4945,7 +5146,6 @@ function TicketWorkspace({
     </div>
   );
 }
-
 
 function applyUserInput(
   data: CollectedData,
@@ -4961,7 +5161,7 @@ function applyUserInput(
       // Parse the response to extract just the protocol name
       const response = text.trim().toLowerCase();
       let connectionType = "MQTT"; // default
-      
+
       if (response.includes("opc") || response.includes("ua")) {
         connectionType = "OPC UA";
       } else if (response.includes("demo")) {
@@ -4969,7 +5169,7 @@ function applyUserInput(
       } else if (response.includes("mqtt")) {
         connectionType = "MQTT";
       }
-      
+
       return { ...data, connectionType };
     }
     case "u3":
@@ -5220,7 +5420,10 @@ function initialiseApiSteps(): ApiStep[] {
   }));
 }
 
-function countRemainingSteps(currentIndex: number, flowType: 'mqtt' | 'demo' | null): number {
+function countRemainingSteps(
+  currentIndex: number,
+  flowType: "mqtt" | "demo" | null,
+): number {
   const activeFlow = getActiveFlow(flowType);
   return Math.max(
     0,

@@ -1,0 +1,10 @@
+# Ignore venv and caches
+.venv
+__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+
+# Git
+.git
+.gitignore

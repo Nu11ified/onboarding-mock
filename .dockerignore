@@ -1,0 +1,21 @@
+# Global ignores
+.git
+.gitignore
+node_modules
+.next
+npm-debug.log*
+yarn.lock
+pnpm-lock.yaml
+
+# Local environment
+.env
+.env.local
+
+# Editor/OS
+.DS_Store
+*.swp
+
+# Python artifacts inside repo
+agent/.venv
+agent/__pycache__
+agent/**/*.pyc

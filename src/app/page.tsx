@@ -74,30 +74,33 @@ type PromptTemplate = {
   name: string;
   description: string;
   content: string;
-  category: 'onboarding' | 'line' | 'bulk' | 'custom';
+  category: "onboarding" | "line" | "bulk" | "custom";
 };
 
 const DEFAULT_PROMPTS: PromptTemplate[] = [
   {
-    id: 'onboard-asset',
-    name: 'Onboard Single Asset',
-    description: 'Template for onboarding a single machine or asset',
-    content: 'I need to onboard a new asset with the following details:\nAsset Name: [name]\nConnection Type: [MQTT/OPC UA]\nSensors: [list]',
-    category: 'onboarding',
+    id: "onboard-asset",
+    name: "Onboard Single Asset",
+    description: "Template for onboarding a single machine or asset",
+    content:
+      "I need to onboard a new asset with the following details:\nAsset Name: [name]\nConnection Type: [MQTT/OPC UA]\nSensors: [list]",
+    category: "onboarding",
   },
   {
-    id: 'create-line',
-    name: 'Create Production Line',
-    description: 'Set up a new production line with multiple assets',
-    content: 'Create a production line:\nLine Name: [name]\nAssets: [list]\nSequence: [order]',
-    category: 'line',
+    id: "create-line",
+    name: "Create Production Line",
+    description: "Set up a new production line with multiple assets",
+    content:
+      "Create a production line:\nLine Name: [name]\nAssets: [list]\nSequence: [order]",
+    category: "line",
   },
   {
-    id: 'bulk-add',
-    name: 'Bulk Asset Addition',
-    description: 'Add multiple assets at once',
-    content: 'Bulk add assets from:\nSource: [CSV/Excel file]\nColumns: [mapping]',
-    category: 'bulk',
+    id: "bulk-add",
+    name: "Bulk Asset Addition",
+    description: "Add multiple assets at once",
+    content:
+      "Bulk add assets from:\nSource: [CSV/Excel file]\nColumns: [mapping]",
+    category: "bulk",
   },
 ];
 
@@ -106,12 +109,16 @@ export default function LandingPage() {
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
   const [isRouting, setIsRouting] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [activeMenuSection, setActiveMenuSection] = useState<
+    "templates" | "library"
+  >("templates");
   const [inputText, setInputText] = useState("");
   const [selectedScenario, setSelectedScenario] = useState<CtaKey | null>(null);
-  const [savedPrompts, setSavedPrompts] = useState<PromptTemplate[]>(DEFAULT_PROMPTS);
+  const [savedPrompts, setSavedPrompts] =
+    useState<PromptTemplate[]>(DEFAULT_PROMPTS);
   const [showSavePrompt, setShowSavePrompt] = useState(false);
-  const [newPromptName, setNewPromptName] = useState('');
-  const [newPromptContent, setNewPromptContent] = useState('');
+  const [newPromptName, setNewPromptName] = useState("");
+  const [newPromptContent, setNewPromptContent] = useState("");
   const [buttonRect, setButtonRect] = useState<DOMRect | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -125,7 +132,7 @@ export default function LandingPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     setInputText(newValue);
-    
+
     // If user clears the text, reset the scenario
     if (newValue.trim() === "") {
       setSelectedScenario(null);
@@ -136,8 +143,8 @@ export default function LandingPage() {
     if (!selectedScenario || isRouting) return;
     setIsRouting(true);
 
-    // Navigate to dashboard with the scenario
-    router.push(`/dashboard?scenario=${selectedScenario}`);
+    // Navigate to demo page for onboarding
+    router.push("/demo");
   };
 
   const handleSavePrompt = () => {
@@ -145,14 +152,22 @@ export default function LandingPage() {
       const newPrompt: PromptTemplate = {
         id: `custom-${Date.now()}`,
         name: newPromptName,
-        description: 'Custom prompt',
+        description: "Custom prompt",
         content: newPromptContent,
-        category: 'custom',
+        category: "custom",
       };
       setSavedPrompts([...savedPrompts, newPrompt]);
-      setNewPromptName('');
-      setNewPromptContent('');
+      setNewPromptName("");
+      setNewPromptContent("");
       setShowSavePrompt(false);
+    }
+  };
+
+  const setInput = (text: string) => {
+    setInputText(text);
+    const visualizeOption = CTA_OPTIONS.find((opt) => opt.key === "visualize");
+    if (visualizeOption) {
+      setSelectedScenario("visualize");
     }
   };
 
@@ -167,8 +182,14 @@ export default function LandingPage() {
     }
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (showAttachMenu && buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
-        const dropdown = document.querySelector('[data-dropdown="prompt-library"]');
+      if (
+        showAttachMenu &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        const dropdown = document.querySelector(
+          '[data-dropdown="prompt-library"]',
+        );
         if (dropdown && !dropdown.contains(event.target as Node)) {
           setShowAttachMenu(false);
         }
@@ -182,13 +203,13 @@ export default function LandingPage() {
     };
 
     if (showAttachMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-      window.addEventListener('scroll', handleScroll, true);
+      document.addEventListener("mousedown", handleClickOutside);
+      window.addEventListener("scroll", handleScroll, true);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', handleScroll, true);
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
     };
   }, [showAttachMenu]);
 
@@ -207,17 +228,6 @@ export default function LandingPage() {
               height={32}
               className="h-8 w-auto"
             />
-            <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
-              <a href="#" className="transition hover:text-slate-900">
-                Pricing
-              </a>
-              <a href="#" className="transition hover:text-slate-900">
-                Learn
-              </a>
-              <a href="#" className="transition hover:text-slate-900">
-                Resources
-              </a>
-            </nav>
           </div>
           <div className="flex items-center gap-3">
             <button className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100">
@@ -285,98 +295,240 @@ export default function LandingPage() {
               {/* Bottom Actions */}
               <div className="mt-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  {/* Plus Button with Prompt Library */}
+                  {/* Plus Button with Templates & Prompt Library */}
                   <div className="relative">
                     <button
                       ref={buttonRef}
-                      onClick={() => setShowAttachMenu(!showAttachMenu)}
+                      onClick={() => {
+                        setShowAttachMenu(!showAttachMenu);
+                        setActiveMenuSection("templates");
+                      }}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-purple-200 text-slate-600 transition hover:border-purple-300 hover:bg-purple-50 hover:text-slate-900"
-                      title="Prompt library"
+                      title="Quick actions & prompts"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
-                    {showAttachMenu && buttonRect && createPortal(
-                      <div 
-                        data-dropdown="prompt-library"
-                        className="fixed w-72 rounded-xl border border-purple-100 bg-white shadow-xl"
-                        style={{
-                          top: buttonRect.bottom + 8,
-                          left: buttonRect.left,
-                          zIndex: 9999
-                        }}
-                      >
-                        <div className="border-b border-purple-100 p-3">
-                          <p className="text-xs font-semibold text-slate-700">Prompt Library</p>
-                        </div>
-                        <div className="max-h-80 overflow-y-auto p-2">
-                          {savedPrompts.map(prompt => (
+                    {showAttachMenu &&
+                      buttonRect &&
+                      createPortal(
+                        <div
+                          data-dropdown="prompt-library"
+                          className="fixed w-72 rounded-xl border border-purple-100 bg-white shadow-xl"
+                          style={{
+                            top: buttonRect.bottom + 8,
+                            left: buttonRect.left,
+                            zIndex: 9999,
+                          }}
+                        >
+                          {/* Tab Headers */}
+                          <div className="flex border-b border-purple-100">
                             <button
-                              key={prompt.id}
-                              onClick={() => handleUsePrompt(prompt)}
-                              className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors"
+                              onClick={() => setActiveMenuSection("templates")}
+                              className={cn(
+                                "flex-1 p-3 text-xs font-semibold transition-colors",
+                                activeMenuSection === "templates"
+                                  ? "text-purple-600 border-b-2 border-purple-600"
+                                  : "text-slate-500 hover:text-slate-700",
+                              )}
                             >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <p className="text-sm font-semibold text-slate-800">{prompt.name}</p>
-                                  <p className="text-xs text-slate-500 mt-1">{prompt.description}</p>
+                              Quick Templates
+                            </button>
+                            <button
+                              onClick={() => setActiveMenuSection("library")}
+                              className={cn(
+                                "flex-1 p-3 text-xs font-semibold transition-colors",
+                                activeMenuSection === "library"
+                                  ? "text-purple-600 border-b-2 border-purple-600"
+                                  : "text-slate-500 hover:text-slate-700",
+                              )}
+                            >
+                              Prompt Library
+                            </button>
+                          </div>
+
+                          {/* Quick Templates Section */}
+                          {activeMenuSection === "templates" && (
+                            <div className="p-2">
+                              <button
+                                onClick={() => {
+                                  setInput("Show me my device's health score");
+                                  setShowAttachMenu(false);
+                                }}
+                                className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                                    <Gauge className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-semibold text-slate-800">
+                                      See My Device Health Score
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                      View the operational health score of your
+                                      machines
+                                    </p>
+                                  </div>
                                 </div>
-                                <FileText className="h-4 w-4 text-purple-400" />
-                              </div>
-                              <div className="mt-2 rounded bg-slate-50 p-2 text-xs text-slate-600 font-mono line-clamp-2">
-                                {prompt.content}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                        <div className="border-t border-purple-100 p-2">
-                          {!showSavePrompt ? (
-                            <button
-                              onClick={() => setShowSavePrompt(true)}
-                              className="w-full flex items-center gap-2 rounded-lg border border-dashed border-purple-200 p-2 text-xs font-semibold text-purple-600 hover:bg-purple-50"
-                            >
-                              <Save className="h-3 w-3" />
-                              Save New Prompt
-                            </button>
-                          ) : (
-                            <div className="space-y-2">
-                              <input
-                                type="text"
-                                placeholder="Prompt name"
-                                value={newPromptName}
-                                onChange={(e) => setNewPromptName(e.target.value)}
-                                className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
-                              />
-                              <textarea
-                                placeholder="Prompt content"
-                                value={newPromptContent}
-                                onChange={(e) => setNewPromptContent(e.target.value)}
-                                rows={3}
-                                className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
-                              />
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={handleSavePrompt}
-                                  className="flex-1 rounded bg-purple-600 px-2 py-1 text-xs font-semibold text-white hover:bg-purple-700"
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setShowSavePrompt(false);
-                                    setNewPromptName('');
-                                    setNewPromptContent('');
-                                  }}
-                                  className="flex-1 rounded border border-purple-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setInput("Show me tickets for my machines");
+                                  setShowAttachMenu(false);
+                                }}
+                                className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                                    <FileText className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-semibold text-slate-800">
+                                      See Tickets for My Machines
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                      Review maintenance tickets and service
+                                      history
+                                    </p>
+                                  </div>
+                                </div>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setInput(
+                                    "Show me predictive maintenance for my machine",
+                                  );
+                                  setShowAttachMenu(false);
+                                }}
+                                className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                                    <Zap className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-semibold text-slate-800">
+                                      See Predictive Maintenance
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                      View upcoming maintenance predictions and
+                                      alerts
+                                    </p>
+                                  </div>
+                                </div>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setInput(
+                                    "Monitor my machine's real-time telemetry data",
+                                  );
+                                  setShowAttachMenu(false);
+                                }}
+                                className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                                    <Activity className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-semibold text-slate-800">
+                                      Monitor Real-Time Telemetry
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                      View live sensor data and telemetry
+                                      streams
+                                    </p>
+                                  </div>
+                                </div>
+                              </button>
                             </div>
                           )}
-                        </div>
-                      </div>,
-                      document.body
-                    )}
+
+                          {/* Prompt Library Section */}
+                          {activeMenuSection === "library" && (
+                            <>
+                              <div className="max-h-80 overflow-y-auto p-2">
+                                {savedPrompts.map((prompt) => (
+                                  <button
+                                    key={prompt.id}
+                                    onClick={() => handleUsePrompt(prompt)}
+                                    className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors"
+                                  >
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex-1">
+                                        <p className="text-sm font-semibold text-slate-800">
+                                          {prompt.name}
+                                        </p>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                          {prompt.description}
+                                        </p>
+                                      </div>
+                                      <FileText className="h-4 w-4 text-purple-400" />
+                                    </div>
+                                    <div className="mt-2 rounded bg-slate-50 p-2 text-xs text-slate-600 font-mono line-clamp-2">
+                                      {prompt.content}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="border-t border-purple-100 p-2">
+                                {!showSavePrompt ? (
+                                  <button
+                                    onClick={() => setShowSavePrompt(true)}
+                                    className="w-full flex items-center gap-2 rounded-lg border border-dashed border-purple-200 p-2 text-xs font-semibold text-purple-600 hover:bg-purple-50"
+                                  >
+                                    <Save className="h-3 w-3" />
+                                    Save New Prompt
+                                  </button>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <input
+                                      type="text"
+                                      placeholder="Prompt name"
+                                      value={newPromptName}
+                                      onChange={(e) =>
+                                        setNewPromptName(e.target.value)
+                                      }
+                                      className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                                    />
+                                    <textarea
+                                      placeholder="Prompt content"
+                                      value={newPromptContent}
+                                      onChange={(e) =>
+                                        setNewPromptContent(e.target.value)
+                                      }
+                                      rows={3}
+                                      className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                                    />
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={handleSavePrompt}
+                                        className="flex-1 rounded bg-purple-600 px-2 py-1 text-xs font-semibold text-white hover:bg-purple-700"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setShowSavePrompt(false);
+                                          setNewPromptName("");
+                                          setNewPromptContent("");
+                                        }}
+                                        className="flex-1 rounded border border-purple-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>,
+                        document.body,
+                      )}
                   </div>
                   {/* Attach Button */}
                   <button className="inline-flex h-8 items-center gap-1.5 rounded-full border border-purple-200 px-3 text-xs font-medium text-slate-600 transition hover:border-purple-300 hover:bg-purple-50 hover:text-slate-900">
@@ -429,11 +581,18 @@ export default function LandingPage() {
         </div>
       </div>
       {/* Feature Summary */}
-      <section id="features" className="relative z-10 border-t border-purple-100/50 bg-white/80">
+      <section
+        id="features"
+        className="relative z-10 border-t border-purple-100/50 bg-white/80"
+      >
         <div className="mx-auto max-w-7xl px-6 py-16">
           <div className="mb-8 text-center">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Features at a glance</h2>
-            <p className="mt-2 text-slate-600">Everything you need to get from raw telemetry to real outcomes</p>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+              Features at a glance
+            </h2>
+            <p className="mt-2 text-slate-600">
+              Everything you need to get from raw telemetry to real outcomes
+            </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {/* Feature cards */}
@@ -441,54 +600,85 @@ export default function LandingPage() {
               <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
                 <Gauge className="h-5 w-5" />
               </div>
-              <h3 className="mb-1 text-sm font-semibold text-slate-900">Health scoring</h3>
-              <p className="text-sm text-slate-600">Continuously evaluate machine health with adaptive scoring.</p>
+              <h3 className="mb-1 text-sm font-semibold text-slate-900">
+                Health scoring
+              </h3>
+              <p className="text-sm text-slate-600">
+                Continuously evaluate machine health with adaptive scoring.
+              </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
                 <Zap className="h-5 w-5" />
               </div>
-              <h3 className="mb-1 text-sm font-semibold text-slate-900">Predictive alerts</h3>
-              <p className="text-sm text-slate-600">Get ahead of failures with model-driven maintenance alerts.</p>
+              <h3 className="mb-1 text-sm font-semibold text-slate-900">
+                Predictive alerts
+              </h3>
+              <p className="text-sm text-slate-600">
+                Get ahead of failures with model-driven maintenance alerts.
+              </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
                 <Activity className="h-5 w-5" />
               </div>
-              <h3 className="mb-1 text-sm font-semibold text-slate-900">Real-time telemetry</h3>
-              <p className="text-sm text-slate-600">Low-latency dashboards for metrics, events, and anomalies.</p>
+              <h3 className="mb-1 text-sm font-semibold text-slate-900">
+                Real-time telemetry
+              </h3>
+              <p className="text-sm text-slate-600">
+                Low-latency dashboards for metrics, events, and anomalies.
+              </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
                 <Database className="h-5 w-5" />
               </div>
-              <h3 className="mb-1 text-sm font-semibold text-slate-900">Unified data</h3>
-              <p className="text-sm text-slate-600">Ingest from sensors and systems into a clean, unified model.</p>
+              <h3 className="mb-1 text-sm font-semibold text-slate-900">
+                Unified data
+              </h3>
+              <p className="text-sm text-slate-600">
+                Ingest from sensors and systems into a clean, unified model.
+              </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
                 <Shield className="h-5 w-5" />
               </div>
-              <h3 className="mb-1 text-sm font-semibold text-slate-900">Secure by design</h3>
-              <p className="text-sm text-slate-600">Granular access and best-practice data handling.</p>
+              <h3 className="mb-1 text-sm font-semibold text-slate-900">
+                Secure by design
+              </h3>
+              <p className="text-sm text-slate-600">
+                Granular access and best-practice data handling.
+              </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
                 <TrendingUp className="h-5 w-5" />
               </div>
-              <h3 className="mb-1 text-sm font-semibold text-slate-900">Actionable insights</h3>
-              <p className="text-sm text-slate-600">Surface trends that drive throughput and uptime.</p>
+              <h3 className="mb-1 text-sm font-semibold text-slate-900">
+                Actionable insights
+              </h3>
+              <p className="text-sm text-slate-600">
+                Surface trends that drive throughput and uptime.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
       {/* How It Works */}
-      <section id="how-it-works" className="relative z-10 border-t border-purple-100/50 bg-gradient-to-b from-white to-purple-50/40">
+      <section
+        id="how-it-works"
+        className="relative z-10 border-t border-purple-100/50 bg-gradient-to-b from-white to-purple-50/40"
+      >
         <div className="mx-auto max-w-7xl px-6 py-16">
           <div className="mb-8 text-center">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">How it works</h2>
-            <p className="mt-2 text-slate-600">From first connection to insights in minutes</p>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+              How it works
+            </h2>
+            <p className="mt-2 text-slate-600">
+              From first connection to insights in minutes
+            </p>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
             {[
@@ -508,11 +698,16 @@ export default function LandingPage() {
                 body: "See health scores, anomalies, and alerts—then automate responses.",
               },
             ].map((s) => (
-              <div key={s.step} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div
+                key={s.step}
+                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+              >
                 <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-sm font-semibold text-white">
                   {s.step}
                 </div>
-                <h3 className="mb-1 text-sm font-semibold text-slate-900">{s.title}</h3>
+                <h3 className="mb-1 text-sm font-semibold text-slate-900">
+                  {s.title}
+                </h3>
                 <p className="text-sm text-slate-600">{s.body}</p>
               </div>
             ))}
@@ -521,11 +716,18 @@ export default function LandingPage() {
       </section>
 
       {/* Integrations / Compatibility */}
-      <section id="integrations" className="relative z-10 border-t border-purple-100/50 bg-white">
+      <section
+        id="integrations"
+        className="relative z-10 border-t border-purple-100/50 bg-white"
+      >
         <div className="mx-auto max-w-7xl px-6 py-16">
           <div className="mb-6 text-center">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Integrations & compatibility</h2>
-            <p className="mt-2 text-slate-600">Plug into protocols, services, and data sources you already use</p>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+              Integrations & compatibility
+            </h2>
+            <p className="mt-2 text-slate-600">
+              Plug into protocols, services, and data sources you already use
+            </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3">
             {[
@@ -537,7 +739,10 @@ export default function LandingPage() {
             ].map((i) => {
               const Icon = i.icon;
               return (
-                <span key={i.label} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700">
+                <span
+                  key={i.label}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
+                >
                   <Icon className="h-4 w-4 text-purple-600" /> {i.label}
                 </span>
               );
@@ -547,61 +752,134 @@ export default function LandingPage() {
       </section>
 
       {/* Outcomes / Metrics */}
-      <section id="outcomes" className="relative z-10 border-t border-purple-100/50 bg-gradient-to-b from-purple-50/40 to-white">
+      <section
+        id="outcomes"
+        className="relative z-10 border-t border-purple-100/50 bg-gradient-to-b from-purple-50/40 to-white"
+      >
         <div className="mx-auto max-w-7xl px-6 py-16">
           <div className="mb-8 text-center">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Outcomes you can measure</h2>
-            <p className="mt-2 text-slate-600">Proven improvements across uptime, maintenance, and throughput</p>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+              Outcomes you can measure
+            </h2>
+            <p className="mt-2 text-slate-600">
+              Proven improvements across uptime, maintenance, and throughput
+            </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
               <div className="text-3xl font-semibold text-slate-900">30%</div>
-              <div className="mt-1 text-sm text-slate-600">Reduction in unplanned downtime</div>
+              <div className="mt-1 text-sm text-slate-600">
+                Reduction in unplanned downtime
+              </div>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-              <div className="text-3xl font-semibold text-slate-900">15 min</div>
-              <div className="mt-1 text-sm text-slate-600">From connect to first dashboard</div>
+              <div className="text-3xl font-semibold text-slate-900">
+                15 min
+              </div>
+              <div className="mt-1 text-sm text-slate-600">
+                From connect to first dashboard
+              </div>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
               <div className="text-3xl font-semibold text-slate-900">+12%</div>
-              <div className="mt-1 text-sm text-slate-600">Throughput uplift with insights</div>
+              <div className="mt-1 text-sm text-slate-600">
+                Throughput uplift with insights
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer id="footer" className="relative z-10 border-t border-purple-100/50 bg-white">
+      <footer
+        id="footer"
+        className="relative z-10 border-t border-purple-100/50 bg-white"
+      >
         <div className="mx-auto max-w-7xl px-6 py-12">
           <div className="grid gap-8 md:grid-cols-4">
             <div>
-              <Image src="/microai-logo-dark.svg" alt="MicroAI" width={120} height={32} className="h-8 w-auto" />
-              <p className="mt-3 text-sm text-slate-600">Observability and performance insights for machines, networks, and infrastructure.</p>
+              <Image
+                src="/microai-logo-dark.svg"
+                alt="MicroAI"
+                width={120}
+                height={32}
+                className="h-8 w-auto"
+              />
+              <p className="mt-3 text-sm text-slate-600">
+                Observability and performance insights for machines, networks,
+                and infrastructure.
+              </p>
             </div>
             <div>
               <h4 className="text-sm font-semibold text-slate-900">Company</h4>
               <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                <li><a href="#" className="hover:text-slate-900">About</a></li>
-                <li><a href="#" className="hover:text-slate-900">Careers</a></li>
-                <li><a href="#" className="hover:text-slate-900">Blog</a></li>
-                <li><a href="#" className="hover:text-slate-900">Contact</a></li>
+                <li>
+                  <a href="#" className="hover:text-slate-900">
+                    About
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-slate-900">
+                    Careers
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-slate-900">
+                    Blog
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-slate-900">
+                    Contact
+                  </a>
+                </li>
               </ul>
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-slate-900">Resources</h4>
+              <h4 className="text-sm font-semibold text-slate-900">
+                Resources
+              </h4>
               <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                <li><a href="#" className="hover:text-slate-900">Docs</a></li>
-                <li><a href="#" className="hover:text-slate-900">Guides</a></li>
-                <li><a href="#" className="hover:text-slate-900">Status</a></li>
+                <li>
+                  <a href="#" className="hover:text-slate-900">
+                    Docs
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-slate-900">
+                    Guides
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-slate-900">
+                    Status
+                  </a>
+                </li>
               </ul>
             </div>
             <div>
               <h4 className="text-sm font-semibold text-slate-900">Legal</h4>
               <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                <li><a href="#" className="hover:text-slate-900">Terms</a></li>
-                <li><a href="#" className="hover:text-slate-900">Privacy</a></li>
-                <li><a href="#" className="hover:text-slate-900">Cookie Policy</a></li>
-                <li><a href="#" className="hover:text-slate-900">DPA</a></li>
+                <li>
+                  <a href="#" className="hover:text-slate-900">
+                    Terms
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-slate-900">
+                    Privacy
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-slate-900">
+                    Cookie Policy
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-slate-900">
+                    DPA
+                  </a>
+                </li>
               </ul>
             </div>
           </div>
@@ -610,7 +888,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-
     </main>
   );
 }
