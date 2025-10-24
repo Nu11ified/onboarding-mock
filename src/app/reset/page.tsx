@@ -1,9 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function ResetPasswordPage() {
+  // Wrap the client hooks in suspense so Next.js can defer rendering when search params are unavailable.
+  return (
+    <Suspense fallback={<ResetPasswordFallback />}>
+      <ResetPasswordContent />
+    </Suspense>
+  );
+}
+
+function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -35,7 +44,11 @@ export default function ResetPasswordPage() {
       const complete = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "complete-password-reset", token, password }),
+        body: JSON.stringify({
+          action: "complete-password-reset",
+          token,
+          password,
+        }),
       });
       const completeData = await complete.json();
       if (!complete.ok || !completeData?.success) {
@@ -55,7 +68,7 @@ export default function ResetPasswordPage() {
         if (loginRes.ok && loginData?.success) {
           localStorage.setItem(
             "user_session",
-            JSON.stringify({ email, userId: loginData.userId })
+            JSON.stringify({ email, userId: loginData.userId }),
           );
         }
       }
@@ -67,13 +80,15 @@ export default function ResetPasswordPage() {
           const state = JSON.parse(onboardingStateRaw);
           localStorage.setItem(
             "onboarding_state",
-            JSON.stringify({ ...state, shouldContinue: true })
+            JSON.stringify({ ...state, shouldContinue: true }),
           );
         } catch {}
       }
 
       // Redirect to dashboard handoff page
-      router.replace("/demo/dashboard?onboarded=true&showDashboard=true&autoSelectMachine=true");
+      router.replace(
+        "/demo/dashboard?onboarded=true&showDashboard=true&autoSelectMachine=true",
+      );
     } catch (e: any) {
       setError(e?.message || "Something went wrong");
     } finally {
@@ -84,11 +99,17 @@ export default function ResetPasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 via-white to-purple-100">
       <div className="w-full max-w-md rounded-2xl border border-purple-200 bg-white p-6 shadow-sm">
-        <h1 className="mb-1 text-xl font-semibold text-slate-900">Set your password</h1>
-        <p className="mb-4 text-sm text-slate-600">Create a password to secure your account and continue.</p>
+        <h1 className="mb-1 text-xl font-semibold text-slate-900">
+          Set your password
+        </h1>
+        <p className="mb-4 text-sm text-slate-600">
+          Create a password to secure your account and continue.
+        </p>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-700">New password</label>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+              New password
+            </label>
             <input
               type="password"
               value={password}
@@ -97,7 +118,9 @@ export default function ResetPasswordPage() {
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-700">Confirm password</label>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+              Confirm password
+            </label>
             <input
               type="password"
               value={confirm}
@@ -114,6 +137,16 @@ export default function ResetPasswordPage() {
             {loading ? "Setting password..." : "Set password & continue"}
           </button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function ResetPasswordFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 via-white to-purple-100">
+      <div className="rounded-xl border border-purple-200 bg-white px-6 py-4 text-sm text-slate-600 shadow-sm">
+        Preparing your reset experience...
       </div>
     </div>
   );

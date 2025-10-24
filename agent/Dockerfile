@@ -6,7 +6,7 @@ WORKDIR /app
 ENV UV_SYSTEM_PYTHON=1
 
 # Copy project files and install deps (uses uv.lock for determinism)
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
 COPY agent ./agent
 RUN uv sync --frozen
 
