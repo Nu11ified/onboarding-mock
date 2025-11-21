@@ -53,7 +53,7 @@ export function ProfileConfigFormWidget({
     <div className="rounded-xl border border-purple-200 bg-white p-4 shadow-sm">
       <div className="mb-4">
         <h3 className="text-sm font-semibold text-slate-900">
-          Configure Your Device Profile
+          Configure Your Machine Profile
         </h3>
         <p className="mt-1 text-xs text-slate-600">
           Set up the parameters for your machine monitoring
@@ -87,11 +87,11 @@ export function ProfileConfigFormWidget({
         {/* Training Seconds */}
         <div>
           <label htmlFor="trainingSeconds" className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-slate-700">
-            Training Period (seconds)
+            Training Duration (seconds)
             <button
               type="button"
               className="text-slate-400 hover:text-slate-600"
-              title="How long the AI needs to learn normal behavior (minimum 10 seconds)"
+              title="Duration for the algorithm to learn normal patterns before inferencing begins"
             >
               <HelpCircle className="h-3 w-3" />
             </button>
@@ -107,18 +107,18 @@ export function ProfileConfigFormWidget({
             disabled={loading}
           />
           <p className="mt-1 text-xs text-slate-500">
-            Recommended: 200+ seconds for accurate anomaly detection
+            Time required for the AI to establish a baseline model
           </p>
         </div>
 
         {/* Days to Maintenance */}
         <div>
           <label htmlFor="daysToMaintenance" className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-slate-700">
-            Days Between Maintenance
+            Days Until Maintenance
             <button
               type="button"
               className="text-slate-400 hover:text-slate-600"
-              title="Scheduled maintenance interval for predictive alerts"
+              title="Number of days remaining until routine maintenance is due"
             >
               <HelpCircle className="h-3 w-3" />
             </button>
@@ -138,11 +138,11 @@ export function ProfileConfigFormWidget({
         {/* Cycle Duration */}
         <div>
           <label htmlFor="cycleDuration" className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-slate-700">
-            Cycle Duration (seconds)
+            Split Counter (Cycle Time)
             <button
               type="button"
               className="text-slate-400 hover:text-slate-600"
-              title="How long one complete machine cycle takes (split counter)"
+              title="Time taken for one complete machine start-to-end cycle"
             >
               <HelpCircle className="h-3 w-3" />
             </button>
@@ -158,7 +158,7 @@ export function ProfileConfigFormWidget({
             disabled={loading}
           />
           <p className="mt-1 text-xs text-slate-500">
-            Used to track production cycles and efficiency
+            Example: 20s for a machine to start and end its cycle
           </p>
         </div>
 

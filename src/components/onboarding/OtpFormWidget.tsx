@@ -67,6 +67,9 @@ export function OtpFormWidget({ email, onSubmit, onResend }: OtpFormWidgetProps)
   };
 
   const handleOtpChange = (value: string) => {
+    // Enforce numeric input
+    if (!/^\d*$/.test(value)) return;
+    
     setOtp(value);
     setError(null);
     

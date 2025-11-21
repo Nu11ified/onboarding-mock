@@ -126,7 +126,10 @@ export type WidgetType =
   | 'user-invitation-form'
   | 'notification-preferences-form'
   | 'profile-selection-form'
-  | 'payment-form';
+  | 'payment-form'
+  | 'login-button-widget'
+  | 'schema-validation-widget'
+  | 'channel-configuration-widget';
 
 export interface ChatWidget {
   type: WidgetType;

@@ -6,6 +6,9 @@ import { StatusWidget } from './StatusWidget';
 import { ProgressWidget } from './ProgressWidget';
 import { FormWidget } from './FormWidget';
 import { InfoGridWidget } from './InfoGridWidget';
+import { LoginButtonWidget } from './LoginButtonWidget';
+import { SchemaValidationWidget } from './SchemaValidationWidget';
+import { ChannelConfigurationWidget } from './ChannelConfigurationWidget';
 
 // Import existing onboarding widgets
 import {
@@ -100,7 +103,8 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
         return (
           <EmailFormWidget
             onSubmit={async (email: string) => {
-              if (onSubmit) await onSubmit({ email, userMessage: email });
+              // Don't print the email in chat history
+              if (onSubmit) await onSubmit({ email });
             }}
             initialEmail={data.initialEmail}
           />
@@ -111,7 +115,8 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
           <OtpFormWidget
             email={data.email || context.email}
             onSubmit={async (otp: string) => {
-              if (onSubmit) await onSubmit({ otp, userMessage: `OTP: ${otp}` });
+              // Don't print the OTP code in chat history, just validate
+              if (onSubmit) await onSubmit({ otp });
             }}
             onResend={data.allowResend ? async () => {
               console.log('Resend OTP requested');
@@ -132,7 +137,8 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
         return (
           <DeviceOptionWidget
             onSelect={async (mode) => {
-              if (onSubmit) await onSubmit({ mode, userMessage: mode === 'demo' ? 'Demo Device' : 'Live Device' });
+              // Don't print selection in chat, just update state
+              if (onSubmit) await onSubmit({ mode });
             }}
           />
         );
@@ -158,7 +164,10 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
               deviceId={deviceId}
               status={data.status || 'spawning'}
               showTraining={data.showTraining !== false}
-              onComplete={data.onComplete}
+              onComplete={() => {
+                if (data.onComplete) data.onComplete();
+                if (onSubmit) onSubmit({ status: 'active' });
+              }}
             />
           );
         }
@@ -224,6 +233,36 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
         return (
           <PaymentWidget
             onSubmit={onSubmit || (async () => {})}
+          />
+        );
+
+      case 'login-button-widget':
+        return (
+          <LoginButtonWidget
+            url={data.url || '/login'}
+            buttonText={data.buttonText}
+            message={data.message}
+            onSubmit={async () => {
+              if (onSubmit) await onSubmit({ userMessage: 'Navigating to login...' });
+            }}
+          />
+        );
+
+      case 'schema-validation-widget':
+        return (
+          <SchemaValidationWidget
+            onComplete={() => {
+              if (onSubmit) onSubmit({ status: 'schema-validated' });
+            }}
+          />
+        );
+
+      case 'channel-configuration-widget':
+        return (
+          <ChannelConfigurationWidget
+            onSubmit={(mapping) => {
+              if (onSubmit) onSubmit({ channelMapping: mapping });
+            }}
           />
         );
 

@@ -157,88 +157,19 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
           return false;
         }
         
-        const response = await fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'register',
-            email,
-            sessionId: context.sessionId
-          })
-        });
-        const data = await response.json();
-        // stash email for reset page login
-        try { localStorage.setItem('pending_reset_email', JSON.stringify(email)); } catch {}
-
-        // If account exists and is verified, redirect to login
-        if (data.accountExists && data.shouldLogin && !data.isPremature) {
-          console.log('Account already exists and is verified. Redirecting to login...');
-          setTimeout(() => {
-            router.push('/login');
-          }, 1500);
-          return false;
-        }
-
-        // If premature account or new account, OTP is sent
-        if (data.success || data.isPremature) {
-          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-          console.log('🔑 YOUR OTP CODE: ' + data.otp);
-          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-          return true;
-        }
-        return false;
+        console.log('✅ Registering email (mock - allowing repeats):', email);
+        // Mock: Always succeed, no redirect
+        return true;
       }
 
       case 'validate-otp': {
-        const otp = context.otp;
-        
-        if (!otp) {
-          console.error('❌ No OTP in context:', context);
-          return false;
-        }
-        
-        const response = await fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'validate-otp',
-            email: context.email,
-            otp
-          })
+        console.log('✅ Validating OTP (mock pass):', context.otp);
+        // Simulate profile creation which happens here
+        const mockProfileKey = `profile_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        flowManager.updateContext({
+          profileKey: mockProfileKey
         });
-        const data = await response.json();
-
-        if (data.success) {
-          // Create profile and get profile key right after OTP validation
-          const profileResponse = await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'create-profile',
-              email: context.email,
-              profileConfig: {
-                profileName: 'Default Profile',
-                trainingSeconds: 200,
-                daysToMaintenance: 30,
-                cycleDuration: 20,
-              }
-            })
-          });
-          const profileData = await profileResponse.json();
-          
-          if (profileData.success) {
-            flowManager.updateContext({
-              profileKey: profileData.profileKey
-            });
-            return true;
-          } else {
-            console.error('Profile creation failed:', profileData);
-            return false;
-          }
-        } else {
-          console.error('OTP validation failed:', data);
-        }
-        return false;
+        return true;
       }
       
       case 'send-password-reset': {
@@ -269,110 +200,66 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
       }
 
       case 'spawn-demo-device': {
-        const response = await fetch('/api/device', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'spawn',
+        console.log('🚀 Spawning demo device (mock)');
+        const mockDeviceId = `demo_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        
+        flowManager.updateContext({
+          deviceId: mockDeviceId,
+          mode: 'demo'
+        });
+        
+        // Persist for dashboard handoff
+        try {
+          localStorage.setItem('onboarding_state', JSON.stringify({
+            email: context.email,
+            deviceId: mockDeviceId,
             profileKey: context.profileKey,
             mode: 'demo',
             sessionId: context.sessionId,
-            sessionExpiry: Date.now() + (24 * 60 * 60 * 1000),
-            config: {
-              profileName: 'Demo Machine',
-              trainingSeconds: 200,
-              daysToMaintenance: 30,
-              cycleDuration: 20,
-            }
-          })
-        });
-        const data = await response.json();
+            chatId: context.chatId,
+            shouldContinue: false,
+          }));
+        } catch {}
+        return true;
+      }
 
-        if (data.success) {
-          flowManager.updateContext({
-            deviceId: data.deviceId,
-            mode: 'demo'
-          });
-          // Persist onboarding state early so dashboard handoff has deviceId
-          try {
-            localStorage.setItem('onboarding_state', JSON.stringify({
-              email: context.email,
-              deviceId: data.deviceId,
-              profileKey: context.profileKey,
-              mode: 'demo',
-              sessionId: context.sessionId,
-              chatId: context.chatId,
-              shouldContinue: false,
-            }));
-          } catch {}
-          return true;
-        }
-        return false;
+      case 'validate-schema': {
+        console.log('✅ Validating schema (mock pass)');
+        return true;
       }
 
       case 'spawn-live-device': {
         const config = payload?.config || context.profileConfig;
+        console.log('🚀 Spawning live device (mock)', config);
         
-        console.log('🚀 Spawning live device with config:', config);
-        console.log('📦 Context profileKey:', context.profileKey);
-        console.log('🔑 Context sessionId:', context.sessionId);
+        const mockDeviceId = `live_${Date.now()}_${Math.random().toString(36).substring(7)}`;
         
-        if (!context.profileKey) {
-          console.error('❌ No profileKey in context for live device spawn');
-          return false;
-        }
+        flowManager.updateContext({
+          deviceId: mockDeviceId,
+          mode: 'live',
+          // Mock MQTT connection details if needed for anything else
+          mqttConnection: {
+            brokerEndpoint: 'mock.mqtt.com',
+            brokerPort: 8883,
+            topic: `device/${mockDeviceId}/telemetry`,
+            username: 'mock_user',
+            password: 'mock_password',
+            sampleSchema: {}
+          }
+        });
         
-        if (!config) {
-          console.error('❌ No config provided for live device spawn');
-          return false;
-        }
-        
-        const response = await fetch('/api/device', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'spawn',
+        try {
+          localStorage.setItem('onboarding_state', JSON.stringify({
+            email: context.email,
+            deviceId: mockDeviceId,
             profileKey: context.profileKey,
             mode: 'live',
             sessionId: context.sessionId,
-            sessionExpiry: Date.now() + (24 * 60 * 60 * 1000),
-            config
-          })
-        });
-        const data = await response.json();
-        
-        console.log('📡 Device spawn API response:', data);
-
-        if (data.success) {
-          flowManager.updateContext({
-            deviceId: data.deviceId,
-            mode: 'live',
-            mqttConnection: {
-              brokerEndpoint: data.brokerEndpoint,
-              brokerPort: data.brokerPort,
-              topic: data.topic,
-              username: data.username,
-              password: data.password,
-              sampleSchema: data.sampleSchema,
-            }
-          });
-          // Persist onboarding state early so dashboard handoff has deviceId
-          try {
-            localStorage.setItem('onboarding_state', JSON.stringify({
-              email: context.email,
-              deviceId: data.deviceId,
-              profileKey: context.profileKey,
-              mode: 'live',
-              sessionId: context.sessionId,
-              chatId: context.chatId,
-              shouldContinue: false,
-            }));
-          } catch {}
-          return true;
-        } else {
-          console.error('❌ Device spawn failed:', data);
-        }
-        return false;
+            chatId: context.chatId,
+            shouldContinue: false,
+          }));
+        } catch {}
+        return true;
       }
 
       case 'transfer-session': {
@@ -538,6 +425,23 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
     try {
       const currentStep = flowManager.getCurrentStep();
       if (!currentStep) return;
+
+      // Check if user wants to switch to demo mode
+      if (typeof input === 'string' && input && input.toLowerCase().includes('switch to demo')) {
+        addUserMessage(input);
+        flowManager.updateContext({ mode: 'demo' });
+        
+        // Jump to demo flow start
+        flowManager.jumpToStep('demo-device-init');
+        
+        // Trigger processing of the new step
+        setTimeout(() => {
+          handleUserInput('');
+        }, 500);
+        
+        setIsProcessing(false);
+        return;
+      }
 
       // Update context FIRST if input contains data (before executing action)
       if (typeof input === 'object' && input) {

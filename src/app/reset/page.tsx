@@ -21,14 +21,24 @@ function ResetPasswordContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Bypass token validation for demo flexibility
   useEffect(() => {
-    if (!token) setError("Invalid or missing token");
+    if (!token) {
+       // Check if we have a pending email, if so, we can proceed without token
+       const pendingEmail = localStorage.getItem("pending_reset_email");
+       if (!pendingEmail) {
+         // Only error if we really have no context
+         // But for now, let's just warn or leave it be, user wants to set password regardless
+       }
+    }
   }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!token) return;
+    
+    // if (!token) return; // Removed for bypass
+
     if (!password || password.length < 8) {
       setError("Password must be at least 8 characters");
       return;
@@ -41,13 +51,18 @@ function ResetPasswordContent() {
     setLoading(true);
     try {
       // Complete reset
+      // If no token, try to find email from localStorage
+      const pendingEmailRaw = localStorage.getItem("pending_reset_email");
+      const email = pendingEmailRaw ? JSON.parse(pendingEmailRaw) : null;
+
       const complete = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "complete-password-reset",
-          token,
+          token: token || undefined,
           password,
+          email: !token ? email : undefined, // Send email if token is missing
         }),
       });
       const completeData = await complete.json();
@@ -56,8 +71,7 @@ function ResetPasswordContent() {
       }
 
       // For demo purposes, login immediately after reset.
-      const pendingEmail = localStorage.getItem("pending_reset_email");
-      const email = pendingEmail ? JSON.parse(pendingEmail) : null;
+      // Reuse the email variable defined above
       if (email) {
         const loginRes = await fetch("/api/auth", {
           method: "POST",
@@ -131,7 +145,7 @@ function ResetPasswordContent() {
           {error && <p className="text-xs text-red-600">{error}</p>}
           <button
             type="submit"
-            disabled={loading || !token}
+            disabled={loading}
             className="w-full rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
           >
             {loading ? "Setting password..." : "Set password & continue"}

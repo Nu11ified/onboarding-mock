@@ -19,7 +19,7 @@ export function DeviceOptionWidget({ onSelect }: DeviceOptionWidgetProps) {
     try {
       await onSelect(mode);
     } catch (err) {
-      console.error('Failed to select device mode:', err);
+      console.error('Failed to select machine mode:', err);
       setSelected(null);
     } finally {
       setLoading(false);
@@ -30,7 +30,7 @@ export function DeviceOptionWidget({ onSelect }: DeviceOptionWidgetProps) {
     {
       mode: 'demo' as OnboardingMode,
       icon: Zap,
-      title: 'Demo Device',
+      title: 'Demo Machine',
       description: 'Quick start with a pre-configured demo machine',
       features: [
         'Pre-configured settings',
@@ -43,7 +43,7 @@ export function DeviceOptionWidget({ onSelect }: DeviceOptionWidgetProps) {
     {
       mode: 'live' as OnboardingMode,
       icon: Settings,
-      title: 'Live Device',
+      title: 'Live Machine',
       description: 'Configure your own machine with custom settings',
       features: [
         'Custom configuration',
@@ -59,7 +59,7 @@ export function DeviceOptionWidget({ onSelect }: DeviceOptionWidgetProps) {
     <div className="rounded-xl border border-purple-200 bg-white p-4 shadow-sm">
       <div className="mb-4">
         <h3 className="text-sm font-semibold text-slate-900">
-          How would you like to onboard your device?
+          How would you like to onboard your machine?
         </h3>
         <p className="mt-1 text-xs text-slate-600">
           Choose how you want to set up your machine monitoring
@@ -147,7 +147,7 @@ export function DeviceOptionWidget({ onSelect }: DeviceOptionWidgetProps) {
 
       <div className="mt-4 rounded-lg bg-slate-50 p-3">
         <p className="text-xs text-slate-600">
-          💡 <span className="font-semibold">Note:</span> You can add multiple devices later,
+          💡 <span className="font-semibold">Note:</span> You can add multiple machines later,
           both demo and live machines can coexist in your dashboard.
         </p>
       </div>

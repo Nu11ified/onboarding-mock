@@ -134,31 +134,32 @@ export const NON_LOGIN_FLOW: FlowStep[] = [
     id: 'profile-key-display',
     actor: 'assistant',
     message: (context: FlowContext) => 
-      `Here is your profile key: ${context.profileKey || '123445678888'} to activate the device. How would you like to onboard the device? Below are 2 options.`,
+      `Here is your profile key: ${context.profileKey || '123445678888'} to activate the machine. How would you like to onboard the machine? Below are 2 options.`,
     widget: {
       type: 'device-option-form',
     },
     waitForUserInput: true,
     nextStepId: (context: FlowContext) => 
-      context.mode === 'demo' ? 'demo-device-flow' : 'live-device-config',
+      context.mode === 'demo' ? 'demo-device-init' : 'live-device-config',
   },
   
   // DEMO DEVICE PATH
   {
-    id: 'demo-device-flow',
-    actor: 'user',
-    message: 'Demo Device',
+    id: 'demo-device-init',
+    actor: 'assistant',
+    message: '',
+    action: 'spawn-demo-device',
     nextStepId: 'demo-device-spawn',
   },
   
   {
     id: 'demo-device-spawn',
     actor: 'assistant',
-    message: 'Setting up your demo device...',
+    message: 'Setting up your demo machine...',
     widget: {
       type: 'device-status-widget',
     },
-    action: 'spawn-demo-device',
+    waitForUserInput: true,
     nextStepId: 'send-reset-email',
   },
   
@@ -166,7 +167,16 @@ export const NON_LOGIN_FLOW: FlowStep[] = [
   {
     id: 'send-reset-email',
     actor: 'assistant',
-    message: 'Device is activated successfully. An email has been sent to set your password. Please complete that to continue.',
+    message: 'Machine activated. Please set your password to secure your account.',
+    widget: {
+      type: 'login-button-widget',
+      data: {
+        url: '/reset',
+        buttonText: 'Set Password',
+        message: 'Machine training complete. Please set your password.'
+      }
+    },
+    waitForUserInput: true,
     action: 'send-password-reset'
   },
   
@@ -186,28 +196,97 @@ export const NON_LOGIN_FLOW: FlowStep[] = [
     id: 'live-config-submitted',
     actor: 'assistant',
     message: '',
+    nextStepId: 'live-mqtt-instruction',
+  },
+  
+  {
+    id: 'live-mqtt-instruction',
+    actor: 'assistant',
+    message: `Great! Now let's connect your machine's sensor data. We accept MQTT telemetry in two flexible formats:
+
+**Broker Details**
+• Endpoint: \`mqtt.industrialiq.ai\`
+• Port: \`8883\` (Secure)
+• Topic: \`telemetry\`
+• Username: *(Your Device ID)*
+• Password: *(Your Profile Key)*
+
+**Format 1: Flat JSON** (recommended for simple setups)
+\`\`\`json
+{
+  "timestamp": 1637012345678,
+  "temperature": 72.5,
+  "pressure": 101.3,
+  "vibration": 0.45
+}
+\`\`\`
+Each message contains a single timestamp and all sensor readings for that moment.
+
+**Format 2: Time-Value Arrays** (for batch telemetry)
+\`\`\`json
+{
+  "temperature": [{"t": 1637012345678, "v": 72.5}, {"t": 1637012346678, "v": 73.1}],
+  "pressure": [{"t": 1637012345678, "v": 101.3}]
+}
+\`\`\`
+Send multiple timestamped readings per sensor in arrays.
+
+**What we need from you:**
+• Paste a sample JSON payload from your MQTT broker (matching one of the formats above)
+• We'll validate the schema and extract your sensor channel names
+• Numeric fields become sensors we can monitor and analyze
+
+**Can't provide data right now?** No problem—you can switch to onboarding a **Demo Machine** instead to explore the platform with pre-configured sample data. Just type "switch to demo" or continue with your own data.`,
+    waitForUserInput: true,
+    nextStepId: 'live-data-validation',
+  },
+
+  {
+    id: 'live-data-validation',
+    actor: 'assistant',
+    message: 'Data received. Validating schema... Success!',
+    action: 'validate-schema',
+    nextStepId: 'live-schema-widget',
+  },
+
+  {
+    id: 'live-schema-widget',
+    actor: 'assistant',
+    message: 'Initializing container...',
+    widget: {
+      type: 'schema-validation-widget',
+    },
+    waitForUserInput: true,
+    nextStepId: 'live-channel-config',
+  },
+
+  {
+    id: 'live-channel-config',
+    actor: 'assistant',
+    message: 'Please configure your channels below.',
+    widget: {
+      type: 'channel-configuration-widget',
+    },
+    waitForUserInput: true,
+    nextStepId: 'live-device-init',
+  },
+  
+  {
+    id: 'live-device-init',
+    actor: 'assistant',
+    message: '',
+    action: 'spawn-live-device',
     nextStepId: 'live-device-spawn',
   },
   
   {
     id: 'live-device-spawn',
     actor: 'assistant',
-    message: 'Creating your device with the provided configuration...',
+    message: 'Training your machine model...',
     widget: {
       type: 'device-status-widget',
     },
-    action: 'spawn-live-device',
-    nextStepId: 'mqtt-details',
-  },
-  
-  {
-    id: 'mqtt-details',
-    actor: 'assistant',
-    message: 'Here are your connection details:',
-    widget: {
-      type: 'mqtt-connection-info',
-    },
-    action: 'show-mqtt-details',
+    waitForUserInput: true,
     nextStepId: 'live-send-reset',
   },
   
@@ -215,7 +294,16 @@ export const NON_LOGIN_FLOW: FlowStep[] = [
   {
     id: 'live-send-reset',
     actor: 'assistant',
-    message: 'An email has been sent to set your password. Please complete that to continue.',
+    message: 'Machine activated. Please set your password to secure your account.',
+    widget: {
+      type: 'login-button-widget',
+      data: {
+        url: '/reset',
+        buttonText: 'Set Password',
+        message: 'Machine setup complete. Please set your password.'
+      }
+    },
+    waitForUserInput: true,
     action: 'send-password-reset'
   },
 ];
@@ -297,7 +385,7 @@ export const POST_LOGIN_FLOW: FlowStep[] = [
   {
     id: 'notification-confirm',
     actor: 'assistant',
-    message: 'I have set your email up to receive notifications when your device has a new ticket.',
+    message: 'I have set your email up to receive notifications when your machine has a new ticket.',
     action: 'subscribe-notifications',
     nextStepId: 'test-ticket-prompt',
   },
@@ -325,7 +413,7 @@ export const POST_LOGIN_FLOW: FlowStep[] = [
   {
     id: 'completion',
     actor: 'assistant',
-    message: 'Your device is fully setup, you may switch the channel graphs, add more devices, create tickets, manage users, and more through this chat interface.',
+    message: 'Your machine is fully setup, you may switch the channel graphs, add more machines, create tickets, manage users, and more through this chat interface.',
     action: 'show-completion',
     nextStepId: 'nudges',
   },
@@ -555,7 +643,7 @@ export const LOGGED_IN_FLOW: FlowStep[] = [
   {
     id: 'logged-in-device-complete',
     actor: 'assistant',
-    message: 'Device is activated successfully.',
+    message: 'Machine is activated successfully.',
     action: 'show-dashboard',
     nextStepId: 'dashboard-shown',
   },

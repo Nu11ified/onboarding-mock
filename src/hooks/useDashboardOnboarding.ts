@@ -28,6 +28,8 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
   const initializedRef = useRef(false);
   const needsPostLoginFlowRef = useRef(false);
 
+  const [isPostLogin, setIsPostLogin] = useState(false);
+
   // Initialize flow from saved state (runs once)
   useEffect(() => {
     if (initializedRef.current) return;
@@ -44,6 +46,8 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
           setIsActive(true);
           setMessages(parsedMessages);
           messageIdCounter.current = parsedMessages.length;
+          // Assume post-login if we have saved messages but no active flow state
+          setIsPostLogin(true);
         }
       } catch {}
     }
@@ -87,11 +91,10 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
             chatId: state.chatId,
           });
 
-          // Start at session-transfer to move chat from anon to logged-in
-          flowManager.jumpToStep('session-transfer');
-
-          // Start post-login flow immediately; don't block on training
+          // Enter Post-Login Mode (Regex Mode)
+          setIsPostLogin(true);
           needsPostLoginFlowRef.current = true;
+
           // Clear the flag so we don't re-initialize
           localStorage.setItem('onboarding_state', JSON.stringify({
             ...state,
@@ -174,6 +177,30 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
         const mockProfileKey = `profile_${Date.now()}_${Math.random().toString(36).substring(7)}`;
         flowManager.updateContext({
           profileKey: mockProfileKey,
+        });
+        return true;
+      }
+
+      case 'register-email': {
+        const email = payload?.email || context.email;
+        console.log('✅ Registering email (mock - allowing repeats):', email);
+        // Mock: Always succeed, allowing repeat emails without redirecting to login
+        return true;
+      }
+
+      case 'validate-otp': {
+        const otp = payload?.otp || context.otp;
+        console.log('✅ Validating OTP (mock - any 6 digits):', otp);
+        // Mock: Accept any OTP
+        return true;
+      }
+
+      case 'spawn-demo-device': {
+        console.log('🚀 Spawning demo device');
+        const mockDeviceId = `demo_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        flowManager.updateContext({
+          deviceId: mockDeviceId,
+          mode: 'demo',
         });
         return true;
       }
@@ -439,16 +466,125 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
 
     try {
       const currentStep = flowManager.getCurrentStep();
-
-      // Exact Q&A mapping for newly added devices (works at any time)
+      
+      // === REGEX-BASED INTENT PARSING (High Priority) ===
       if (typeof input === 'string' && input && input.trim()) {
         const text = input.trim();
-        const ctx = flowManager.getContext();
-        // Helper to render connection details widget
-        const renderConn = () => ({ type: 'mqtt-connection-info' });
+        const userInput = text.toLowerCase();
+
+        // 1. Assign Users to Tickets
+        const assignMatch = userInput.match(/assign\s+(?:ticket\s+)?([a-z0-9-]+)\s+to\s+(.+)/i);
+        if (assignMatch) {
+          addUserMessage(input);
+          const ticketId = assignMatch[1]; // e.g. T-123
+          const assignee = assignMatch[2]; // e.g. Alice
+          
+          try {
+             // We try to find the ticket first via API or just optimistically update
+             // Since we are in a hook, we can't easily access the page's ticket state directly
+             // But we can call the same API the page uses
+             const res = await fetch('/api/tickets', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ action: 'update', id: ticketId, updates: { owner: assignee } }),
+             });
+             const data = await res.json();
+             if (data.ticket) {
+               addAssistantMessage(`I've assigned ticket ${ticketId} to ${assignee}.`);
+             } else {
+               addAssistantMessage(`I couldn't find ticket ${ticketId}. Please check the ID.`);
+             }
+          } catch (e) {
+             addAssistantMessage(`Failed to assign ticket. Please try again.`);
+          }
+          setIsProcessing(false);
+          return;
+        }
+
+        // 2. Invite Users
+        if (userInput.match(/invite|add user|team|collaborator/)) {
+           addUserMessage(input);
+           if (userInput.includes('@')) {
+             // Attempt to extract emails directly
+             const emails = text.match(/[\w\.-]+@[\w\.-]+\.\w+/g);
+             if (emails && emails.length > 0) {
+               const users = emails.map((email: string) => ({ name: email.split('@')[0], email, role: 'Viewer' }));
+               await executeAction('add-users', { users });
+               addAssistantMessage(`Invited: ${emails.join(', ')}`);
+             } else {
+               addAssistantMessage("I can help you invite team members. Who would you like to invite?", { type: 'user-invitation-form' });
+             }
+           } else {
+             addAssistantMessage("I can help you invite team members. Who would you like to invite?", { type: 'user-invitation-form' });
+           }
+           setIsProcessing(false);
+           return;
+        }
+
+        // 3. Getting Recent Tickets
+        if (userInput.match(/recent ticket|latest ticket|show ticket|list ticket/)) {
+           addUserMessage(input);
+           try {
+             const res = await fetch('/api/tickets?pageSize=5');
+             const data = await res.json();
+             if (data.tickets && data.tickets.length > 0) {
+               const ticketList = data.tickets.map((t: any) => `• **${t.related}**: ${t.summary} (${t.status})`).join('\n');
+               addAssistantMessage(`Here are the recent tickets:\n\n${ticketList}`);
+             } else {
+               addAssistantMessage("You don't have any recent tickets.");
+             }
+           } catch (e) {
+             addAssistantMessage("Failed to fetch tickets.");
+           }
+           setIsProcessing(false);
+           return;
+        }
+
+        // 4. Creating a Ticket
+        if (userInput.match(/create ticket|open ticket|new ticket|issue|problem|repair/)) {
+           addUserMessage(input);
+           addAssistantMessage("Opening a new maintenance ticket for you...", { type: 'ticket-creation-form' }); 
+           await executeAction('create-test-ticket');
+           const tid = flowManager.getContext().testTicketId;
+           addAssistantMessage(`Draft ticket ${tid} created. Please fill in the details in the Tickets panel.`);
+           setIsProcessing(false);
+           return;
+        }
+
+        // 5. Compare Sensor Values
+        if (userInput.match(/compare|sensor|graph|chart|metric/)) {
+           addUserMessage(input);
+           addAssistantMessage("I've highlighted the sensor comparison view. You can toggle between Vibration, Temperature, and Pressure on the charts panel.");
+           await executeAction('switch-graph-channel', { to: 'Vibration' }); 
+           setIsProcessing(false);
+           return;
+        }
+
+        // 6. Showing different dashboards / Switching graphs
+        const switchMatch = userInput.match(/switch|change graph|show\s+(.+)/i);
+        if (switchMatch) {
+           // Be careful not to over-match "show ticket"
+           if (!userInput.includes('ticket')) {
+             addUserMessage(input);
+             const target = switchMatch[1].replace(/graph|dashboard|sensor/gi, '').trim();
+             // Heuristic mapping
+             let channel = 'Speed';
+             if (target.match(/temp|heat/)) channel = 'Temperature';
+             if (target.match(/vib/)) channel = 'Vibration';
+             if (target.match(/press/)) channel = 'Pressure';
+             
+             const ok = await executeAction('switch-graph-channel', { to: channel });
+             addAssistantMessage(ok ? `Switched dashboard graphs to ${channel}.` : `I couldn't switch to ${target}.`);
+             setIsProcessing(false);
+             return;
+           }
+        }
+        
+        // Specific exact matches (Legacy support)
         if (text === 'Show connection details') {
           addUserMessage(input);
-          // Ensure we have connection details; otherwise inform
+          const ctx = flowManager.getContext();
+          const renderConn = () => ({ type: 'mqtt-connection-info' });
           if (ctx.mqttConnection) {
             addAssistantMessage('Here are your connection details:', renderConn());
           } else {
@@ -457,85 +593,23 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
           setIsProcessing(false);
           return;
         }
-        if (text === 'Switch graphs to Speed sensor') {
-          addUserMessage(input);
-          const ok = await executeAction('switch-graph-channel');
-          addAssistantMessage(ok ? 'Switched dashboard graphs to Speed.' : 'Failed to switch graphs.');
-          setIsProcessing(false);
-          return;
+
+        // General / Help
+        if (userInput.match(/help|hi|hello|start|options/)) {
+           addUserMessage(input);
+           addAssistantMessage("Thank you for logging in. You can now see the insights of your onboarded machine on the right. You can also:\n\n• **Invite Users**: Share this dashboard\n• **Get Recent Tickets**: See what's happening\n• **Create Ticket**: Report an issue\n• **Assign Tickets**: e.g., \"Assign T-123 to Alice\"\n• **Compare Sensors**: Analyze data\n\nWhat would you like to do?");
+           setIsProcessing(false);
+           return;
         }
-        if (text === 'Show last 5 minutes of telemetry') {
-          addUserMessage(input);
-          try {
-            const schema = ctx.mqttConnection?.sampleSchema || {};
-            const metrics = Object.keys(schema).slice(0, 2);
-            const metricsParam = metrics.length ? metrics.join(',') : 'vibration,temperature';
-            const res = await fetch(`/api/v2/metrics/query?metrics=${encodeURIComponent(metricsParam)}&window=5m`);
-            await res.json();
-            addAssistantMessage('Here are the last 5 minutes of telemetry.');
-          } catch {
-            addAssistantMessage('Unable to load telemetry right now.');
-          }
-          setIsProcessing(false);
-          return;
-        }
-        if (text === 'Switch graphs to the most active sensor') {
-          addUserMessage(input);
-          const schema = ctx.mqttConnection?.sampleSchema || {};
-          const first = Object.keys(schema)[0] || 'Speed';
-          const ok = await executeAction('switch-graph-channel', { to: first });
-          addAssistantMessage(ok ? `Switched dashboard graphs to ${first}.` : 'Failed to switch graphs.');
-          setIsProcessing(false);
-          return;
-        }
-        if (text === 'Create a test ticket') {
-          addUserMessage(input);
-          await executeAction('create-test-ticket');
-          const tid = flowManager.getContext().testTicketId;
-          addAssistantMessage(`Created test ticket ${tid}.`);
-          setIsProcessing(false);
-          return;
-        }
-        if (text.startsWith('Invite users:')) {
-          addUserMessage(input);
-          const emails = text.replace('Invite users:', '').split(',').map(s => s.trim()).filter(s => s.includes('@'));
-          const users = emails.map((email: string) => ({ name: email.split('@')[0], email, role: 'Viewer' }));
-          await executeAction('add-users', { users });
-          addAssistantMessage(`Invited: ${users.map(u => u.email).join(', ')}`);
-          setIsProcessing(false);
-          return;
-        }
-        if (text === 'What sensors are active?') {
-          addUserMessage(input);
-          const schema = ctx.mqttConnection?.sampleSchema;
-          if (schema) {
-            const sensors = Object.keys(schema).join(', ');
-            addAssistantMessage(`Active sensors: ${sensors}`);
-          } else {
-            addAssistantMessage('Sensor schema is not available yet.');
-          }
-          setIsProcessing(false);
-          return;
-        }
-        if (text === 'What is my current health score?') {
-          addUserMessage(input);
-          addAssistantMessage('Your current health score is 94/100.');
-          setIsProcessing(false);
-          return;
-        }
-      }
-      
-      // If no active flow, check if user wants to start onboarding
-      if (!currentStep) {
-        // Add user message
-        if (typeof input === 'string' && input && input.trim()) {
-          const userInput = input.toLowerCase();
-          addUserMessage(input);
-          
-          // Check if user wants to onboard/add machine
-          if (userInput.includes('onboard') || userInput.includes('add') || userInput.includes('machine') || userInput.includes('device')) {
+
+        // Check if user wants to onboard/add machine (Only if NOT in post-login mode?)
+        // Actually, user might want to add ANOTHER machine.
+        if (userInput.includes('onboard') || userInput.includes('add machine') || userInput.includes('add device')) {
             // Start the logged-in onboarding flow
+            // If we are in post-login mode, we might want to reset to allow this flow
+            // But for now, let's allow it.
             setIsActive(true);
+            setIsPostLogin(false); // Re-enable flow manager for this task
             flowManager.jumpToStep('user-question-logged-in');
             
             // Auto-advance through the initial step
@@ -551,21 +625,44 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
             }
             setIsProcessing(false);
             return;
-          }
-          
-          // General response for other queries
-          await new Promise(resolve => setTimeout(resolve, 800));
-          
-          const responseMessage: ChatMessage = {
-            id: `msg-${messageIdCounter.current++}`,
-            actor: 'assistant',
-            message: 'I received your message. This chat is integrated with the dashboard and can help you manage machines, users, tickets, and more. Try asking me to "add a machine" to get started with device onboarding!',
-            timestamp: new Date(),
-          };
-          
-          setMessages(prev => [...prev, responseMessage]);
         }
-        
+      }
+
+      // If we are in Post-Login Mode (Regex Mode), STOP here. Do not fall through to FlowManager steps.
+      if (isPostLogin) {
+        // If we reached here, it means no regex matched.
+        if (typeof input === 'string' && input && input.trim()) {
+          addUserMessage(input);
+          // Generic response
+          await new Promise(resolve => setTimeout(resolve, 800));
+          addAssistantMessage("I didn't catch that. You can ask me to invite users, show tickets, compare sensors, or create a ticket.");
+        }
+        setIsProcessing(false);
+        return;
+      }
+      
+      // === LEGACY FLOW MANAGER LOGIC ===
+      
+      // If input is empty and we're in post-login mode, ensure we don't fall through
+      // (Extra safety check in case isPostLogin state update is pending but we shouldn't advance)
+      if (!input && isPostLogin) {
+        setIsProcessing(false);
+        return;
+      }
+      
+      // If no active flow, check if user wants to start onboarding (Fallback)
+      if (!currentStep) {
+        // ... existing fallback logic ...
+        if (typeof input === 'string' && input && input.trim()) {
+             addUserMessage(input);
+             const responseMessage: ChatMessage = {
+                id: `msg-${messageIdCounter.current++}`,
+                actor: 'assistant',
+                message: 'I received your message. Try asking me to "add a machine" to get started with device onboarding!',
+                timestamp: new Date(),
+              };
+              setMessages(prev => [...prev, responseMessage]);
+        }
         setIsProcessing(false);
         return;
       }
@@ -647,44 +744,29 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
     } finally {
       setIsProcessing(false);
     }
-  }, [flowManager, addUserMessage, addMessageFromCurrentStep, executeAction]);
+  }, [flowManager, addUserMessage, addMessageFromCurrentStep, executeAction, isPostLogin]);
 
   const startPostLoginFlow = useCallback(async () => {
-    const currentStep = flowManager.getCurrentStep();
-    if (currentStep) {
-      console.log('🚀 Starting post-login flow at:', currentStep.id);
-      
-      // Add initial message
-      addMessageFromCurrentStep();
+    // Disabled: Post-login flow is now handled by regex mode
+  }, []);
 
-      // Auto-advance if no user input needed
-      if (!currentStep.waitForUserInput) {
-        console.log('➡️  Auto-advancing from:', currentStep.id);
-        setTimeout(() => {
-          handleUserInput('');
-        }, 800);
-      }
-    }
-  }, [flowManager, addMessageFromCurrentStep, handleUserInput]);
-
-  // Start post-login flow if needed (after functions are defined)
+  // Start post-login flow if needed
   useEffect(() => {
     if (needsPostLoginFlowRef.current) {
       needsPostLoginFlowRef.current = false;
       setTimeout(() => {
-        startPostLoginFlow();
-      }, 500);
+        // Send the welcome message
+        const welcomeMessage: ChatMessage = {
+          id: `msg-${messageIdCounter.current++}`,
+          actor: 'assistant',
+          message: 'Thank you for logging in. You can now see the insights of your onboarded machine on the right. You can also do:\n\n• **Invite users**\n• **Get recent tickets**\n• **Create a ticket**\n• **Assign users to tickets**\n• **Compare sensor values**\n• **Show different dashboards**',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, welcomeMessage]);
+        setIsActive(true);
+      }, 1000);
     }
-  }, [startPostLoginFlow]);
-
-  const getCurrentWidget = useCallback(() => {
-    const currentStep = flowManager.getCurrentStep();
-    return currentStep?.widget || null;
-  }, [flowManager]);
-
-  const getContext = useCallback(() => {
-    return flowManager.getContext();
-  }, [flowManager]);
+  }, []);
 
   return {
     messages,
@@ -692,7 +774,7 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
     isActive,
     currentStep: flowManager.getCurrentStep(),
     handleUserInput,
-    getCurrentWidget,
-    getContext,
+    getCurrentWidget: () => flowManager.getCurrentStep()?.widget,
+    getContext: () => flowManager.getContext(),
   };
 }
