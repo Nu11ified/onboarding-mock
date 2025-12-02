@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { ArrowRight, Lock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { useRouter } from "next/navigation";
+import { ArrowRight, Lock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface LoginButtonWidgetProps {
   buttonText?: string;
@@ -12,11 +12,11 @@ interface LoginButtonWidgetProps {
   onSubmit?: () => void;
 }
 
-export function LoginButtonWidget({ 
-  buttonText = 'Set Password', 
-  url, 
-  message = 'Please secure your account to continue.',
-  onSubmit
+export function LoginButtonWidget({
+  buttonText = "Resend Email",
+  url,
+  message = "Please secure your account to continue.",
+  onSubmit,
 }: LoginButtonWidgetProps) {
   const router = useRouter();
 
@@ -26,24 +26,34 @@ export function LoginButtonWidget({
   };
 
   return (
-    <div className="rounded-xl border border-purple-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-100">
-          <Lock className="h-5 w-5 text-purple-600" />
+    <div className="rounded-xl border border-purple-200 bg-white p-6 shadow-md hover:shadow-lg transition-shadow">
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-600 shadow-md">
+          <Lock className="h-6 w-6 text-white" />
         </div>
-        
+
         <div className="flex-1">
-          <h3 className="text-sm font-semibold text-slate-900">
-            Action Required
+          <h3 className="text-base font-bold text-slate-900 mb-3">
+            Check your email
           </h3>
-          <p className="mt-1 text-sm text-slate-600">
-            {message}
-          </p>
-          
-          <div className="mt-3">
-            <Button 
+          <div className="space-y-2 text-sm text-slate-600 leading-relaxed">
+            {message.split('\n').map((line, index) => {
+              if (!line.trim()) return null;
+              return (
+                <p key={index} className={cn(
+                  "leading-relaxed",
+                  index === 0 && "font-medium text-slate-700"
+                )}>
+                  {line}
+                </p>
+              );
+            })}
+          </div>
+
+          <div className="mt-4">
+            <Button
               onClick={handleClick}
-              className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+              className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-md hover:shadow-lg transition-all"
             >
               {buttonText}
               <ArrowRight className="h-4 w-4" />
