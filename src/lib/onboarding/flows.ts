@@ -176,8 +176,7 @@ export const NON_LOGIN_FLOW: FlowStep[] = [
       data: {
         url: "/reset",
         buttonText: "Resend Email",
-        message:
-          "We've sent you an email with a link to set your password.\n\nDidn't receive it?\n\nCheck your spam folder or click the button below to resend the email.",
+        message: "We've sent you an email with a link to set your password.",
       },
     },
     waitForUserInput: true,
@@ -304,9 +303,8 @@ Send multiple timestamped readings per sensor in arrays.
       type: "login-button-widget",
       data: {
         url: "/reset",
-        buttonText: "Set Password",
-        message:
-          "Machine setup complete.\n\nPlease set your password.",
+        buttonText: "Resend Email",
+        message: "We've sent you an email with a link to set your password.",
       },
     },
     waitForUserInput: true,
