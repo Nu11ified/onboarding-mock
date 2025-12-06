@@ -19,6 +19,8 @@ import {
   Server,
   Boxes,
   TrendingUp,
+  Key,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -121,6 +123,8 @@ export default function LandingPage() {
   const [newPromptContent, setNewPromptContent] = useState("");
   const [buttonRect, setButtonRect] = useState<DOMRect | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const [showInvitePopup, setShowInvitePopup] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
 
   const handleSelect = (scenario: CtaKey) => {
     if (isRouting || selectedScenario) return;
@@ -141,9 +145,14 @@ export default function LandingPage() {
 
   const handleSend = () => {
     if (!selectedScenario || isRouting) return;
-    setIsRouting(true);
+    // Show invite code popup instead of navigating directly
+    setShowInvitePopup(true);
+  };
 
-    // Navigate to demo page for onboarding
+  const handleInviteSubmit = () => {
+    // Accept any code - just proceed to the demo page
+    setShowInvitePopup(false);
+    setIsRouting(true);
     router.push("/demo");
   };
 
@@ -216,6 +225,76 @@ export default function LandingPage() {
   return (
     <main className="landing-ambient relative flex min-h-screen flex-col overflow-hidden text-slate-900">
       <div className="landing-glow absolute inset-0" aria-hidden />
+
+      {/* Invite Code Popup */}
+      {showInvitePopup &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+              onClick={() => setShowInvitePopup(false)}
+            />
+            {/* Modal */}
+            <div className="relative w-full max-w-md mx-4 rounded-3xl border border-purple-200/80 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-1 shadow-2xl animate-fade-in-up">
+              <div className="rounded-[22px] bg-white p-8">
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowInvitePopup(false)}
+                  className="absolute top-6 right-6 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+
+                {/* Icon */}
+                <div className="mb-6 flex justify-center">
+                  <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
+                    <Key className="h-8 w-8" />
+                  </div>
+                </div>
+
+                {/* Title */}
+                <h2 className="mb-6 text-center text-2xl font-semibold tracking-tight text-slate-900">
+                  Enter Your Invite Code
+                </h2>
+
+                {/* Input */}
+                <input
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  placeholder="Enter code..."
+                  className="w-full rounded-xl border border-purple-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/20 transition"
+                />
+
+                {/* Helper Text */}
+                <p className="mt-3 text-sm text-slate-500">
+                  Use the invite code we provided to access the onboarding experience.
+                </p>
+
+                {/* Contact Info */}
+                <p className="mt-2 text-sm text-slate-500">
+                  No code? Contact us at{" "}
+                  <a
+                    href="mailto:onboarding@microai.com"
+                    className="font-medium text-purple-600 hover:text-purple-700 transition"
+                  >
+                    onboarding@microai.com
+                  </a>
+                </p>
+
+                {/* Submit Button */}
+                <button
+                  onClick={handleInviteSubmit}
+                  className="mt-6 w-full rounded-xl bg-purple-600 px-6 py-3 text-base font-semibold text-white transition hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400/50"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Lovable-style Top Bar */}
       <header className="relative z-20 border-b border-purple-100/50 bg-white/80 backdrop-blur-md">
