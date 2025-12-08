@@ -173,30 +173,12 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
       }
       
       case 'send-password-reset': {
-        try {
-          const email = context.email;
-          if (!email) {
-            console.error('❌ No email in context for password reset');
-            return false;
-          }
-          // Send reset email (simulated)
-          const sendRes = await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'send-password-reset', email })
-          });
-          const sendData = await sendRes.json();
-          if (!sendData?.success || !sendData?.resetUrl) {
-            console.error('❌ Failed to send reset email:', sendData);
-            return false;
-          }
-          // Redirect user to the real reset page to complete password setup
-          window.location.href = sendData.resetUrl;
-          return true;
-        } catch (e) {
-          console.error('Password reset flow failed:', e);
-          return false;
+        // Just store the email - user will click button to navigate to reset page
+        const email = context.email;
+        if (email) {
+          localStorage.setItem('pending_reset_email', email);
         }
+        return true;
       }
 
       case 'spawn-demo-device': {

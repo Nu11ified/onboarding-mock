@@ -103,6 +103,8 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
         return (
           <EmailFormWidget
             onSubmit={async (email: string) => {
+              // Store email in localStorage as backup for password reset
+              localStorage.setItem('pending_reset_email', email);
               // Don't print the email in chat history
               if (onSubmit) await onSubmit({ email });
             }}

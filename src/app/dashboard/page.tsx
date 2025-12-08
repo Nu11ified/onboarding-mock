@@ -56,6 +56,7 @@ import {
   ProfileSelectionWidget,
   ProfileConfigFormWidget,
 } from "@/components/onboarding";
+import { SMSConsentPopup } from "@/components/SMSConsentPopup";
 
 type AssetProfile = {
   id: string;
@@ -710,6 +711,8 @@ function DashboardPageContent() {
   const [notifications, setNotifications] = useState<
     NotificationItemWithRead[]
   >(DASHBOARD_NOTIFICATIONS.map((n) => ({ ...n, isRead: false })));
+  const [showSMSConsent, setShowSMSConsent] = useState(false);
+  const [smsConsentRequiresPhone, setSmsConsentRequiresPhone] = useState(false);
 
   // Pagination state for Tickets view
   const [page, setPage] = useState<number>(1);
@@ -720,6 +723,9 @@ function DashboardPageContent() {
 
   // URL params are now read at the top of the component
 
+  // Check URL params for SMS consent popup
+  const smsConsentParam = searchParams.get("smsConsent");
+  
   // Check if user just completed onboarding - do this BEFORE other effects
   useEffect(() => {
     if (onboardedParam === "true") {
@@ -734,8 +740,29 @@ function DashboardPageContent() {
         // Clear the flags
         localStorage.removeItem("onboarding_complete");
       }
+      
+      // Always show SMS consent popup after onboarding/password setup
+      // Default to requiring phone number for new users
+      // Small delay to let the dashboard render first
+      setTimeout(() => {
+        setSmsConsentRequiresPhone(true); // New users need to enter phone
+        setShowSMSConsent(true);
+      }, 1000);
     }
   }, [onboardedParam]);
+  
+  // Handle SMS consent URL param (for manually triggering the popup)
+  useEffect(() => {
+    if (smsConsentParam === "true") {
+      // User has phone number on file - just show yes/no
+      setSmsConsentRequiresPhone(false);
+      setShowSMSConsent(true);
+    } else if (smsConsentParam === "new") {
+      // User needs to enter phone number
+      setSmsConsentRequiresPhone(true);
+      setShowSMSConsent(true);
+    }
+  }, [smsConsentParam]);
 
   // Auto-select newly onboarded machine
   useEffect(() => {
@@ -1384,9 +1411,22 @@ function DashboardPageContent() {
     [getOnboardingContext, handleOnboardingInput],
   );
 
+  const handleSMSConsent = (consent: boolean, phoneNumber?: string) => {
+    console.log('SMS consent:', consent, phoneNumber ? `Phone: ${phoneNumber}` : '');
+    // Consent is already stored in localStorage by the popup component
+    // Optionally send to backend here
+  };
+
   return (
-    <div className="relative flex h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100 text-slate-900">
-      <Sidebar
+    <>
+      <SMSConsentPopup
+        isOpen={showSMSConsent}
+        onClose={() => setShowSMSConsent(false)}
+        onConsent={handleSMSConsent}
+        requirePhoneNumber={smsConsentRequiresPhone}
+      />
+      <div className="relative flex h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100 text-slate-900">
+        <Sidebar
         active={activeNav}
         onSelect={(key) => {
           setActiveNav(key);
@@ -1634,7 +1674,8 @@ function DashboardPageContent() {
           void (async () => handleCreateTicket(payload))();
         }}
       />
-    </div>
+      </div>
+    </>
   );
 }
 

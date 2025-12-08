@@ -51,9 +51,8 @@ function ResetPasswordContent() {
     setLoading(true);
     try {
       // Complete reset
-      // If no token, try to find email from localStorage
-      const pendingEmailRaw = localStorage.getItem("pending_reset_email");
-      const email = pendingEmailRaw ? JSON.parse(pendingEmailRaw) : null;
+      // Get email from localStorage (stored during onboarding)
+      const email = localStorage.getItem("pending_reset_email");
 
       const complete = await fetch("/api/auth", {
         method: "POST",
@@ -62,7 +61,7 @@ function ResetPasswordContent() {
           action: "complete-password-reset",
           token: token || undefined,
           password,
-          email: !token ? email : undefined, // Send email if token is missing
+          email: email || undefined, // Send email if available
         }),
       });
       const completeData = await complete.json();
@@ -99,7 +98,7 @@ function ResetPasswordContent() {
         } catch {}
       }
 
-      // Redirect to dashboard handoff page
+      // Redirect to dashboard - SMS consent will be shown there
       router.replace(
         "/demo/dashboard?onboarded=true&showDashboard=true&autoSelectMachine=true",
       );

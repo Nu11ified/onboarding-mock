@@ -42,11 +42,10 @@ export default function LoginPage() {
         if (pendingSession) {
           // Continue onboarding flow with session transfer
           localStorage.removeItem('pending_session');
-          // Redirect to demo page to continue with post-login flow
           router.push('/demo?continue-onboarding=true');
         } else {
-          // Regular login - redirect to dashboard
-          router.push('/dashboard?logged-in=true');
+          // Regular login - redirect to dashboard (SMS consent shown there)
+          router.push('/dashboard?logged-in=true&onboarded=true');
         }
       } else {
         setError(data.message || 'Login failed. Please check your credentials.');

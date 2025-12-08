@@ -165,22 +165,22 @@ export const NON_LOGIN_FLOW: FlowStep[] = [
     nextStepId: "send-reset-email",
   },
 
-  // Step: Send password reset email (no widget)
+  // Step: Show password reset widget (action stores email, user clicks button to navigate)
   {
     id: "send-reset-email",
     actor: "assistant",
     message:
       "Machine activated. Please set your password to secure your account.",
+    action: "send-password-reset",
     widget: {
       type: "login-button-widget",
       data: {
         url: "/reset",
-        buttonText: "Resend Email",
-        message: "We've sent you an email with a link to set your password.",
+        buttonText: "Set Password",
+        message: "Click below to set your password and complete setup.",
       },
     },
     waitForUserInput: true,
-    action: "send-password-reset",
   },
 
   // LIVE DEVICE PATH
