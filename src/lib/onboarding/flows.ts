@@ -176,8 +176,8 @@ export const NON_LOGIN_FLOW: FlowStep[] = [
       type: "login-button-widget",
       data: {
         url: "/reset",
-        buttonText: "Set Password",
-        message: "Click below to set your password and complete setup.",
+        buttonText: "Resend Email",
+        message: "We've sent you an email with a link to set your password.",
       },
     },
     waitForUserInput: true,
