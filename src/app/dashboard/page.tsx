@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  Suspense,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import type { ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useSearchParams } from "next/navigation";
@@ -81,7 +90,6 @@ type Machine = {
 };
 
 const SIDENAV_ITEMS: Array<{ key: NavKey; label: string; icon: LucideIcon }> = [
-  { key: "ask-ai", label: "Ask AI", icon: MessageSquare },
   { key: "overview", label: "Overview", icon: LayoutDashboard },
   { key: "view-machine", label: "Assets", icon: Gauge },
   { key: "tickets", label: "Tickets", icon: Ticket },
@@ -210,13 +218,7 @@ const DASHBOARD_NOTIFICATIONS: NotificationItem[] = [
   },
 ];
 
-
-
-
-
-
 type NavKey =
-  | "ask-ai"
   | "overview"
   | "view-machine"
   | "machines"
@@ -225,7 +227,6 @@ type NavKey =
   | "tickets"
   | "apps"
   | "settings";
-
 
 type CollaboratorStatus = "Active" | "Invited" | "Pending Verification";
 
@@ -318,7 +319,13 @@ type ChatEntry = {
 };
 
 // Onboarding Chat Input Component
-function OnboardingChatInput({ onSend, isProcessing }: { onSend: (text: string) => Promise<void>; isProcessing: boolean }) {
+function OnboardingChatInput({
+  onSend,
+  isProcessing,
+}: {
+  onSend: (text: string) => Promise<void>;
+  isProcessing: boolean;
+}) {
   const [input, setInput] = useState("");
 
   const handleSend = async () => {
@@ -378,209 +385,6 @@ function OnboardingChatInput({ onSend, isProcessing }: { onSend: (text: string) 
   );
 }
 
-// Ask AI Full-Page Chat Component
-function AskAIPage({
-  messages,
-  onSendMessage,
-  isProcessing,
-  renderWidget,
-}: {
-  messages: any[];
-  onSendMessage: (text: string) => Promise<void>;
-  isProcessing: boolean;
-  renderWidget?: (widgetDef: any) => React.ReactNode;
-}) {
-  const [input, setInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const handleSend = async () => {
-    if (input.trim() && !isProcessing) {
-      await onSendMessage(input);
-      setInput("");
-    }
-  };
-
-  return (
-    <div className="flex h-full flex-col bg-slate-50">
-      {/* Header - Outside the card */}
-      <div className="px-6 py-5 bg-white border-b border-slate-200">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-purple-600">
-            <MessageSquare className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">Ask AI</h1>
-            <p className="text-sm text-slate-500">
-              Your intelligent assistant for device management, onboarding, and support
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Chat Container */}
-      <div className="flex-1 flex items-center justify-center p-6 overflow-hidden">
-        <div className="w-full max-w-4xl h-full flex flex-col">
-          {/* White Card with Chat */}
-          <div className="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            {/* Chat Messages Area */}
-            <div className="flex-1 p-6 overflow-y-auto">
-              {messages.length === 0 ? (
-                <div className="flex h-full items-center justify-center">
-                  <div className="text-center max-w-lg">
-                    <div className="mb-6 inline-flex rounded-full bg-purple-50 p-6">
-                      <MessageSquare className="h-12 w-12 text-purple-600" />
-                    </div>
-                    <h2 className="text-2xl font-semibold text-slate-900 mb-3">
-                      Welcome to Ask AI
-                    </h2>
-                    <p className="text-slate-600 mb-8 leading-relaxed">
-                      I can help you add machines, manage asset profiles, create tickets, configure settings, and answer questions about your devices.
-                    </p>
-                    <div className="space-y-3">
-                      <p className="text-sm font-semibold text-slate-700 text-left">Try asking:</p>
-                      <ul className="space-y-2.5 text-sm text-slate-600">
-                        <li className="flex items-start gap-2.5 text-left">
-                          <span className="text-purple-500 mt-0.5">•</span>
-                          <span>&quot;Add a new machine to monitor&quot;</span>
-                        </li>
-                        <li className="flex items-start gap-2.5 text-left">
-                          <span className="text-purple-500 mt-0.5">•</span>
-                          <span>&quot;Show me my machine health scores&quot;</span>
-                        </li>
-                        <li className="flex items-start gap-2.5 text-left">
-                          <span className="text-purple-500 mt-0.5">•</span>
-                          <span>&quot;Create a maintenance ticket&quot;</span>
-                        </li>
-                        <li className="flex items-start gap-2.5 text-left">
-                          <span className="text-purple-500 mt-0.5">•</span>
-                          <span>&quot;Invite team members to view the dashboard&quot;</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6 max-w-3xl mx-auto">
-                  {messages.map((msg: any) => (
-                    <div key={msg.id} className="group">
-                      <div className="flex items-start gap-3">
-                        <Avatar className="h-9 w-9 shrink-0">
-                          <AvatarFallback
-                            className={cn(
-                              "text-sm font-semibold",
-                              msg.actor === "assistant"
-                                ? "bg-purple-100 text-purple-700"
-                                : "bg-slate-800 text-white",
-                            )}
-                          >
-                            {msg.actor === "assistant" ? "AI" : "YO"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-slate-700">
-                              {msg.actor === "assistant"
-                                ? "Onboarding Copilot"
-                                : "You"}
-                            </p>
-                            <p className="text-xs text-slate-400">Just now</p>
-                          </div>
-                          {msg.message && (
-                            <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                              <p className="whitespace-pre-wrap leading-relaxed">
-                                {msg.message}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {msg.widget && msg.actor === "assistant" && renderWidget && (
-                        <div className="ml-12 mt-3">
-                          {renderWidget(msg.widget)}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  
-                  {/* Processing Indicator */}
-                  {isProcessing && (
-                    <div className="flex gap-3">
-                      <Avatar className="h-9 w-9 shrink-0">
-                        <AvatarFallback className="bg-purple-100 text-purple-700 text-sm font-semibold">
-                          AI
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="rounded-2xl bg-slate-100 px-4 py-3">
-                        <div className="flex gap-1">
-                          <div
-                            className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
-                            style={{ animationDelay: "0ms" }}
-                          />
-                          <div
-                            className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
-                            style={{ animationDelay: "150ms" }}
-                          />
-                          <div
-                            className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
-                            style={{ animationDelay: "300ms" }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div ref={messagesEndRef} />
-                </div>
-              )}
-            </div>
-
-            {/* Input Area - At bottom of white card */}
-            <div className="border-t border-slate-200 p-4">
-              <div className="flex items-center gap-2">
-                <button 
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                  title="Quick actions"
-                >
-                  <Plus className="h-5 w-5" />
-                </button>
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !isProcessing) {
-                      void handleSend();
-                    }
-                  }}
-                  placeholder="Ask me anything about your devices, onboarding, or dashboard..."
-                  className="flex-1 rounded-lg bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  disabled={isProcessing}
-                />
-                <button 
-                  onClick={() => void handleSend()}
-                  disabled={!input.trim() || isProcessing}
-                  className={cn(
-                    "inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors",
-                    input.trim() && !isProcessing
-                      ? "bg-purple-600 text-white hover:bg-purple-700"
-                      : "bg-slate-200 text-slate-400 cursor-not-allowed",
-                  )}
-                >
-                  Send
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Onboarding Content Area Component
 function OnboardingContentArea() {
   return (
@@ -595,7 +399,7 @@ function OnboardingContentArea() {
         <p className="mb-8 text-lg text-slate-600">
           Get started by adding your machine to the platform
         </p>
-        
+
         <div className="mb-12 space-y-4">
           <h2 className="text-xl font-semibold text-slate-800">How it works</h2>
           <div className="space-y-3">
@@ -612,7 +416,8 @@ function OnboardingContentArea() {
                 2
               </div>
               <p className="text-sm text-slate-600 pt-1">
-                Configure your machine profile with cycle time and maintenance schedule
+                Configure your machine profile with cycle time and maintenance
+                schedule
               </p>
             </div>
             <div className="flex gap-4">
@@ -636,7 +441,10 @@ function OnboardingContentArea() {
 
         <div className="rounded-2xl border-2 border-dashed border-purple-200 bg-purple-50/50 px-6 py-4">
           <p className="text-sm text-slate-600">
-            <span className="font-semibold text-purple-700">← Use the chat on the left</span> to begin the onboarding process
+            <span className="font-semibold text-purple-700">
+              ← Use the chat on the left
+            </span>{" "}
+            to begin the onboarding process
           </p>
         </div>
       </div>
@@ -658,7 +466,6 @@ function DashboardPageContent() {
     getContext: getOnboardingContext,
   } = useDashboardOnboarding();
 
-  
   // Check URL params early to set initial state correctly
   const scenarioParam = searchParams.get("scenario");
   const onboardedParam = searchParams.get("onboarded");
@@ -672,17 +479,23 @@ function DashboardPageContent() {
     scenario: scenarioParam,
   });
 
-  // Initialize activeNav - default to 'ask-ai' for new users, or based on params
+  // Initialize activeNav - default to 'overview' for new users, or based on params
   const [activeNav, setActiveNav] = useState<NavKey>(
-    autoSelectMachine === "true" ? "machines" : "ask-ai",
+    autoSelectMachine === "true" ? "machines" : "overview",
   );
   const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
   const [chatWidth, setChatWidth] = useState<number>(380);
   const [isResizing, setIsResizing] = useState<boolean>(false);
   const [chatOverlay, setChatOverlay] = useState<boolean>(false);
+  const [chatMaximized, setChatMaximized] = useState<boolean>(false);
+  const chatScrollTopRef = useRef<number>(0);
   const DOCK_MAX = 420; // px threshold where chat snaps from docked to overlay mode
-  const chatResizeRef = useRef<{ startX: number; startWidth: number }>({ startX: 0, startWidth: 0 });
+  const chatResizeRef = useRef<{ startX: number; startWidth: number }>({
+    startX: 0,
+    startWidth: 0,
+  });
   const [activeThread, setActiveThread] = useState<number>(0);
+  const chatSidebarRef = useRef<ChatSidebarHandle | null>(null);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [assetProfiles, setAssetProfiles] = useState<AssetProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
@@ -720,12 +533,11 @@ function DashboardPageContent() {
 
   const testTicketRef = useRef<TicketRow | null>(null);
 
-
   // URL params are now read at the top of the component
 
   // Check URL params for SMS consent popup
   const smsConsentParam = searchParams.get("smsConsent");
-  
+
   // Check if user just completed onboarding - do this BEFORE other effects
   useEffect(() => {
     if (onboardedParam === "true") {
@@ -740,7 +552,7 @@ function DashboardPageContent() {
         // Clear the flags
         localStorage.removeItem("onboarding_complete");
       }
-      
+
       // Always show SMS consent popup after onboarding/password setup
       // Default to requiring phone number for new users
       // Small delay to let the dashboard render first
@@ -750,7 +562,7 @@ function DashboardPageContent() {
       }, 1000);
     }
   }, [onboardedParam]);
-  
+
   // Handle SMS consent URL param (for manually triggering the popup)
   useEffect(() => {
     if (smsConsentParam === "true") {
@@ -906,7 +718,6 @@ function DashboardPageContent() {
     void loadData();
   }, [selectedMachineId, selectedTicketId]);
 
-
   const sortedTickets = useMemo(() => {
     return [...tickets].sort((a, b) => {
       const { column, direction } = sortState;
@@ -975,11 +786,17 @@ function DashboardPageContent() {
   };
 
   const handleToggleChat = () => {
+    // Preserve scroll before toggling visibility
+    chatScrollTopRef.current = getChatScrollTop();
     setChatCollapsed((prev) => !prev);
     if (chatCollapsed) {
       // When re-opening, default to docked mode if width is small
       setChatOverlay(chatWidth > DOCK_MAX);
     }
+  };
+
+  const getChatScrollTop = () => {
+    return chatSidebarRef.current?.getScrollTop() ?? 0;
   };
 
   const startChatResize = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -998,6 +815,9 @@ function DashboardPageContent() {
       Math.max(chatResizeRef.current.startWidth + delta, 300),
       maxWidth,
     );
+    // Capture scroll before a potential layout switch (dock <-> overlay)
+    chatScrollTopRef.current =
+      chatSidebarRef.current?.getScrollTop() ?? chatScrollTopRef.current;
     setChatWidth(next);
     setChatOverlay(next > DOCK_MAX);
   };
@@ -1005,7 +825,7 @@ function DashboardPageContent() {
   const stopChatResize = () => {
     setIsResizing(false);
     // Snap overlay mode based on final width
-    setChatOverlay((prev) => (chatWidth > DOCK_MAX));
+    setChatOverlay((prev) => chatWidth > DOCK_MAX);
     window.removeEventListener("mousemove", handleChatResizeMove);
     window.removeEventListener("mouseup", stopChatResize);
   };
@@ -1327,7 +1147,6 @@ function DashboardPageContent() {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
   }, []);
 
-
   const handleThreadChange = (index: number) => {
     setActiveThread(index);
   };
@@ -1340,7 +1159,10 @@ function DashboardPageContent() {
         case "profile-selection-form":
           return (
             <ProfileSelectionWidget
-              onSelectExisting={async (profileKey: string, profileName: string) => {
+              onSelectExisting={async (
+                profileKey: string,
+                profileName: string,
+              ) => {
                 await handleOnboardingInput({
                   profileKey,
                   profileConfig: {
@@ -1412,7 +1234,11 @@ function DashboardPageContent() {
   );
 
   const handleSMSConsent = (consent: boolean, phoneNumber?: string) => {
-    console.log('SMS consent:', consent, phoneNumber ? `Phone: ${phoneNumber}` : '');
+    console.log(
+      "SMS consent:",
+      consent,
+      phoneNumber ? `Phone: ${phoneNumber}` : "",
+    );
     // Consent is already stored in localStorage by the popup component
     // Optionally send to backend here
   };
@@ -1427,63 +1253,131 @@ function DashboardPageContent() {
       />
       <div className="relative flex h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100 text-slate-900">
         <Sidebar
-        active={activeNav}
-        onSelect={(key) => {
-          setActiveNav(key);
-          if (key === "ask-ai") {
-            setChatCollapsed(true);
-          }
-        }}
-        collapsed={sidebarCollapsed}
-      />
-      <div className="relative flex flex-1 flex-col overflow-hidden">
-        <TopBar
-          onToggleChat={handleToggleChat}
-          chatCollapsed={chatCollapsed}
-          onToggleSidebar={() => setSidebarCollapsed((prev) => !prev)}
-          sidebarCollapsed={sidebarCollapsed}
-          onOpenShare={() => setShareOpen(true)}
-          notifications={notifications}
-          onMarkNotificationRead={handleMarkNotificationRead}
-          onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
-          isAskAIActive={activeNav === "ask-ai"}
+          active={activeNav}
+          onSelect={(key) => {
+            setActiveNav(key);
+          }}
+          collapsed={sidebarCollapsed}
         />
-        <div className="relative flex-1 overflow-hidden">
-          {/* Docked layout (chat consumes its own space) */}
-          {!chatCollapsed && !chatOverlay && activeNav !== "ask-ai" ? (
-            <div className="h-full min-h-0 flex">
-              <div className="relative" style={{ width: `${chatWidth}px` }}>
-                <ChatSidebar
-                  messages={onboardingMessages}
-                  threads={THREADS}
-                  activeThread={activeThread}
-                  onSelectThread={handleThreadChange}
-                  onSendCustom={async (text: string) => {
-                    await handleOnboardingInput(text);
-                  }}
-                  isDashboard
-                  isOnboarding={true}
-                  onboardingProcessing={onboardingProcessing}
-                  renderWidget={renderOnboardingWidget}
-                  fullWidth
-                  onExpandThread={(index) => {
-                    setActiveThread(index);
-                    setChatCollapsed(true);
-                    setActiveNav("ask-ai");
-                    setChatOverlay(false);
-                  }}
-                />
-                {/* Resize Handle (docked) */}
-                <div
-                  className={cn(
-                    "absolute top-0 right-0 h-full w-1 cursor-ew-resize bg-transparent",
-                    isResizing ? "bg-purple-300/50" : "hover:bg-purple-300/40",
-                  )}
-                  onMouseDown={startChatResize}
-                  title="Resize (docked)"
-                />
+        <div className="relative flex flex-1 flex-col overflow-hidden">
+          <TopBar
+            onToggleChat={handleToggleChat}
+            chatCollapsed={chatCollapsed}
+            onToggleSidebar={() => setSidebarCollapsed((prev) => !prev)}
+            sidebarCollapsed={sidebarCollapsed}
+            onOpenShare={() => setShareOpen(true)}
+            notifications={notifications}
+            onMarkNotificationRead={handleMarkNotificationRead}
+            onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+          />
+          <div className="relative flex-1 overflow-hidden">
+            {/* Docked layout (chat consumes its own space) */}
+            {!chatCollapsed && !chatOverlay ? (
+              <div className="h-full min-h-0 flex">
+                <div className="relative" style={{ width: `${chatWidth}px` }}>
+                  <ChatSidebar
+                    ref={chatSidebarRef}
+                    messages={onboardingMessages}
+                    threads={THREADS}
+                    activeThread={activeThread}
+                    onSelectThread={handleThreadChange}
+                    onSendCustom={async (text: string) => {
+                      await handleOnboardingInput(text);
+                    }}
+                    isDashboard
+                    isOnboarding={true}
+                    onboardingProcessing={onboardingProcessing}
+                    renderWidget={renderOnboardingWidget}
+                    fullWidth
+                    isMaximized={false}
+                    onToggleMaximize={() => {
+                      // capture scroll, then maximize
+                      chatScrollTopRef.current = getChatScrollTop();
+                      setChatMaximized(true);
+                    }}
+                    restoredScrollTop={chatScrollTopRef.current}
+                  />
+                  {/* Resize Handle (docked) */}
+                  <div
+                    className={cn(
+                      "absolute top-0 right-0 h-full w-1 cursor-ew-resize bg-transparent",
+                      isResizing
+                        ? "bg-purple-300/50"
+                        : "hover:bg-purple-300/40",
+                    )}
+                    onMouseDown={startChatResize}
+                    title="Resize (docked)"
+                  />
+                </div>
+                <main className="h-full flex-1 overflow-hidden">
+                  <DashboardMain
+                    activeNav={activeNav}
+                    collaborators={collaborators}
+                    assetProfiles={assetProfiles}
+                    machines={machines}
+                    selectedProfileId={selectedProfileId}
+                    selectedMachineId={selectedMachineId}
+                    onProfileChange={(profileId) => {
+                      setSelectedProfileId(profileId);
+                      const profileMachines = machines.filter(
+                        (m) => m.profileId === profileId,
+                      );
+                      if (profileMachines.length > 0) {
+                        setSelectedMachineId(profileMachines[0].id);
+                      }
+                    }}
+                    onMachineChange={setSelectedMachineId}
+                    onSelect={(key) => {
+                      setActiveNav(key);
+                      if (key === "ask-ai") {
+                        setChatCollapsed(true);
+                      }
+                    }}
+                    notifications={DASHBOARD_NOTIFICATIONS}
+                    kpis={DASHBOARD_KPIS}
+                    charts={DASHBOARD_CHARTS}
+                    tickets={paginatedTickets}
+                    allTickets={sortedTickets}
+                    sortState={sortState}
+                    onSort={handleSort}
+                    selectedTicket={selectedTicket}
+                    onSelectTicket={setSelectedTicketId}
+                    onStatusFilterChange={setStatusFilter}
+                    onSeverityFilterChange={setSeverityFilter}
+                    onMachineFilterChange={setMachineFilter}
+                    statusFilter={statusFilter}
+                    severityFilter={severityFilter}
+                    machineFilter={machineFilter}
+                    ticketView={ticketView}
+                    onTicketViewChange={setTicketView}
+                    ticketModalOpen={ticketModalOpen}
+                    onTicketModalChange={setTicketModalOpen}
+                    onStatusChange={handleTicketStatusChange}
+                    onAssign={handleTicketAssign}
+                    onSeverityChange={handleTicketSeverityChange}
+                    onAddNote={handleTicketAddNote}
+                    chatCollapsed={chatCollapsed}
+                    sidebarCollapsed={sidebarCollapsed}
+                    onNewTicketOpenChange={setNewTicketOpen}
+                    onDeleteTicket={handleDeleteTicket}
+                    onUpdateFields={handleUpdateTicketFields}
+                    page={page}
+                    pageSize={pageSize}
+                    total={filteredTickets.length}
+                    onPageChange={setPage}
+                    onPageSizeChange={(n) => {
+                      setPageSize(n);
+                      setPage(1);
+                    }}
+                    onboardingMessages={onboardingMessages}
+                    onboardingProcessing={onboardingProcessing}
+                    onHandleOnboardingInput={handleOnboardingInput}
+                    renderOnboardingWidget={renderOnboardingWidget}
+                  />
+                </main>
               </div>
-              <main className="h-full flex-1 overflow-hidden">
+            ) : (
+              <main className="h-full overflow-hidden">
                 <DashboardMain
                   activeNav={activeNav}
                   collaborators={collaborators}
@@ -1493,7 +1387,9 @@ function DashboardPageContent() {
                   selectedMachineId={selectedMachineId}
                   onProfileChange={(profileId) => {
                     setSelectedProfileId(profileId);
-                    const profileMachines = machines.filter((m) => m.profileId === profileId);
+                    const profileMachines = machines.filter(
+                      (m) => m.profileId === profileId,
+                    );
                     if (profileMachines.length > 0) {
                       setSelectedMachineId(profileMachines[0].id);
                     }
@@ -1501,9 +1397,6 @@ function DashboardPageContent() {
                   onMachineChange={setSelectedMachineId}
                   onSelect={(key) => {
                     setActiveNav(key);
-                    if (key === "ask-ai") {
-                      setChatCollapsed(true);
-                    }
                   }}
                   notifications={DASHBOARD_NOTIFICATIONS}
                   kpis={DASHBOARD_KPIS}
@@ -1547,133 +1440,101 @@ function DashboardPageContent() {
                   renderOnboardingWidget={renderOnboardingWidget}
                 />
               </main>
-            </div>
-          ) : (
-            <main className="h-full overflow-hidden">
-              <DashboardMain
-                activeNav={activeNav}
-                collaborators={collaborators}
-                assetProfiles={assetProfiles}
-                machines={machines}
-                selectedProfileId={selectedProfileId}
-                selectedMachineId={selectedMachineId}
-                onProfileChange={(profileId) => {
-                  setSelectedProfileId(profileId);
-                  const profileMachines = machines.filter((m) => m.profileId === profileId);
-                  if (profileMachines.length > 0) {
-                    setSelectedMachineId(profileMachines[0].id);
-                  }
-                }}
-                onMachineChange={setSelectedMachineId}
-                onSelect={(key) => {
-                  setActiveNav(key);
-                  if (key === "ask-ai") {
-                    setChatCollapsed(true);
-                  }
-                }}
-                notifications={DASHBOARD_NOTIFICATIONS}
-                kpis={DASHBOARD_KPIS}
-                charts={DASHBOARD_CHARTS}
-                tickets={paginatedTickets}
-                allTickets={sortedTickets}
-                sortState={sortState}
-                onSort={handleSort}
-                selectedTicket={selectedTicket}
-                onSelectTicket={setSelectedTicketId}
-                onStatusFilterChange={setStatusFilter}
-                onSeverityFilterChange={setSeverityFilter}
-                onMachineFilterChange={setMachineFilter}
-                statusFilter={statusFilter}
-                severityFilter={severityFilter}
-                machineFilter={machineFilter}
-                ticketView={ticketView}
-                onTicketViewChange={setTicketView}
-                ticketModalOpen={ticketModalOpen}
-                onTicketModalChange={setTicketModalOpen}
-                onStatusChange={handleTicketStatusChange}
-                onAssign={handleTicketAssign}
-                onSeverityChange={handleTicketSeverityChange}
-                onAddNote={handleTicketAddNote}
-                chatCollapsed={chatCollapsed}
-                sidebarCollapsed={sidebarCollapsed}
-                onNewTicketOpenChange={setNewTicketOpen}
-                onDeleteTicket={handleDeleteTicket}
-                onUpdateFields={handleUpdateTicketFields}
-                page={page}
-                pageSize={pageSize}
-                total={filteredTickets.length}
-                onPageChange={setPage}
-                onPageSizeChange={(n) => {
-                  setPageSize(n);
-                  setPage(1);
-                }}
-                onboardingMessages={onboardingMessages}
-                onboardingProcessing={onboardingProcessing}
-                onHandleOnboardingInput={handleOnboardingInput}
-                renderOnboardingWidget={renderOnboardingWidget}
-              />
-            </main>
-          )}
+            )}
 
-          {/* Overlay layout (chat floats over content) */}
-          {!chatCollapsed && chatOverlay && activeNav !== "ask-ai" && (
-            <div
-              className={cn(
-                "absolute top-16 left-0 bottom-0 z-40 shadow-2xl",
-              )}
-              style={{ width: `${chatWidth}px` }}
-            >
-              <ChatSidebar
-                messages={onboardingMessages}
-                threads={THREADS}
-                activeThread={activeThread}
-                onSelectThread={handleThreadChange}
-                onSendCustom={async (text: string) => {
-                  await handleOnboardingInput(text);
-                }}
-                isDashboard
-                isOnboarding={true}
-                onboardingProcessing={onboardingProcessing}
-                renderWidget={renderOnboardingWidget}
-                fullWidth
-                onExpandThread={(index) => {
-                  setActiveThread(index);
-                  setChatCollapsed(true);
-                  setActiveNav("ask-ai");
-                  setChatOverlay(false);
-                }}
-              />
-              {/* Resize Handle (overlay) */}
+            {/* Overlay layout (chat floats over content) */}
+            {!chatCollapsed && chatOverlay && (
               <div
                 className={cn(
-                  "absolute top-0 right-0 h-full w-1 cursor-ew-resize bg-transparent",
-                  isResizing ? "bg-purple-300/50" : "hover:bg-purple-300/40",
+                  "absolute top-16 left-0 bottom-0 z-40 shadow-2xl",
                 )}
-                onMouseDown={startChatResize}
-                title="Resize (overlay)"
-              />
-            </div>
-          )}
+                style={{ width: `${chatWidth}px` }}
+              >
+                <ChatSidebar
+                  ref={chatSidebarRef}
+                  messages={onboardingMessages}
+                  threads={THREADS}
+                  activeThread={activeThread}
+                  onSelectThread={handleThreadChange}
+                  onSendCustom={async (text: string) => {
+                    await handleOnboardingInput(text);
+                  }}
+                  isDashboard
+                  isOnboarding={true}
+                  onboardingProcessing={onboardingProcessing}
+                  renderWidget={renderOnboardingWidget}
+                  fullWidth
+                  isMaximized={false}
+                  onToggleMaximize={() => {
+                    chatScrollTopRef.current = getChatScrollTop();
+                    setChatMaximized(true);
+                  }}
+                  restoredScrollTop={chatScrollTopRef.current}
+                />
+                {/* Resize Handle (overlay) */}
+                <div
+                  className={cn(
+                    "absolute top-0 right-0 h-full w-1 cursor-ew-resize bg-transparent",
+                    isResizing ? "bg-purple-300/50" : "hover:bg-purple-300/40",
+                  )}
+                  onMouseDown={startChatResize}
+                  title="Resize (overlay)"
+                />
+              </div>
+            )}
+
+            {/* Maximized chat overlay (full page) */}
+            {!chatCollapsed && chatMaximized && (
+              <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm">
+                <ChatSidebar
+                  ref={chatSidebarRef}
+                  messages={onboardingMessages}
+                  threads={THREADS}
+                  activeThread={activeThread}
+                  onSelectThread={handleThreadChange}
+                  onSendCustom={async (text: string) => {
+                    await handleOnboardingInput(text);
+                  }}
+                  isDashboard
+                  isOnboarding={true}
+                  onboardingProcessing={onboardingProcessing}
+                  renderWidget={renderOnboardingWidget}
+                  fullWidth
+                  isMaximized
+                  onToggleMaximize={() => {
+                    // restore to minimized overlay or docked based on width
+                    chatScrollTopRef.current = getChatScrollTop();
+                    setChatMaximized(false);
+                  }}
+                  onClose={() => {
+                    chatScrollTopRef.current = getChatScrollTop();
+                    setChatCollapsed(true);
+                    setChatMaximized(false);
+                  }}
+                  restoredScrollTop={chatScrollTopRef.current}
+                />
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-      <ShareModal
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-        collaborators={collaborators}
-        onAdd={handleAddCollaborator}
-        onUpdateRole={handleUpdateCollaboratorRole}
-        onToggleVerified={handleToggleCollaboratorVerified}
-        onRemove={handleRemoveCollaborator}
-      />
-      <NewTicketModal
-        open={newTicketOpen}
-        onOpenChange={setNewTicketOpen}
-        collaborators={collaborators}
-        machines={machines}
-        onCreate={(payload) => {
-          void (async () => handleCreateTicket(payload))();
-        }}
-      />
+        <ShareModal
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          collaborators={collaborators}
+          onAdd={handleAddCollaborator}
+          onUpdateRole={handleUpdateCollaboratorRole}
+          onToggleVerified={handleToggleCollaboratorVerified}
+          onRemove={handleRemoveCollaborator}
+        />
+        <NewTicketModal
+          open={newTicketOpen}
+          onOpenChange={setNewTicketOpen}
+          collaborators={collaborators}
+          machines={machines}
+          onCreate={(payload) => {
+            void (async () => handleCreateTicket(payload))();
+          }}
+        />
       </div>
     </>
   );
@@ -1681,16 +1542,18 @@ function DashboardPageContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 via-white to-purple-100">
-        <div className="text-center">
-          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 via-white to-purple-100">
+          <div className="text-center">
+            <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+            </div>
+            <p className="text-sm text-slate-600">Loading dashboard...</p>
           </div>
-          <p className="text-sm text-slate-600">Loading dashboard...</p>
         </div>
-      </div>
-    }>
+      }
+    >
       <DashboardPageContent />
     </Suspense>
   );
@@ -1794,7 +1657,6 @@ function TopBar({
   notifications,
   onMarkNotificationRead,
   onMarkAllNotificationsRead,
-  isAskAIActive,
 }: {
   onToggleChat: () => void;
   chatCollapsed: boolean;
@@ -1804,7 +1666,6 @@ function TopBar({
   notifications: NotificationItemWithRead[];
   onMarkNotificationRead: (id: string) => void;
   onMarkAllNotificationsRead: () => void;
-  isAskAIActive: boolean;
 }) {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   return (
@@ -1813,19 +1674,14 @@ function TopBar({
         <button
           className={cn(
             "inline-flex items-center gap-2 rounded-full border border-purple-100 px-4 py-2 text-xs font-semibold",
-            isAskAIActive
-              ? "bg-white text-purple-600 opacity-50 cursor-not-allowed"
-              : chatCollapsed
-                ? "bg-white text-purple-600"
-                : "bg-purple-600 text-white",
+            chatCollapsed
+              ? "bg-white text-purple-600"
+              : "bg-purple-600 text-white",
           )}
           onClick={onToggleChat}
-          disabled={isAskAIActive}
-          aria-disabled={isAskAIActive}
-          title={isAskAIActive ? "Chat is managed by Ask AI view" : undefined}
         >
           <MessageSquare className="h-4 w-4" />
-          {chatCollapsed ? "Show chat" : "Hide chat"}
+          {chatCollapsed ? "Ask AI" : "Ask AI"}
         </button>
         <button
           className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-purple-100 bg-white text-purple-500"
@@ -1977,16 +1833,22 @@ function ChatBubble({ message }: { message: any }) {
     <div className="group">
       <div className="flex items-start gap-2">
         <Avatar className="h-7 w-7 shrink-0">
-          <AvatarFallback className={cn(
-            "text-xs font-semibold",
-            actor === "assistant" ? "bg-purple-100 text-purple-700" : "bg-slate-800 text-white",
-          )}>
+          <AvatarFallback
+            className={cn(
+              "text-xs font-semibold",
+              actor === "assistant"
+                ? "bg-purple-100 text-purple-700"
+                : "bg-slate-800 text-white",
+            )}
+          >
             {actor === "assistant" ? "AI" : "YO"}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-2">
-            <p className="text-xs font-semibold text-slate-700">{actor === "assistant" ? "Onboarding Copilot" : "You"}</p>
+            <p className="text-xs font-semibold text-slate-700">
+              {actor === "assistant" ? "Onboarding Copilot" : "You"}
+            </p>
             <p className="text-xs text-slate-400">Just now</p>
           </div>
           {text && (
@@ -2000,541 +1862,591 @@ function ChatBubble({ message }: { message: any }) {
   );
 }
 
-function ChatSidebar({
-  messages,
-  onSendCustom,
-  threads,
-  activeThread,
-  onSelectThread,
-  isDashboard,
-  isOnboarding,
-  onboardingProcessing,
-  renderWidget,
-  fullWidth,
-  onExpandThread,
-}: {
-  messages: any[];
-  onSendCustom: (text: string) => void;
-  threads: string[];
-  activeThread: number;
-  onSelectThread: (index: number) => void;
-  isDashboard: boolean;
-  isOnboarding?: boolean;
-  onboardingProcessing?: boolean;
-  renderWidget?: (widgetDef: any) => React.ReactNode;
-  fullWidth?: boolean;
-  onExpandThread?: (index: number) => void;
-}) {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
-  const [threadSearchOpen, setThreadSearchOpen] = useState(false);
-  const [threadSearch, setThreadSearch] = useState("");
-  const [promptMenuOpen, setPromptMenuOpen] = useState(false);
-  const [activeMenuSection, setActiveMenuSection] = useState<
-    "templates" | "library"
-  >("templates");
-  const [savedPrompts, setSavedPrompts] =
-    useState<PromptTemplate[]>(DEFAULT_PROMPTS);
-  const [showSavePrompt, setShowSavePrompt] = useState(false);
-  const [newPromptName, setNewPromptName] = useState("");
-  const [newPromptContent, setNewPromptContent] = useState("");
-  const [customInput, setCustomInput] = useState("");
+type ChatSidebarHandle = {
+  getScrollTop: () => number;
+  setScrollTop: (n: number) => void;
+};
 
-  useEffect(() => {
-    if (messagesEndRef.current && chatContainerRef.current) {
-      // Scroll only the chat container, not the entire page
-      messagesEndRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-        inline: "nearest",
-      });
-    }
-  }, [messages]);
+const ChatSidebar = forwardRef<
+  ChatSidebarHandle,
+  {
+    messages: any[];
+    onSendCustom: (text: string) => void;
+    threads: string[];
+    activeThread: number;
+    onSelectThread: (index: number) => void;
+    isDashboard: boolean;
+    isOnboarding?: boolean;
+    onboardingProcessing?: boolean;
+    renderWidget?: (widgetDef: any) => React.ReactNode;
+    fullWidth?: boolean;
+    isMaximized?: boolean;
+    onToggleMaximize?: () => void;
+    onClose?: () => void;
+    restoredScrollTop?: number | null;
+  }
+>(
+  (
+    {
+      messages,
+      onSendCustom,
+      threads,
+      activeThread,
+      onSelectThread,
+      isDashboard,
+      isOnboarding,
+      onboardingProcessing,
+      renderWidget,
+      fullWidth,
+      isMaximized,
+      onToggleMaximize,
+      onClose,
+      restoredScrollTop,
+    },
+    ref,
+  ) => {
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const chatContainerRef = useRef<HTMLDivElement>(null);
+    const [threadSearchOpen, setThreadSearchOpen] = useState(false);
+    const [threadSearch, setThreadSearch] = useState("");
+    const [promptMenuOpen, setPromptMenuOpen] = useState(false);
+    const [activeMenuSection, setActiveMenuSection] = useState<
+      "templates" | "library"
+    >("templates");
+    const [savedPrompts, setSavedPrompts] =
+      useState<PromptTemplate[]>(DEFAULT_PROMPTS);
+    const [showSavePrompt, setShowSavePrompt] = useState(false);
+    const [newPromptName, setNewPromptName] = useState("");
+    const [newPromptContent, setNewPromptContent] = useState("");
+    const [customInput, setCustomInput] = useState("");
 
-  const filteredThreads = threads.filter((thread) =>
-    thread.toLowerCase().includes(threadSearch.toLowerCase()),
-  );
+    useEffect(() => {
+      if (messagesEndRef.current && chatContainerRef.current) {
+        // Scroll only the chat container, not the entire page
+        messagesEndRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "nearest",
+        });
+      }
+    }, [messages]);
 
-  const handleSavePrompt = () => {
-    if (newPromptName.trim() && newPromptContent.trim()) {
-      const newPrompt: PromptTemplate = {
-        id: `custom-${Date.now()}`,
-        name: newPromptName,
-        description: "Custom prompt",
-        content: newPromptContent,
-        category: "custom",
-      };
-      setSavedPrompts([...savedPrompts, newPrompt]);
-      setNewPromptName("");
-      setNewPromptContent("");
-      setShowSavePrompt(false);
-    }
-  };
+    // Restore scroll position when provided
+    useEffect(() => {
+      if (typeof restoredScrollTop === "number" && chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = restoredScrollTop;
+      }
+    }, [restoredScrollTop]);
 
-  const handleUsePrompt = (prompt: PromptTemplate) => {
-    onSendCustom(prompt.content);
-    setPromptMenuOpen(false);
-  };
+    // Expose scroll helpers to parent
+    useImperativeHandle(ref, () => ({
+      getScrollTop: () => chatContainerRef.current?.scrollTop ?? 0,
+      setScrollTop: (n: number) => {
+        if (chatContainerRef.current) chatContainerRef.current.scrollTop = n;
+      },
+    }));
 
-  return (
-    <aside
-      className={cn(
-        "h-full min-h-0 flex flex-col border-r border-purple-100 bg-white",
-        fullWidth ? "w-full" : "w-[340px]",
-      )}
-      aria-label="Chat sidebar"
-    >
-      <div className="border-b border-purple-100 px-3 py-2">
-        <div className="flex items-center justify-between gap-2">
-          {/* Thread Dropdown */}
-          <div className="relative flex-1">
-            <button
-              onClick={() => setThreadSearchOpen(!threadSearchOpen)}
-              className="w-full flex items-center justify-between rounded-lg border border-purple-200 bg-white px-2 py-1.5 text-left text-xs hover:bg-purple-50"
-            >
-              <span className="font-medium text-slate-700 truncate">
-                {threads[activeThread]}
-              </span>
-              <ChevronDown className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-            </button>
-            {threadSearchOpen && (
-              <div className="absolute left-0 top-9 z-50 w-full rounded-xl border border-purple-100 bg-white shadow-lg">
-                <div className="border-b border-purple-100 p-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search threads..."
-                      value={threadSearch}
-                      onChange={(e) => setThreadSearch(e.target.value)}
-                      className="w-full rounded-lg border border-purple-200 py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                      autoFocus
-                    />
-                  </div>
-                </div>
-                <div className="max-h-60 overflow-y-auto p-2">
-                  {filteredThreads.length > 0 ? (
-                    filteredThreads.map((thread, index) => {
-                      const originalIndex = threads.indexOf(thread);
-                      return (
-                        <button
-                          key={thread}
-                          onClick={() => {
-                            onSelectThread(originalIndex);
-                            setThreadSearchOpen(false);
-                            setThreadSearch("");
-                          }}
-                          className={cn(
-                            "w-full flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                            activeThread === originalIndex
-                              ? "bg-purple-100 text-purple-700 font-semibold"
-                              : "text-slate-700 hover:bg-purple-50",
-                          )}
-                        >
-                          <span>{thread}</span>
-                          {activeThread === originalIndex && (
-                            <Check className="h-4 w-4 text-purple-600" />
-                          )}
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <p className="px-3 py-4 text-center text-xs text-slate-400">
-                      No threads found
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-          <button
-            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 flex-shrink-0"
-            onClick={() => {
-              // Create new thread logic
-              alert("Create new thread functionality");
-            }}
-            title="Create new thread"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-          <button
-            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 flex-shrink-0"
-            onClick={() => onExpandThread?.(activeThread)}
-            title="Expand to Ask AI"
-            aria-label="Expand chat"
-          >
-            <AppWindow className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-      <div
-        ref={chatContainerRef}
-        className="flex-1 space-y-3 overflow-y-auto px-3 py-3"
+    const filteredThreads = threads.filter((thread) =>
+      thread.toLowerCase().includes(threadSearch.toLowerCase()),
+    );
+
+    const handleSavePrompt = () => {
+      if (newPromptName.trim() && newPromptContent.trim()) {
+        const newPrompt: PromptTemplate = {
+          id: `custom-${Date.now()}`,
+          name: newPromptName,
+          description: "Custom prompt",
+          content: newPromptContent,
+          category: "custom",
+        };
+        setSavedPrompts([...savedPrompts, newPrompt]);
+        setNewPromptName("");
+        setNewPromptContent("");
+        setShowSavePrompt(false);
+      }
+    };
+
+    const handleUsePrompt = (prompt: PromptTemplate) => {
+      onSendCustom(prompt.content);
+      setPromptMenuOpen(false);
+    };
+
+    return (
+      <aside
+        className={cn(
+          "h-full min-h-0 flex flex-col border-r border-purple-100 bg-white",
+          fullWidth ? "w-full" : "w-[340px]",
+        )}
+        aria-label="Chat sidebar"
       >
-        {isOnboarding
-          ? // ✅ Render onboarding messages with widgets
-            messages.map((msg: any) => (
-              <div key={msg.id} className="group">
-                <div className="flex items-start gap-2">
-                  <Avatar className="h-7 w-7 shrink-0">
-                    <AvatarFallback
-                      className={cn(
-                        "text-xs font-semibold",
-                        msg.actor === "assistant"
-                          ? "bg-purple-100 text-purple-700"
-                          : "bg-slate-800 text-white",
-                      )}
-                    >
-                      {msg.actor === "assistant" ? "AI" : "YO"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-semibold text-slate-700">
-                        {msg.actor === "assistant"
-                          ? "Onboarding Copilot"
-                          : "You"}
-                      </p>
-                      <p className="text-xs text-slate-400">Just now</p>
+        <div className="border-b border-purple-100 px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            {/* Thread Dropdown */}
+            <div className="relative flex-1">
+              <button
+                onClick={() => setThreadSearchOpen(!threadSearchOpen)}
+                className="w-full flex items-center justify-between rounded-lg border border-purple-200 bg-white px-2 py-1.5 text-left text-xs hover:bg-purple-50"
+              >
+                <span className="font-medium text-slate-700 truncate">
+                  {threads[activeThread]}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+              </button>
+              {threadSearchOpen && (
+                <div className="absolute left-0 top-9 z-50 w-full rounded-xl border border-purple-100 bg-white shadow-lg">
+                  <div className="border-b border-purple-100 p-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search threads..."
+                        value={threadSearch}
+                        onChange={(e) => setThreadSearch(e.target.value)}
+                        className="w-full rounded-lg border border-purple-200 py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        autoFocus
+                      />
                     </div>
-                    {msg.message && (
-                      <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                        <p className="whitespace-pre-wrap leading-relaxed">
-                          {msg.message}
-                        </p>
-                      </div>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto p-2">
+                    {filteredThreads.length > 0 ? (
+                      filteredThreads.map((thread, index) => {
+                        const originalIndex = threads.indexOf(thread);
+                        return (
+                          <button
+                            key={thread}
+                            onClick={() => {
+                              onSelectThread(originalIndex);
+                              setThreadSearchOpen(false);
+                              setThreadSearch("");
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                              activeThread === originalIndex
+                                ? "bg-purple-100 text-purple-700 font-semibold"
+                                : "text-slate-700 hover:bg-purple-50",
+                            )}
+                          >
+                            <span>{thread}</span>
+                            {activeThread === originalIndex && (
+                              <Check className="h-4 w-4 text-purple-600" />
+                            )}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <p className="px-3 py-4 text-center text-xs text-slate-400">
+                        No threads found
+                      </p>
                     )}
                   </div>
                 </div>
-                {msg.widget && msg.actor === "assistant" && renderWidget && (
-                  <div className="ml-9 mt-2 max-w-[calc(100%-2.25rem)] overflow-x-auto">
-                    {renderWidget(msg.widget)}
-                  </div>
-                )}
-              </div>
-            ))
-          : // Regular dashboard messages
-            messages.map((message: any) => (
-              <ChatBubble key={message.id} message={message} />
-            ))}
-        {onboardingProcessing && (
-          <div className="flex gap-3">
-            <Avatar className="h-8 w-8 shrink-0">
-              <AvatarFallback className="bg-purple-100 text-purple-700 text-xs font-semibold">
-                AI
-              </AvatarFallback>
-            </Avatar>
-            <div className="rounded-2xl bg-slate-100 px-4 py-3">
-              <div className="flex gap-1">
-                <div
-                  className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
-                  style={{ animationDelay: "0ms" }}
-                />
-                <div
-                  className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
-                  style={{ animationDelay: "150ms" }}
-                />
-                <div
-                  className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
-                  style={{ animationDelay: "300ms" }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-        {messages.length === 0 && !isOnboarding && (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-xs text-slate-400 text-center max-w-[200px]">
-              Start a conversation
-            </p>
-          </div>
-        )}
-        {messages.length === 0 && isOnboarding && (
-          <div className="flex flex-col items-center justify-center h-full px-6 py-8">
-            <div className="mb-4 rounded-full bg-purple-100 p-4">
-              <MessageSquare className="h-8 w-8 text-purple-600" />
-            </div>
-            <h3 className="text-sm font-semibold text-slate-700 mb-2">
-              Welcome to your Dashboard
-            </h3>
-            <p className="text-xs text-slate-500 text-center max-w-[240px]">
-              Ask me anything! I can help you add machines, manage users, create tickets, and more.
-            </p>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-      <div className="border-t border-purple-100 p-4">
-        <div className="space-y-3">
-          {/* Input Area with Plus and Attach Buttons */}
-          <div className="relative flex items-center gap-2">
-            {/* Plus Button - Quick Actions & Prompt Library */}
-            <div className="relative">
-              <button
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-purple-200 text-purple-500 hover:bg-purple-50"
-                onClick={() => {
-                  setPromptMenuOpen(!promptMenuOpen);
-                  setActiveMenuSection("templates");
-                }}
-                title="Quick actions & prompts"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-              {promptMenuOpen && (
-                <div className="absolute bottom-12 left-0 z-50 w-72 rounded-xl border border-purple-100 bg-white shadow-lg">
-                  {/* Tab Headers */}
-                  <div className="flex border-b border-purple-100">
-                    <button
-                      onClick={() => setActiveMenuSection("templates")}
-                      className={cn(
-                        "flex-1 p-3 text-xs font-semibold transition-colors",
-                        activeMenuSection === "templates"
-                          ? "text-purple-600 border-b-2 border-purple-600"
-                          : "text-slate-500 hover:text-slate-700",
-                      )}
-                    >
-                      Quick Templates
-                    </button>
-                    <button
-                      onClick={() => setActiveMenuSection("library")}
-                      className={cn(
-                        "flex-1 p-3 text-xs font-semibold transition-colors",
-                        activeMenuSection === "library"
-                          ? "text-purple-600 border-b-2 border-purple-600"
-                          : "text-slate-500 hover:text-slate-700",
-                      )}
-                    >
-                      Prompt Library
-                    </button>
-                  </div>
-
-                  {/* Quick Templates Section */}
-                  {activeMenuSection === "templates" && (
-                    <div className="p-2">
-                      <button
-                        onClick={() => {
-                          setCustomInput("Show me my device's health score");
-                          setPromptMenuOpen(false);
-                        }}
-                        className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
-                            <Gauge className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-slate-800">
-                              See My Device Health Score
-                            </p>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              View the operational health score of your machines
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setCustomInput("Show me tickets for my machines");
-                          setPromptMenuOpen(false);
-                        }}
-                        className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
-                            <FileText className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-slate-800">
-                              See Tickets for My Machines
-                            </p>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              Review maintenance tickets and service history
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setCustomInput(
-                            "Show me predictive maintenance for my machine",
-                          );
-                          setPromptMenuOpen(false);
-                        }}
-                        className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
-                            <Zap className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-slate-800">
-                              See Predictive Maintenance
-                            </p>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              View upcoming maintenance predictions and alerts
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setCustomInput(
-                            "Monitor my machine's real-time telemetry data",
-                          );
-                          setPromptMenuOpen(false);
-                        }}
-                        className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
-                            <Activity className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-slate-800">
-                              Monitor Real-Time Telemetry
-                            </p>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              View live sensor data and telemetry streams
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Prompt Library Section */}
-                  {activeMenuSection === "library" && (
-                    <>
-                      <div className="max-h-80 overflow-y-auto p-2">
-                        {savedPrompts.map((prompt) => (
-                          <button
-                            key={prompt.id}
-                            onClick={() => handleUsePrompt(prompt)}
-                            className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors"
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <p className="text-sm font-semibold text-slate-800">
-                                  {prompt.name}
-                                </p>
-                                <p className="text-xs text-slate-500 mt-1">
-                                  {prompt.description}
-                                </p>
-                              </div>
-                              <FileText className="h-4 w-4 text-purple-400" />
-                            </div>
-                            <div className="mt-2 rounded bg-slate-50 p-2 text-xs text-slate-600 font-mono line-clamp-2">
-                              {prompt.content}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                      <div className="border-t border-purple-100 p-2">
-                        {!showSavePrompt ? (
-                          <button
-                            onClick={() => setShowSavePrompt(true)}
-                            className="w-full flex items-center gap-2 rounded-lg border border-dashed border-purple-200 p-2 text-xs font-semibold text-purple-600 hover:bg-purple-50"
-                          >
-                            <Save className="h-3 w-3" />
-                            Save New Prompt
-                          </button>
-                        ) : (
-                          <div className="space-y-2">
-                            <input
-                              type="text"
-                              placeholder="Prompt name"
-                              value={newPromptName}
-                              onChange={(e) => setNewPromptName(e.target.value)}
-                              className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
-                            />
-                            <textarea
-                              placeholder="Prompt content"
-                              value={newPromptContent}
-                              onChange={(e) =>
-                                setNewPromptContent(e.target.value)
-                              }
-                              rows={3}
-                              className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                onClick={handleSavePrompt}
-                                className="flex-1 rounded bg-purple-600 px-2 py-1 text-xs font-semibold text-white hover:bg-purple-700"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setShowSavePrompt(false);
-                                  setNewPromptName("");
-                                  setNewPromptContent("");
-                                }}
-                                className="flex-1 rounded border border-purple-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
               )}
             </div>
-            {/* Attach Button */}
             <button
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-purple-200 px-3 text-xs font-medium text-purple-600 hover:bg-purple-50"
-              title="Attach files"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 flex-shrink-0"
+              onClick={() => {
+                // Create new thread logic
+                alert("Create new thread functionality");
+              }}
+              title="Create new thread"
             >
-              <Paperclip className="h-3.5 w-3.5" />
-              Attach
+              <Plus className="h-3.5 w-3.5" />
             </button>
-          </div>
-
-          {/* Text input - always shown for onboarding */}
-          {isOnboarding && (
             <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && customInput.trim()) {
-                    onSendCustom(customInput);
-                    setCustomInput("");
-                  }
-                }}
-                placeholder="Type anything to continue..."
-                className="flex-1 rounded-full border border-purple-200 px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
-              />
               <button
-                onClick={() => {
-                  if (customInput.trim()) {
-                    onSendCustom(customInput);
-                    setCustomInput("");
-                  }
-                }}
-                disabled={!customInput.trim()}
-                className={cn(
-                  "rounded-full border px-4 py-2 text-xs font-semibold",
-                  customInput.trim()
-                    ? "border-purple-600 bg-purple-600 text-white hover:bg-purple-700"
-                    : "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed",
-                )}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 flex-shrink-0"
+                onClick={onToggleMaximize}
+                title={isMaximized ? "Restore chat" : "Maximize chat"}
+                aria-label={isMaximized ? "Restore chat" : "Maximize chat"}
               >
-                Send
+                <AppWindow className="h-3.5 w-3.5" />
               </button>
+              {isMaximized && (
+                <button
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 text-slate-500 hover:bg-slate-50 flex-shrink-0"
+                  onClick={onClose}
+                  title="Close chat"
+                  aria-label="Close chat"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        <div
+          ref={chatContainerRef}
+          className="flex-1 space-y-3 overflow-y-auto px-3 py-3"
+        >
+          {isOnboarding
+            ? // ✅ Render onboarding messages with widgets
+              messages.map((msg: any) => (
+                <div key={msg.id} className="group">
+                  <div className="flex items-start gap-2">
+                    <Avatar className="h-7 w-7 shrink-0">
+                      <AvatarFallback
+                        className={cn(
+                          "text-xs font-semibold",
+                          msg.actor === "assistant"
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-slate-800 text-white",
+                        )}
+                      >
+                        {msg.actor === "assistant" ? "AI" : "YO"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold text-slate-700">
+                          {msg.actor === "assistant"
+                            ? "Onboarding Copilot"
+                            : "You"}
+                        </p>
+                        <p className="text-xs text-slate-400">Just now</p>
+                      </div>
+                      {msg.message && (
+                        <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                          <p className="whitespace-pre-wrap leading-relaxed">
+                            {msg.message}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {msg.widget && msg.actor === "assistant" && renderWidget && (
+                    <div className="ml-9 mt-2 max-w-[calc(100%-2.25rem)] overflow-x-auto">
+                      {renderWidget(msg.widget)}
+                    </div>
+                  )}
+                </div>
+              ))
+            : // Regular dashboard messages
+              messages.map((message: any) => (
+                <ChatBubble key={message.id} message={message} />
+              ))}
+          {onboardingProcessing && (
+            <div className="flex gap-3">
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarFallback className="bg-purple-100 text-purple-700 text-xs font-semibold">
+                  AI
+                </AvatarFallback>
+              </Avatar>
+              <div className="rounded-2xl bg-slate-100 px-4 py-3">
+                <div className="flex gap-1">
+                  <div
+                    className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <div
+                    className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <div
+                    className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
+                    style={{ animationDelay: "300ms" }}
+                  />
+                </div>
+              </div>
             </div>
           )}
+          {messages.length === 0 && !isOnboarding && (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-xs text-slate-400 text-center max-w-[200px]">
+                Start a conversation
+              </p>
+            </div>
+          )}
+          {messages.length === 0 && isOnboarding && (
+            <div className="flex flex-col items-center justify-center h-full px-6 py-8">
+              <div className="mb-4 rounded-full bg-purple-100 p-4">
+                <MessageSquare className="h-8 w-8 text-purple-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-700 mb-2">
+                Welcome to your Dashboard
+              </h3>
+              <p className="text-xs text-slate-500 text-center max-w-[240px]">
+                Ask me anything! I can help you add machines, manage users,
+                create tickets, and more.
+              </p>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
-      </div>
-    </aside>
-  );
-}
+        <div className="border-t border-purple-100 p-4">
+          <div className="space-y-3">
+            {/* Input Area with Plus and Attach Buttons */}
+            <div className="relative flex items-center gap-2">
+              {/* Plus Button - Quick Actions & Prompt Library */}
+              <div className="relative">
+                <button
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-purple-200 text-purple-500 hover:bg-purple-50"
+                  onClick={() => {
+                    setPromptMenuOpen(!promptMenuOpen);
+                    setActiveMenuSection("templates");
+                  }}
+                  title="Quick actions & prompts"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                {promptMenuOpen && (
+                  <div className="absolute bottom-12 left-0 z-50 w-72 rounded-xl border border-purple-100 bg-white shadow-lg">
+                    {/* Tab Headers */}
+                    <div className="flex border-b border-purple-100">
+                      <button
+                        onClick={() => setActiveMenuSection("templates")}
+                        className={cn(
+                          "flex-1 p-3 text-xs font-semibold transition-colors",
+                          activeMenuSection === "templates"
+                            ? "text-purple-600 border-b-2 border-purple-600"
+                            : "text-slate-500 hover:text-slate-700",
+                        )}
+                      >
+                        Quick Templates
+                      </button>
+                      <button
+                        onClick={() => setActiveMenuSection("library")}
+                        className={cn(
+                          "flex-1 p-3 text-xs font-semibold transition-colors",
+                          activeMenuSection === "library"
+                            ? "text-purple-600 border-b-2 border-purple-600"
+                            : "text-slate-500 hover:text-slate-700",
+                        )}
+                      >
+                        Prompt Library
+                      </button>
+                    </div>
+
+                    {/* Quick Templates Section */}
+                    {activeMenuSection === "templates" && (
+                      <div className="p-2">
+                        <button
+                          onClick={() => {
+                            setCustomInput("Show me my device's health score");
+                            setPromptMenuOpen(false);
+                          }}
+                          className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                              <Gauge className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-slate-800">
+                                See My Device Health Score
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                View the operational health score of your
+                                machines
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setCustomInput("Show me tickets for my machines");
+                            setPromptMenuOpen(false);
+                          }}
+                          className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                              <FileText className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-slate-800">
+                                See Tickets for My Machines
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Review maintenance tickets and service history
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setCustomInput(
+                              "Show me predictive maintenance for my machine",
+                            );
+                            setPromptMenuOpen(false);
+                          }}
+                          className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                              <Zap className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-slate-800">
+                                See Predictive Maintenance
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                View upcoming maintenance predictions and alerts
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setCustomInput(
+                              "Monitor my machine's real-time telemetry data",
+                            );
+                            setPromptMenuOpen(false);
+                          }}
+                          className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors group"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                              <Activity className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-slate-800">
+                                Monitor Real-Time Telemetry
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                View live sensor data and telemetry streams
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Prompt Library Section */}
+                    {activeMenuSection === "library" && (
+                      <>
+                        <div className="max-h-80 overflow-y-auto p-2">
+                          {savedPrompts.map((prompt) => (
+                            <button
+                              key={prompt.id}
+                              onClick={() => handleUsePrompt(prompt)}
+                              className="w-full rounded-lg p-3 text-left hover:bg-purple-50 transition-colors"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <p className="text-sm font-semibold text-slate-800">
+                                    {prompt.name}
+                                  </p>
+                                  <p className="text-xs text-slate-500 mt-1">
+                                    {prompt.description}
+                                  </p>
+                                </div>
+                                <FileText className="h-4 w-4 text-purple-400" />
+                              </div>
+                              <div className="mt-2 rounded bg-slate-50 p-2 text-xs text-slate-600 font-mono line-clamp-2">
+                                {prompt.content}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="border-t border-purple-100 p-2">
+                          {!showSavePrompt ? (
+                            <button
+                              onClick={() => setShowSavePrompt(true)}
+                              className="w-full flex items-center gap-2 rounded-lg border border-dashed border-purple-200 p-2 text-xs font-semibold text-purple-600 hover:bg-purple-50"
+                            >
+                              <Save className="h-3 w-3" />
+                              Save New Prompt
+                            </button>
+                          ) : (
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                placeholder="Prompt name"
+                                value={newPromptName}
+                                onChange={(e) =>
+                                  setNewPromptName(e.target.value)
+                                }
+                                className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                              />
+                              <textarea
+                                placeholder="Prompt content"
+                                value={newPromptContent}
+                                onChange={(e) =>
+                                  setNewPromptContent(e.target.value)
+                                }
+                                rows={3}
+                                className="w-full rounded border border-purple-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={handleSavePrompt}
+                                  className="flex-1 rounded bg-purple-600 px-2 py-1 text-xs font-semibold text-white hover:bg-purple-700"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setShowSavePrompt(false);
+                                    setNewPromptName("");
+                                    setNewPromptContent("");
+                                  }}
+                                  className="flex-1 rounded border border-purple-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Attach Button */}
+              <button
+                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-purple-200 px-3 text-xs font-medium text-purple-600 hover:bg-purple-50"
+                title="Attach files"
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+                Attach
+              </button>
+            </div>
+
+            {/* Text input - always shown for onboarding */}
+            {isOnboarding && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && customInput.trim()) {
+                      onSendCustom(customInput);
+                      setCustomInput("");
+                    }
+                  }}
+                  placeholder="Type anything to continue..."
+                  className="flex-1 rounded-full border border-purple-200 px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                />
+                <button
+                  onClick={() => {
+                    if (customInput.trim()) {
+                      onSendCustom(customInput);
+                      setCustomInput("");
+                    }
+                  }}
+                  disabled={!customInput.trim()}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-xs font-semibold",
+                    customInput.trim()
+                      ? "border-purple-600 bg-purple-600 text-white hover:bg-purple-700"
+                      : "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed",
+                  )}
+                >
+                  Send
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
+    );
+  },
+);
 
 // Legacy components removed - no longer needed with new onboarding system
 
@@ -2640,22 +2552,6 @@ function DashboardMain({
   const selectedMachine = machines.find((m) => m.id === selectedMachineId);
 
   // Render different views based on activeNav
-  // Ask AI - Full-page chat interface
-  if (activeNav === "ask-ai") {
-    return (
-      <div className="flex h-full flex-col overflow-hidden bg-gradient-to-br from-purple-50/30 via-white to-purple-50/30">
-        <div className="flex-1 overflow-hidden">
-          {/* This will be the AskAIPage component with full-page chat */}
-          <AskAIPage
-            messages={onboardingMessages}
-            onSendMessage={onHandleOnboardingInput}
-            isProcessing={onboardingProcessing}
-            renderWidget={renderOnboardingWidget}
-          />
-        </div>
-      </div>
-    );
-  }
 
   // Overview shows list of all machines (and future SM/APM cards)
   if (activeNav === "overview") {
@@ -2693,20 +2589,37 @@ function DashboardMain({
               </h3>
               <ul className="space-y-4 text-sm text-slate-600">
                 <li className="flex gap-3">
-                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-600">1</span>
-                  <span>Choose between a demo device or configure your own machine</span>
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-600">
+                    1
+                  </span>
+                  <span>
+                    Choose between a demo device or configure your own machine
+                  </span>
                 </li>
                 <li className="flex gap-3">
-                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-600">2</span>
-                  <span>Configure your machine profile with cycle time and maintenance schedule</span>
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-600">
+                    2
+                  </span>
+                  <span>
+                    Configure your machine profile with cycle time and
+                    maintenance schedule
+                  </span>
                 </li>
                 <li className="flex gap-3">
-                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-600">3</span>
-                  <span>Connect to our broker and start streaming telemetry data</span>
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-600">
+                    3
+                  </span>
+                  <span>
+                    Connect to our broker and start streaming telemetry data
+                  </span>
                 </li>
                 <li className="flex gap-3">
-                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-600">4</span>
-                  <span>Train the anomaly detection model and activate monitoring</span>
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-600">
+                    4
+                  </span>
+                  <span>
+                    Train the anomaly detection model and activate monitoring
+                  </span>
                 </li>
               </ul>
               <div className="mt-8 text-center">
