@@ -17,6 +17,7 @@ interface DashboardOnboardingState {
   handleUserInput: (input: string | any) => Promise<void>;
   getCurrentWidget: () => any;
   getContext: () => FlowContext;
+  addMessage: (actor: 'user' | 'assistant', message: string, widget?: any) => void;
 }
 
 export function useDashboardOnboarding(): DashboardOnboardingState {
@@ -768,6 +769,18 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
     }
   }, []);
 
+  const addMessage = useCallback((actor: 'user' | 'assistant', message: string, widget?: any) => {
+    const newMessage: ChatMessage = {
+      id: `msg-${messageIdCounter.current++}`,
+      actor,
+      message,
+      widget,
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, newMessage]);
+    setIsActive(true);
+  }, []);
+
   return {
     messages,
     isProcessing,
@@ -776,5 +789,6 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
     handleUserInput,
     getCurrentWidget: () => flowManager.getCurrentStep()?.widget,
     getContext: () => flowManager.getContext(),
+    addMessage,
   };
 }

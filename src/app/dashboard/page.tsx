@@ -66,6 +66,8 @@ import {
   ProfileConfigFormWidget,
 } from "@/components/onboarding";
 import { SMSConsentPopup } from "@/components/SMSConsentPopup";
+import { VideoPopup } from "@/components/widgets/VideoPopup";
+import { VideoWidget } from "@/components/widgets/VideoWidget";
 
 type AssetProfile = {
   id: string;
@@ -464,7 +466,25 @@ function DashboardPageContent() {
     handleUserInput: handleOnboardingInput,
     getCurrentWidget,
     getContext: getOnboardingContext,
+    addMessage: addOnboardingMessage,
   } = useDashboardOnboarding();
+
+  // Handler for video widget submission
+  const handleVideoSubmit = useCallback((data: { url: string; title: string; description: string }) => {
+    // Add assistant message with the video widget (no text, just the widget)
+    addOnboardingMessage(
+      'assistant',
+      '',
+      {
+        type: 'video-widget',
+        data: {
+          url: data.url,
+          title: data.title,
+          description: data.description,
+        },
+      }
+    );
+  }, [addOnboardingMessage]);
 
   // Check URL params early to set initial state correctly
   const scenarioParam = searchParams.get("scenario");
@@ -1226,6 +1246,15 @@ function DashboardPageContent() {
             />
           );
 
+        case "video-widget":
+          return (
+            <VideoWidget
+              url={widgetDef.data?.url || ''}
+              title={widgetDef.data?.title || 'Video'}
+              description={widgetDef.data?.description}
+            />
+          );
+
         default:
           return null;
       }
@@ -1284,6 +1313,7 @@ function DashboardPageContent() {
                     onSendCustom={async (text: string) => {
                       await handleOnboardingInput(text);
                     }}
+                    onVideoSubmit={handleVideoSubmit}
                     isDashboard
                     isOnboarding={true}
                     onboardingProcessing={onboardingProcessing}
@@ -1329,9 +1359,6 @@ function DashboardPageContent() {
                     onMachineChange={setSelectedMachineId}
                     onSelect={(key) => {
                       setActiveNav(key);
-                      if (key === "ask-ai") {
-                        setChatCollapsed(true);
-                      }
                     }}
                     notifications={DASHBOARD_NOTIFICATIONS}
                     kpis={DASHBOARD_KPIS}
@@ -1459,6 +1486,7 @@ function DashboardPageContent() {
                   onSendCustom={async (text: string) => {
                     await handleOnboardingInput(text);
                   }}
+                  onVideoSubmit={handleVideoSubmit}
                   isDashboard
                   isOnboarding={true}
                   onboardingProcessing={onboardingProcessing}
@@ -1495,6 +1523,7 @@ function DashboardPageContent() {
                   onSendCustom={async (text: string) => {
                     await handleOnboardingInput(text);
                   }}
+                  onVideoSubmit={handleVideoSubmit}
                   isDashboard
                   isOnboarding={true}
                   onboardingProcessing={onboardingProcessing}
@@ -1872,6 +1901,7 @@ const ChatSidebar = forwardRef<
   {
     messages: any[];
     onSendCustom: (text: string) => void;
+    onVideoSubmit?: (data: { url: string; title: string; description: string }) => void;
     threads: string[];
     activeThread: number;
     onSelectThread: (index: number) => void;
@@ -1890,6 +1920,7 @@ const ChatSidebar = forwardRef<
     {
       messages,
       onSendCustom,
+      onVideoSubmit,
       threads,
       activeThread,
       onSelectThread,
@@ -1919,6 +1950,7 @@ const ChatSidebar = forwardRef<
     const [newPromptName, setNewPromptName] = useState("");
     const [newPromptContent, setNewPromptContent] = useState("");
     const [customInput, setCustomInput] = useState("");
+    const [showVideoPopup, setShowVideoPopup] = useState(false);
 
     useEffect(() => {
       if (messagesEndRef.current && chatContainerRef.current) {
@@ -2415,18 +2447,30 @@ const ChatSidebar = forwardRef<
                   onChange={(e) => setCustomInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && customInput.trim()) {
-                      onSendCustom(customInput);
-                      setCustomInput("");
+                      // Check if user typed "video" to trigger video popup
+                      if (customInput.trim().toLowerCase() === "video") {
+                        setShowVideoPopup(true);
+                        setCustomInput("");
+                      } else {
+                        onSendCustom(customInput);
+                        setCustomInput("");
+                      }
                     }
                   }}
-                  placeholder="Type anything to continue..."
+                  placeholder="Type anything to continue... (try 'video')"
                   className="flex-1 rounded-full border border-purple-200 px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
                 />
                 <button
                   onClick={() => {
                     if (customInput.trim()) {
-                      onSendCustom(customInput);
-                      setCustomInput("");
+                      // Check if user typed "video" to trigger video popup
+                      if (customInput.trim().toLowerCase() === "video") {
+                        setShowVideoPopup(true);
+                        setCustomInput("");
+                      } else {
+                        onSendCustom(customInput);
+                        setCustomInput("");
+                      }
                     }
                   }}
                   disabled={!customInput.trim()}
@@ -2443,10 +2487,23 @@ const ChatSidebar = forwardRef<
             )}
           </div>
         </div>
+        {/* Video Popup */}
+        <VideoPopup
+          isOpen={showVideoPopup}
+          onClose={() => setShowVideoPopup(false)}
+          onSubmit={(data) => {
+            if (onVideoSubmit) {
+              onVideoSubmit(data);
+            }
+            setShowVideoPopup(false);
+          }}
+        />
       </aside>
     );
   },
 );
+
+ChatSidebar.displayName = 'ChatSidebar';
 
 // Legacy components removed - no longer needed with new onboarding system
 

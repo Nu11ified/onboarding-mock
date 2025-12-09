@@ -9,6 +9,7 @@ import { InfoGridWidget } from './InfoGridWidget';
 import { LoginButtonWidget } from './LoginButtonWidget';
 import { SchemaValidationWidget } from './SchemaValidationWidget';
 import { ChannelConfigurationWidget } from './ChannelConfigurationWidget';
+import { VideoWidget } from './VideoWidget';
 
 // Import existing onboarding widgets
 import {
@@ -265,6 +266,15 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
             onSubmit={(mapping) => {
               if (onSubmit) onSubmit({ channelMapping: mapping });
             }}
+          />
+        );
+
+      case 'video-widget':
+        return (
+          <VideoWidget
+            url={data.url || ''}
+            title={data.title || 'Video'}
+            description={data.description}
           />
         );
 
