@@ -97,7 +97,7 @@ export const NON_LOGIN_FLOW: FlowStep[] = [
   {
     id: "user-info-prompt",
     actor: "assistant",
-    message: `To get started and save your session so you can come back later, I just need a few details from you:`,
+    message: `You’re about to set up a new machine, where you can explore it’s real-time telemetry, AI insights, with interactive dashboards.`,
     widget: {
       type: "user-info-form",
     },
@@ -151,20 +151,18 @@ Didn't get the code? You can resend it after a few seconds, or check your spam/j
     },
     waitForUserInput: true,
     nextStepId: (context: FlowContext) =>
-      context.mode === "demo" ? "demo-setup-message" : "live-machine-details-prompt",
+      context.mode === "demo"
+        ? "demo-setup-message"
+        : "live-machine-details-prompt",
   },
 
   // ========== DEMO DEVICE FLOW ==========
 
-  // Demo: Setup message
+  // Demo: Setup message (moved content to device-spawn step)
   {
     id: "demo-setup-message",
     actor: "assistant",
-    message: `Now we're setting up your Demo Machine.
-You'll start seeing real-time data very soon.
-
-I'll show you a live progress view of the setup, so you know exactly what's happening and how far along we are.
-Sit tight — this usually takes less than 1 minute.`,
+    message: "",
     nextStepId: "demo-device-init",
   },
 
@@ -181,7 +179,11 @@ Sit tight — this usually takes less than 1 minute.`,
   {
     id: "demo-device-spawn",
     actor: "assistant",
-    message: "Setting up your demo machine...",
+    message: `Now we're setting up your Demo Machine.
+You'll start seeing real-time data very soon.
+
+I'll show you a live progress view of the setup, so you know exactly what's happening and how far along we are.
+Sit tight — this usually takes less than 1 minute.`,
     widget: {
       type: "device-status-widget",
     },
@@ -305,7 +307,8 @@ Would you like to configure how your tags are grouped, or use the default config
   {
     id: "live-channel-config",
     actor: "assistant",
-    message: "Great! Let's configure your channels. You can organize your tags into groups below:",
+    message:
+      "Great! Let's configure your channels. You can organize your tags into groups below:",
     widget: {
       type: "channel-configuration-widget",
     },
@@ -357,7 +360,8 @@ Just say "yes" or "no".`,
   {
     id: "account-created",
     actor: "assistant",
-    message: "Your account has been created! We've sent you an email with instructions to set your password. Once you log in, you'll have full access to your dashboard and all features.",
+    message:
+      "Your account has been created! We've sent you an email with instructions to set your password. Once you log in, you'll have full access to your dashboard and all features.",
     action: "create-account",
     widget: {
       type: "login-button-widget",
@@ -374,7 +378,8 @@ Just say "yes" or "no".`,
   {
     id: "session-saved",
     actor: "assistant",
-    message: "No problem! Your session has been saved. You can come back anytime using the same email address to continue where you left off. Your demo machine will remain active.",
+    message:
+      "No problem! Your session has been saved. You can come back anytime using the same email address to continue where you left off. Your demo machine will remain active.",
     action: "skip-account",
   },
 ];

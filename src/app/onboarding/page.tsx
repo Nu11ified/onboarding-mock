@@ -73,9 +73,10 @@ function mapStepToPhase(
   )
     return "password-setup";
 
-  // Welcome/mode selection
-  if (stepId === "welcome-message" || stepId === "mode-selection")
-    return "welcome";
+  // Welcome
+  if (stepId === "welcome-message") return "welcome";
+  // Mode selection - show demo video sidebar
+  if (stepId === "mode-selection") return "device-selection";
 
   // User info form steps
   if (stepId.includes("user-info") || stepId === "user-info-prompt" || stepId === "user-info-processing")
@@ -88,16 +89,16 @@ function mapStepToPhase(
   if (stepId.includes("machine-details"))
     return "machine-details";
 
-  // MQTT/Live connection
+  // Channel configuration (explicitly handle live-data-received here)
+  if (stepId === "live-data-received" || stepId.includes("channel"))
+    return "channel-config";
+
+  // MQTT/Live connection (exclude live-data so it doesn't override channel-config)
   if (
     stepId.includes("mqtt") ||
-    stepId.includes("live-data") ||
     stepId.includes("schema")
   )
     return "mqtt-validation";
-
-  // Channel configuration
-  if (stepId.includes("channel") || stepId === "live-data-received") return "channel-config";
 
   // Training/device spawn
   if (
@@ -566,9 +567,9 @@ export default function DualPaneOnboardingPage() {
           }}
           videoConfig={{
             url: "https://youtu.be/YQj_I-Zpx4Q",
-            title: "Getting Started with Machine Intelligence",
+            title: "Understand the Demo Machine",
             description:
-              "Learn how to configure your machine, understand health scores, and set up predictive maintenance alerts.",
+              "The demo device is a robotic arm which represents an industrial machine performing an operation. Here we are extracting key details such as acceleration, Current, Temperature, Velocity etc.",
             duration: "5:30",
           }}
         />

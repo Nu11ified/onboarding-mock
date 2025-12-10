@@ -9,7 +9,7 @@ import {
   Copy, 
   Check,
   ExternalLink,
-  Plug,
+  HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -269,9 +269,9 @@ client.publish("${topic}", json.dumps({
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100">
-            <Plug className="h-4 w-4 text-purple-600" />
+            <HelpCircle className="h-4 w-4 text-purple-600" />
           </div>
-          <h2 className="text-lg font-semibold text-slate-900">Connect Your Data Source</h2>
+          <h2 className="text-lg font-semibold text-slate-900">How to connect your data source</h2>
         </div>
         <p className="text-sm text-slate-600">
           Choose your data source platform to see specific setup instructions.

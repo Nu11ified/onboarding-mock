@@ -63,7 +63,7 @@ function WelcomePanel() {
       </h2>
       <p className="text-sm text-slate-600 max-w-sm leading-relaxed">
         Let&apos;s get your machine connected and start monitoring its health. 
-        This panel will guide you through each step of the setup process.
+        This guide will walk you through each step of the setup process.
       </p>
       
       {/* Feature highlights */}
@@ -110,7 +110,7 @@ function MachineConfigHelpPanel() {
           </div>
           <p className="text-sm text-slate-600">
             The duration (in seconds) that our AI model will spend learning your machine&apos;s normal operating patterns. 
-            A longer training time allows for more accurate anomaly detection.
+            A longer training time allows for more accurate analytics, insights and root cause detection.
           </p>
         </div>
 
@@ -240,9 +240,25 @@ export function StatusPanel({
       return (
         <TrainingVideoPanel
           videoUrl={videoConfig?.url}
-          title={videoConfig?.title}
-          description={videoConfig?.description}
+          title={videoConfig?.title || 'Understand the Demo Machine'}
+          description={videoConfig?.description ?? 'The demo device is a robotic arm which represents an industrial machine performing an operation. Here we are extracting key details such as acceleration, Current, Temperature, Velocity etc.'}
           duration={videoConfig?.duration}
+          headingTitle={'Demo Device'}
+          headingDescription={''}
+        />
+      );
+    }
+
+    // Device selection phase - show demo video to help decision
+    if (phase === 'device-selection') {
+      return (
+        <TrainingVideoPanel
+          videoUrl={videoConfig?.url}
+          title={'Understand the Demo Machine'}
+          description={'The demo device is a robotic arm which represents an industrial machine performing an operation. Here we are extracting key details such as acceleration, Current, Temperature, Velocity etc.'}
+          duration={videoConfig?.duration}
+          headingTitle={'Demo Device'}
+          headingDescription={''}
         />
       );
     }

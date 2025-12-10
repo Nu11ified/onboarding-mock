@@ -12,12 +12,14 @@ import { cn } from '@/lib/utils';
 
 interface TrainingVideoPanelProps {
   videoUrl?: string;
-  title?: string;
-  description?: string;
+  title?: string; // Card Header
+  description?: string; // Card Text
   duration?: string;
   thumbnailUrl?: string;
   className?: string;
   onVideoComplete?: () => void;
+  headingTitle?: string; // Widget Heading
+  headingDescription?: string; // Widget Description
 }
 
 // Helper function to extract video embed URL
@@ -81,6 +83,8 @@ export function TrainingVideoPanel({
   thumbnailUrl,
   className,
   onVideoComplete,
+  headingTitle = 'Training Video',
+  headingDescription = 'Watch this video to learn how to get the most out of your machine intelligence setup.',
 }: TrainingVideoPanelProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasWatched, setHasWatched] = useState(false);
@@ -104,7 +108,7 @@ export function TrainingVideoPanel({
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-pink-500">
             <GraduationCap className="h-4 w-4 text-white" />
           </div>
-          <h2 className="text-lg font-semibold text-slate-900">Training Video</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{headingTitle}</h2>
           {hasWatched && (
             <span className="ml-auto flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
               <CheckCircle2 className="h-3 w-3" />
@@ -113,7 +117,7 @@ export function TrainingVideoPanel({
           )}
         </div>
         <p className="text-sm text-slate-600">
-          Watch this video to learn how to get the most out of your machine intelligence setup.
+          {headingDescription}
         </p>
       </div>
 
