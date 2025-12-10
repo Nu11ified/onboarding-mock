@@ -239,15 +239,49 @@ Now we need to connect your device to our system so we can receive and validate 
 
 We'll provide you with MQTT broker details. You can configure your machine, or use Kepware or Ignition, to send your device data to this broker.
 
+Endpoint: mqtt.industrialiq.ai\nPort: 8883\nTopic: telemetry
+
 Don't worry about the format — you can send data in your existing format. We'll validate it on our side and make sure it's acceptable.
 
-Once we receive and validate the data, we can continue with the machine configuration.`,
+When you have your device sending data, type "done" here and I'll validate it automatically.`,
+    waitForUserInput: true,
+    nextStepId: "live-data-received",
+  },
+
+  // Live: Schema validation status (triggered when user types "done" at MQTT prompt)
+  {
+    id: "live-mqtt-schema-status",
+    actor: "assistant",
+    message: "Validating your data schema...",
     widget: {
-      type: "mqtt-broker-validation",
+      type: "device-status-widget",
       data: {
-        endpoint: "mqtt.industrialiq.ai",
-        port: 8883,
-        topic: "telemetry",
+        deviceId: "schema_validation",
+        labels: {
+          starting: "Waiting for Data",
+          training: "Validating Schema",
+          complete: "Schema Validated",
+        },
+      },
+    },
+    waitForUserInput: true,
+    nextStepId: "live-agent-data-validate",
+  },
+
+  // Live: Agent start + data validation status
+  {
+    id: "live-agent-data-validate",
+    actor: "assistant",
+    message: "Starting your agent and validating incoming data...",
+    widget: {
+      type: "device-status-widget",
+      data: {
+        deviceId: "agent_validation",
+        labels: {
+          starting: "Starting Container",
+          training: "Validating Data",
+          complete: "Data Validated",
+        },
       },
     },
     waitForUserInput: true,

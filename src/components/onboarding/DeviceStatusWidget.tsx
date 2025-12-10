@@ -50,6 +50,11 @@ interface DeviceStatusWidgetProps {
   onComplete?: () => void;
   onRetry?: () => void;
   showTraining?: boolean;
+  labels?: {
+    starting?: string;
+    training?: string;
+    complete?: string;
+  };
 }
 
 export function DeviceStatusWidget({ 
@@ -57,7 +62,8 @@ export function DeviceStatusWidget({
   status: initialStatus, 
   onComplete,
   onRetry,
-  showTraining = true
+  showTraining = true,
+  labels = {}
 }: DeviceStatusWidgetProps) {
   const [status, setStatus] = useState(initialStatus);
   const [phase, setPhase] = useState<DevicePhase>('starting');
@@ -198,7 +204,7 @@ export function DeviceStatusWidget({
               "transition-all duration-300",
               phase === 'starting' ? "text-base font-bold text-slate-900" : "text-sm font-medium text-slate-500"
             )}>
-              Starting Container
+              {labels.starting || 'Starting Container'}
             </span>
           </div>
           
@@ -220,7 +226,7 @@ export function DeviceStatusWidget({
                   "transition-all duration-300",
                   phase === 'training' ? "text-base font-bold text-slate-900" : "text-sm font-medium text-slate-500"
                 )}>
-                  Training the Model
+                  {labels.training || 'Training the Model'}
                 </span>
               </div>
             </div>
@@ -236,7 +242,7 @@ export function DeviceStatusWidget({
                 "transition-all duration-300",
                 phase === 'complete' ? "text-base font-bold text-slate-900" : "text-sm font-medium text-slate-500"
               )}>
-                Training Complete
+                {labels.complete || 'Training Complete'}
               </span>
             </div>
           )}

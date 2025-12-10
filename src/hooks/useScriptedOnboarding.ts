@@ -491,6 +491,20 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
       let jumpToStepId: string | null = null;
       let forceAction: FlowStepAction | null = null;
 
+      // MQTT done -> schema + agent validation widgets chain
+      if (textInput && currentStep?.id === 'live-mqtt-prompt') {
+        const lower = textInput.toLowerCase().trim();
+        if (lower === 'done' || lower === 'ready' || lower.includes('done')) {
+          addUserMessage(textInput);
+          const step = flowManager.jumpToStep('live-mqtt-schema-status');
+          if (step) {
+            addMessageFromCurrentStep();
+            setIsProcessing(false);
+            return;
+          }
+        }
+      }
+
       // Channel configure/skip
       if (textInput && currentStep?.id === 'live-data-received') {
         const lowerInput = textInput.toLowerCase().trim();
