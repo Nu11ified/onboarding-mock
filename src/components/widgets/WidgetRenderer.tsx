@@ -24,6 +24,12 @@ import {
   PasswordCreationWidget,
   PaymentWidget,
   ProfileSelectionWidget,
+  UserInfoFormWidget,
+  WelcomeButtonsWidget,
+  MachineDetailsFormWidget,
+  MqttBrokerValidationWidget,
+  DemoSlideshowWidget,
+  AccountCreationSuggestionWidget,
 } from '@/components/onboarding';
 
 interface WidgetRendererProps {
@@ -68,6 +74,7 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
             value={data.value || 0}
             status={data.status}
             message={data.message}
+            estimatedTimeRemaining={data.estimatedTimeRemaining}
           />
         );
 
@@ -275,6 +282,77 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
             url={data.url || ''}
             title={data.title || 'Video'}
             description={data.description}
+          />
+        );
+
+      // New widgets for the updated onboarding flow
+      case 'welcome-buttons':
+        return (
+          <WelcomeButtonsWidget
+            onSelect={async (mode) => {
+              if (onSubmit) await onSubmit({ mode });
+            }}
+          />
+        );
+
+      case 'user-info-form':
+        return (
+          <UserInfoFormWidget
+            mode={data.mode || 'demo'}
+            onSubmit={async (userInfo) => {
+              if (onSubmit) {
+                await onSubmit({
+                  email: userInfo.email,
+                  firstName: userInfo.firstName,
+                  lastName: userInfo.lastName,
+                  phoneNumber: userInfo.phoneNumber,
+                });
+              }
+            }}
+          />
+        );
+
+      case 'machine-details-form':
+        return (
+          <MachineDetailsFormWidget
+            onSubmit={async (details) => {
+              if (onSubmit) {
+                await onSubmit({
+                  machineDetails: details,
+                });
+              }
+            }}
+          />
+        );
+
+      case 'mqtt-broker-validation':
+        return (
+          <MqttBrokerValidationWidget
+            brokerDetails={{
+              endpoint: data.endpoint || 'mqtt.industrialiq.ai',
+              port: data.port || 8883,
+              topic: data.topic || 'telemetry',
+              username: data.username,
+              password: data.password,
+            }}
+            onValidated={async () => {
+              if (onSubmit) await onSubmit({ mqttValidated: true });
+            }}
+          />
+        );
+
+      case 'demo-slideshow':
+        return <DemoSlideshowWidget />;
+
+      case 'account-creation-suggestion':
+        return (
+          <AccountCreationSuggestionWidget
+            onCreateAccount={async () => {
+              if (onSubmit) await onSubmit({ createAccount: true });
+            }}
+            onSkip={async () => {
+              if (onSubmit) await onSubmit({ createAccount: false });
+            }}
           />
         );
 

@@ -4,3 +4,7 @@ export { StatusWidget } from './StatusWidget';
 export { ProgressWidget } from './ProgressWidget';
 export { FormWidget } from './FormWidget';
 export { InfoGridWidget } from './InfoGridWidget';
+export { MQTTInstructionsPanel } from './MQTTInstructionsPanel';
+export { TrainingVideoPanel } from './TrainingVideoPanel';
+export { StatusPanel } from './StatusPanel';
+export type { OnboardingPhase, OnboardingMode } from './StatusPanel';

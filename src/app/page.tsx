@@ -150,10 +150,10 @@ export default function LandingPage() {
   };
 
   const handleInviteSubmit = () => {
-    // Accept any code - just proceed to the demo page
+    // Accept any code - just proceed to the onboarding page
     setShowInvitePopup(false);
     setIsRouting(true);
-    router.push("/demo");
+    router.push("/onboarding");
   };
 
   const handleSavePrompt = () => {

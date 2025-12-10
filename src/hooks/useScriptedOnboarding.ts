@@ -162,6 +162,24 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
         return true;
       }
 
+      case 'register-user-info': {
+        const { email, firstName, lastName, phoneNumber } = context;
+        if (!email) {
+          console.error('No email in context');
+          return false;
+        }
+        
+        console.log('✅ Registering user info (mock):', { email, firstName, lastName, phoneNumber });
+        // Store user info in localStorage for later account creation
+        localStorage.setItem('pending_user_info', JSON.stringify({
+          email,
+          firstName,
+          lastName,
+          phoneNumber,
+        }));
+        return true;
+      }
+
       case 'validate-otp': {
         console.log('✅ Validating OTP (mock pass):', context.otp);
         // Simulate profile creation which happens here
@@ -395,6 +413,44 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
         return true;
       }
 
+      case 'create-account': {
+        // Create user account with the info collected earlier
+        const { email, firstName, lastName, phoneNumber, deviceId, profileKey, mode } = context;
+        console.log('✅ Creating account (mock):', { email, firstName, lastName });
+        
+        // Store account creation state
+        localStorage.setItem('pending_reset_email', email || '');
+        localStorage.setItem('onboarding_state', JSON.stringify({
+          email,
+          firstName,
+          lastName,
+          phoneNumber,
+          deviceId,
+          profileKey,
+          mode,
+          accountCreated: true,
+          completedAt: new Date().toISOString(),
+        }));
+        return true;
+      }
+
+      case 'skip-account': {
+        // User skipped account creation, just save session
+        const { email, deviceId, profileKey, mode } = context;
+        console.log('⏭️ Skipping account creation, saving session');
+        
+        localStorage.setItem('onboarding_state', JSON.stringify({
+          email,
+          deviceId,
+          profileKey,
+          mode,
+          accountCreated: false,
+          sessionSaved: true,
+          completedAt: new Date().toISOString(),
+        }));
+        return true;
+      }
+
       default:
         return true;
     }
@@ -408,9 +464,14 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
       const currentStep = flowManager.getCurrentStep();
       if (!currentStep) return;
 
+      // Normalize possible text input (chat sends objects with { userMessage })
+      const textInput: string = typeof input === 'string'
+        ? input
+        : (input && typeof input === 'object' && 'userMessage' in input ? String((input as any).userMessage || '') : '');
+
       // Check if user wants to switch to demo mode
-      if (typeof input === 'string' && input && input.toLowerCase().includes('switch to demo')) {
-        addUserMessage(input);
+      if (textInput && textInput.toLowerCase().includes('switch to demo')) {
+        addUserMessage(textInput);
         flowManager.updateContext({ mode: 'demo' });
         
         // Jump to demo flow start
@@ -425,18 +486,119 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
         return;
       }
 
-      // Update context FIRST if input contains data (before executing action)
-      if (typeof input === 'object' && input) {
-        // Check if there's a userMessage to display
-        if (input.userMessage) {
-          addUserMessage(input.userMessage);
+      // Special input routing and explicit jumps
+      let handledSpecialInput = false;
+      let jumpToStepId: string | null = null;
+      let forceAction: FlowStepAction | null = null;
+
+      // Channel configure/skip
+      if (textInput && currentStep?.id === 'live-data-received') {
+        const lowerInput = textInput.toLowerCase().trim();
+        if (lowerInput === 'configure' || lowerInput.includes('configure')) {
+          console.log('🔧 User wants to configure channels');
+          addUserMessage(textInput);
+          flowManager.updateContext({ configureChannels: true });
+          jumpToStepId = 'live-channel-config';
+          handledSpecialInput = true;
+        } else if (lowerInput === 'skip' || lowerInput.includes('skip') || lowerInput.includes('default')) {
+          console.log('⏭️ User wants to skip channel config');
+          addUserMessage(textInput);
+          flowManager.updateContext({ configureChannels: false });
+          jumpToStepId = 'live-device-init';
+          handledSpecialInput = true;
         }
-        flowManager.updateContext(input);
       }
 
-      // Add user message if it's a text input
-      if (typeof input === 'string' && input) {
-        addUserMessage(input);
+      // Account creation yes/no
+      if (textInput && (currentStep?.id === 'demo-complete-message' || currentStep?.id === 'live-complete-message')) {
+        const lowerInput = textInput.toLowerCase().trim();
+        if (lowerInput === 'yes' || lowerInput.includes('yes') || lowerInput.includes('create')) {
+          console.log('✅ User wants to create account');
+          addUserMessage(textInput);
+          flowManager.updateContext({ createAccount: true });
+          jumpToStepId = 'account-created';
+          forceAction = 'create-account'; // ensure we run creation even though step waits for input
+          handledSpecialInput = true;
+        } else if (lowerInput === 'no' || lowerInput.includes('no') || lowerInput.includes('later')) {
+          console.log('⏭️ User will come back later');
+          addUserMessage(textInput);
+          flowManager.updateContext({ createAccount: false });
+          jumpToStepId = 'session-saved';
+          handledSpecialInput = true;
+        }
+      }
+
+      // Update context FIRST if input contains data (before executing action)
+      if (typeof input === 'object' && input) {
+        // Separate userMessage from real context fields
+        const { userMessage, ...rest } = input as any;
+        if (Object.keys(rest).length > 0) {
+          flowManager.updateContext(rest);
+        }
+      }
+
+      // Add user message if it's a text input (unless already handled)
+      if (textInput && !handledSpecialInput) {
+        addUserMessage(textInput);
+      }
+
+      // If we need to jump to a specific step, do it now and process actions/messages appropriately
+      if (jumpToStepId) {
+        const step = flowManager.jumpToStep(jumpToStepId);
+        if (!step) {
+          console.error('Failed to jump to step:', jumpToStepId);
+          setIsProcessing(false);
+          return;
+        }
+
+        // Run forced action (e.g., account creation) even if the step waits for input
+        if (forceAction) {
+          const ok = await executeAction(forceAction);
+          if (!ok) {
+            console.error('Forced action failed:', forceAction);
+            setIsProcessing(false);
+            return;
+          }
+        } else if (step.action && !step.waitForUserInput) {
+          // Otherwise run step action if appropriate
+          const ok = await executeAction(step.action);
+          if (!ok) {
+            console.error('Step action failed:', step.action);
+            setIsProcessing(false);
+            return;
+          }
+        }
+
+        // Show the message for the new current step
+        addMessageFromCurrentStep();
+
+        // If the step waits for user input, stop here
+        if (step.waitForUserInput) {
+          setIsProcessing(false);
+          return;
+        }
+
+        // Otherwise continue advancing until a wait step
+        let continueAdvancing = true;
+        while (continueAdvancing) {
+          const nextStep = flowManager.advanceToNextStep();
+          if (!nextStep) break;
+          await new Promise(resolve => setTimeout(resolve, 300));
+          if (nextStep.action && !nextStep.waitForUserInput) {
+            const ok = await executeAction(nextStep.action);
+            if (!ok) break;
+          }
+          addMessageFromCurrentStep();
+          if (nextStep.waitForUserInput) continueAdvancing = false;
+        }
+        setIsProcessing(false);
+        return;
+      }
+
+      // If current step is waiting for user input and the user typed free-text that wasn't handled, do NOT advance
+      if (currentStep.waitForUserInput && textInput && !handledSpecialInput) {
+        setIsProcessing(false);
+        return;
       }
 
       // Execute action if present on current step (only if it doesn't wait for user input)
@@ -452,7 +614,9 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
       // Keep advancing through steps that don't wait for user input
       let continueAdvancing = true;
       while (continueAdvancing) {
+        console.log('📍 About to advance from:', currentStep?.id, 'Context:', flowManager.getContext());
         const nextStep = flowManager.advanceToNextStep();
+        console.log('➡️ Advanced to:', nextStep?.id);
         if (!nextStep) {
           continueAdvancing = false;
           break;

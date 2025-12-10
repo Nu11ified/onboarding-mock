@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
@@ -9,13 +9,35 @@ interface ProgressWidgetProps {
   value: number; // 0-100
   status?: 'idle' | 'loading' | 'success' | 'error';
   message?: string;
+  /** Estimated time remaining in seconds */
+  estimatedTimeRemaining?: number;
+}
+
+/** Formats seconds into a human-readable string */
+function formatTimeRemaining(seconds: number): string {
+  if (seconds < 60) {
+    return `${Math.ceil(seconds)}s remaining`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.ceil(seconds % 60);
+  if (minutes < 60) {
+    return remainingSeconds > 0 
+      ? `${minutes}m ${remainingSeconds}s remaining`
+      : `${minutes}m remaining`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes > 0 
+    ? `${hours}h ${remainingMinutes}m remaining`
+    : `${hours}h remaining`;
 }
 
 export function ProgressWidget({ 
   label, 
   value, 
   status = 'loading', 
-  message 
+  message,
+  estimatedTimeRemaining,
 }: ProgressWidgetProps) {
   return (
     <div className="rounded-xl border border-purple-200 bg-white p-4 shadow-sm">
@@ -64,11 +86,22 @@ export function ProgressWidget({
           </div>
         </div>
 
-        {/* Progress bar */}
+        {/* Progress bar with time remaining */}
         <div>
           <Progress value={value} className="h-2" />
-          <div className="mt-1 flex items-center justify-between text-xs">
-            <span className="text-slate-500">Progress</span>
+          <div className="mt-1.5 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500">Progress</span>
+              {estimatedTimeRemaining !== undefined && estimatedTimeRemaining > 0 && status === 'loading' && (
+                <>
+                  <span className="text-slate-300">•</span>
+                  <span className="flex items-center gap-1 text-slate-500">
+                    <Clock className="h-3 w-3" />
+                    {formatTimeRemaining(estimatedTimeRemaining)}
+                  </span>
+                </>
+              )}
+            </div>
             <span className={cn(
               'font-medium',
               status === 'loading' && 'text-purple-600',

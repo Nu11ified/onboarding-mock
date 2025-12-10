@@ -7,7 +7,9 @@ import type { ChatWidget } from "./types";
 
 export type FlowStepAction =
   | "register-email"
+  | "register-user-info"
   | "validate-otp"
+  | "validate-schema"
   | "send-password-reset"
   | "show-profile-key"
   | "show-device-options"
@@ -34,7 +36,9 @@ export type FlowStepAction =
   | "compute-correlation"
   | "forecast-maintenance"
   | "explain-health-drivers"
-  | "compare-lines";
+  | "compare-lines"
+  | "create-account"
+  | "skip-account";
 
 export interface FlowStep {
   id: string;
@@ -48,6 +52,9 @@ export interface FlowStep {
 
 export interface FlowContext {
   email?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
   otp?: string;
   password?: string;
   profileKey?: string;
@@ -58,6 +65,11 @@ export interface FlowContext {
     trainingSeconds: number;
     daysToMaintenance: number;
     cycleDuration: number;
+  };
+  machineDetails?: {
+    trainingTimeSeconds: number;
+    splitCounterSeconds: number;
+    daysToMaintenance: number;
   };
   mqttConnection?: {
     brokerEndpoint: string;
@@ -72,68 +84,65 @@ export interface FlowContext {
   testTicketId?: string;
   sessionId?: string;
   chatId?: string;
+  createAccount?: boolean;
+  configureChannels?: boolean;
 }
 
 /**
  * NON-LOGIN ONBOARDING FLOW
- * Per spec: email → OTP → profile key → device options (demo/live) → activation → login prompt
+ * Flow: Welcome → User Info → OTP → Mode Selection (Demo/Live) → Device Setup → Account Creation
  */
 export const NON_LOGIN_FLOW: FlowStep[] = [
-  // Step 1: User asks question (auto-displayed)
+  // Step 1: User info prompt (collect info before mode selection)
   {
-    id: "user-question",
-    actor: "user",
-    message: "Can I add a machine to see its health score?",
-    nextStepId: "email-prompt",
-  },
-
-  // Step 2: Assistant asks for email
-  {
-    id: "email-prompt",
+    id: "user-info-prompt",
     actor: "assistant",
-    message:
-      "Sure, we can add a machine to view its sensors. But first, provide your email address so we can save your session.",
+    message: `To get started and save your session so you can come back later, I just need a few details from you:`,
     widget: {
-      type: "email-form",
+      type: "user-info-form",
     },
     waitForUserInput: true,
-    nextStepId: "email-processing",
+    nextStepId: "user-info-processing",
   },
 
-  // Step 3: Process email registration (no user message shown)
+  // Step 3: Process user info
   {
-    id: "email-processing",
+    id: "user-info-processing",
     actor: "assistant",
     message: "",
-    action: "register-email",
+    action: "register-user-info",
     nextStepId: "otp-prompt",
   },
 
-  // Step 4: Request OTP
+  // Step 4: OTP prompt
   {
     id: "otp-prompt",
     actor: "assistant",
-    message:
-      "You should have received the OTP on your email. Please provide the OTP.",
+    message: `Great!
+We've sent a 6-digit verification code (OTP) to the email you provided.
+Please check your inbox and enter the code below to verify your email and continue with the setup.
+
+Didn't get the code? You can resend it after a few seconds, or check your spam/junk folder.`,
     widget: {
       type: "otp-form",
+      data: { allowResend: true },
     },
     waitForUserInput: true,
     nextStepId: "otp-processing",
   },
 
-  // Step 5: Process OTP validation (no user message shown)
+  // Step 5: Process OTP
   {
     id: "otp-processing",
     actor: "assistant",
     message: "",
     action: "validate-otp",
-    nextStepId: "profile-key-display",
+    nextStepId: "mode-selection",
   },
 
-  // Step 6: Show profile key and device options
+  // Step 6: Mode selection (Demo vs Live) - using old DeviceOptionWidget
   {
-    id: "profile-key-display",
+    id: "mode-selection",
     actor: "assistant",
     message: (context: FlowContext) =>
       `Here is your profile key: ${context.profileKey || "123445678888"} to activate the machine. How would you like to onboard the machine? Below are 2 options.`,
@@ -142,10 +151,24 @@ export const NON_LOGIN_FLOW: FlowStep[] = [
     },
     waitForUserInput: true,
     nextStepId: (context: FlowContext) =>
-      context.mode === "demo" ? "demo-device-init" : "live-device-config",
+      context.mode === "demo" ? "demo-setup-message" : "live-machine-details-prompt",
   },
 
-  // DEMO DEVICE PATH
+  // ========== DEMO DEVICE FLOW ==========
+
+  // Demo: Setup message
+  {
+    id: "demo-setup-message",
+    actor: "assistant",
+    message: `Now we're setting up your Demo Machine.
+You'll start seeing real-time data very soon.
+
+I'll show you a live progress view of the setup, so you know exactly what's happening and how far along we are.
+Sit tight — this usually takes less than 1 minute.`,
+    nextStepId: "demo-device-init",
+  },
+
+  // Demo: Initialize device
   {
     id: "demo-device-init",
     actor: "assistant",
@@ -154,6 +177,7 @@ export const NON_LOGIN_FLOW: FlowStep[] = [
     nextStepId: "demo-device-spawn",
   },
 
+  // Demo: Show device status
   {
     id: "demo-device-spawn",
     actor: "assistant",
@@ -162,111 +186,92 @@ export const NON_LOGIN_FLOW: FlowStep[] = [
       type: "device-status-widget",
     },
     waitForUserInput: true,
-    nextStepId: "send-reset-email",
+    nextStepId: "demo-complete-message",
   },
 
-  // Step: Show password reset widget (action stores email, user clicks button to navigate)
+  // Demo: Complete message
   {
-    id: "send-reset-email",
+    id: "demo-complete-message",
     actor: "assistant",
-    message:
-      "Machine activated. Please set your password to secure your account.",
-    action: "send-password-reset",
+    message: `Your Demo Machine is now fully configured and live!
+
+You can now explore real-time telemetry, AI insights, and interactive dashboards for your demo device.
+
+Would you like to create an account so you can continue interacting with this device and view your dashboards?
+We'll use the information you provided earlier to set up your account and then send you a secure email to create your password.
+
+Just say "yes" or "no".`,
+    waitForUserInput: true,
+    nextStepId: (context: FlowContext) =>
+      context.createAccount ? "account-created" : "session-saved",
+  },
+
+  // ========== LIVE DEVICE FLOW ==========
+
+  // Live: Machine details prompt
+  {
+    id: "live-machine-details-prompt",
+    actor: "assistant",
+    message: `Now we'll start understanding your live machine so we can configure AI insights and predictive analytics.
+
+To get started, I need a few details about your device:`,
     widget: {
-      type: "login-button-widget",
+      type: "machine-details-form",
+    },
+    waitForUserInput: true,
+    nextStepId: "live-machine-details-processing",
+  },
+
+  // Live: Process machine details
+  {
+    id: "live-machine-details-processing",
+    actor: "assistant",
+    message: "",
+    nextStepId: "live-mqtt-prompt",
+  },
+
+  // Live: MQTT broker prompt
+  {
+    id: "live-mqtt-prompt",
+    actor: "assistant",
+    message: `Thanks for submitting your machine details!
+Now we need to connect your device to our system so we can receive and validate its data.
+
+We'll provide you with MQTT broker details. You can configure your machine, or use Kepware or Ignition, to send your device data to this broker.
+
+Don't worry about the format — you can send data in your existing format. We'll validate it on our side and make sure it's acceptable.
+
+Once we receive and validate the data, we can continue with the machine configuration.`,
+    widget: {
+      type: "mqtt-broker-validation",
       data: {
-        url: "/reset",
-        buttonText: "Resend Email",
-        message: "We've sent you an email with a link to set your password.",
+        endpoint: "mqtt.industrialiq.ai",
+        port: 8883,
+        topic: "telemetry",
       },
     },
     waitForUserInput: true,
+    nextStepId: "live-data-received",
   },
 
-  // LIVE DEVICE PATH
+  // Live: Data received - ask user to configure or skip
   {
-    id: "live-device-config",
+    id: "live-data-received",
     actor: "assistant",
-    message: "Please provide below details:",
-    widget: {
-      type: "profile-config-form",
-    },
+    message: `We're receiving your device data successfully!
+We've identified the different tags/channels being sent — these are essentially key-value pairs representing your sensor readings.
+
+Would you like to configure how your tags are grouped, or use the default configuration?`,
     waitForUserInput: true,
-    nextStepId: "live-config-submitted",
+    nextStepId: (context: FlowContext) =>
+      context.configureChannels ? "live-channel-config" : "live-device-init",
   },
 
-  {
-    id: "live-config-submitted",
-    actor: "assistant",
-    message: "",
-    nextStepId: "live-mqtt-instruction",
-  },
-
-  {
-    id: "live-mqtt-instruction",
-    actor: "assistant",
-    message: `Great! Now let's connect your machine's sensor data. We accept MQTT telemetry in two flexible formats:
-
-**Broker Details**
-• Endpoint: \`mqtt.industrialiq.ai\`
-• Port: \`8883\` (Secure)
-• Topic: \`telemetry\`
-• Username: *(Your Device ID)*
-• Password: *(Your Profile Key)*
-
-**Format 1: Flat JSON** (recommended for simple setups)
-\`\`\`json
-{
-  "timestamp": 1637012345678,
-  "temperature": 72.5,
-  "pressure": 101.3,
-  "vibration": 0.45
-}
-\`\`\`
-Each message contains a single timestamp and all sensor readings for that moment.
-
-**Format 2: Time-Value Arrays** (for batch telemetry)
-\`\`\`json
-{
-  "temperature": [{"t": 1637012345678, "v": 72.5}, {"t": 1637012346678, "v": 73.1}],
-  "pressure": [{"t": 1637012345678, "v": 101.3}]
-}
-\`\`\`
-Send multiple timestamped readings per sensor in arrays.
-
-**What we need from you:**
-• Paste a sample JSON payload from your MQTT broker (matching one of the formats above)
-• We'll validate the schema and extract your sensor channel names
-• Numeric fields become sensors we can monitor and analyze
-
-**Can't provide data right now?** No problem—you can switch to onboarding a **Demo Machine** instead to explore the platform with pre-configured sample data. Just type "switch to demo" or continue with your own data.`,
-    waitForUserInput: true,
-    nextStepId: "live-data-validation",
-  },
-
-  {
-    id: "live-data-validation",
-    actor: "assistant",
-    message: "Data received. Validating schema... Success!",
-    action: "validate-schema",
-    nextStepId: "live-schema-widget",
-  },
-
-  {
-    id: "live-schema-widget",
-    actor: "assistant",
-    message: "Initializing container...",
-    widget: {
-      type: "schema-validation-widget",
-    },
-    waitForUserInput: true,
-    nextStepId: "live-channel-config",
-  },
-
+  // Live: Channel configuration (only if user chose to configure)
   {
     id: "live-channel-config",
     actor: "assistant",
-    message: "Please configure your channels below.",
+    message: "Great! Let's configure your channels. You can organize your tags into groups below:",
     widget: {
       type: "channel-configuration-widget",
     },
@@ -274,6 +279,7 @@ Send multiple timestamped readings per sensor in arrays.
     nextStepId: "live-device-init",
   },
 
+  // Live: Initialize device
   {
     id: "live-device-init",
     actor: "assistant",
@@ -282,6 +288,7 @@ Send multiple timestamped readings per sensor in arrays.
     nextStepId: "live-device-spawn",
   },
 
+  // Live: Show device status
   {
     id: "live-device-spawn",
     actor: "assistant",
@@ -290,25 +297,51 @@ Send multiple timestamped readings per sensor in arrays.
       type: "device-status-widget",
     },
     waitForUserInput: true,
-    nextStepId: "live-send-reset",
+    nextStepId: "live-complete-message",
   },
 
-  // Live path: send password reset email and proceed
+  // Live: Complete message
   {
-    id: "live-send-reset",
+    id: "live-complete-message",
     actor: "assistant",
-    message:
-      "Machine activated. Please set your password to secure your account.",
+    message: `Your Machine is now fully configured and live!
+
+You can now explore real-time telemetry, AI insights, and interactive dashboards for your machine.
+
+Would you like to create an account so you can continue interacting with this device and view your dashboards?
+We'll use the information you provided earlier to set up your account and then send you a secure email to create your password.
+
+Just say "yes" or "no".`,
+    waitForUserInput: true,
+    nextStepId: (context: FlowContext) =>
+      context.createAccount ? "account-created" : "session-saved",
+  },
+
+  // ========== COMMON END STEPS ==========
+
+  // Account created
+  {
+    id: "account-created",
+    actor: "assistant",
+    message: "Your account has been created! We've sent you an email with instructions to set your password. Once you log in, you'll have full access to your dashboard and all features.",
+    action: "create-account",
     widget: {
       type: "login-button-widget",
       data: {
         url: "/reset",
         buttonText: "Resend Email",
-        message: "We've sent you an email with a link to set your password.",
+        message: "Check your email to complete account setup.",
       },
     },
     waitForUserInput: true,
-    action: "send-password-reset",
+  },
+
+  // Session saved (skipped account creation)
+  {
+    id: "session-saved",
+    actor: "assistant",
+    message: "No problem! Your session has been saved. You can come back anytime using the same email address to continue where you left off. Your demo machine will remain active.",
+    action: "skip-account",
   },
 ];
 

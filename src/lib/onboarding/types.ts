@@ -129,7 +129,13 @@ export type WidgetType =
   | 'payment-form'
   | 'login-button-widget'
   | 'schema-validation-widget'
-  | 'channel-configuration-widget';
+  | 'channel-configuration-widget'
+  | 'welcome-buttons'
+  | 'user-info-form'
+  | 'machine-details-form'
+  | 'mqtt-broker-validation'
+  | 'demo-slideshow'
+  | 'account-creation-suggestion';
 
 export interface ChatWidget {
   type: WidgetType;

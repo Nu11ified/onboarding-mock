@@ -1,9 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Server } from 'lucide-react';
+import { CheckCircle2, Server, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
+
+/** Formats seconds into a human-readable string */
+function formatTimeRemaining(seconds: number): string {
+  if (seconds < 1) return 'almost done';
+  if (seconds < 60) {
+    return `${Math.ceil(seconds)}s remaining`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.ceil(seconds % 60);
+  return remainingSeconds > 0 
+    ? `${minutes}m ${remainingSeconds}s remaining`
+    : `${minutes}m remaining`;
+}
 
 type DevicePhase = 'starting' | 'training' | 'complete' | 'error';
 
@@ -231,11 +244,19 @@ export function DeviceStatusWidget({
         
         {/* Progress Bar - Always show unless error */}
         {status !== 'error' && (
-          <div className="flex items-center gap-3">
-            <Progress value={progress} className="h-2 flex-1" />
-            <span className="w-8 text-right text-xs font-medium text-slate-600 tabular-nums">
-              {progress}%
-            </span>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-3">
+              <Progress value={progress} className="h-2 flex-1" />
+              <span className="w-10 text-right text-xs font-medium text-slate-600 tabular-nums">
+                {progress}%
+              </span>
+            </div>
+            {phase === 'training' && progress < 100 && (
+              <div className="flex items-center gap-1 text-xs text-slate-500">
+                <Clock className="h-3 w-3" />
+                <span>{formatTimeRemaining(((100 - progress) * 0.08))}</span>
+              </div>
+            )}
           </div>
         )}
       </div>

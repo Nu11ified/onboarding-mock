@@ -203,8 +203,11 @@ export function SchemaValidationWidget({ onComplete }: SchemaValidationWidgetPro
         {/* Progress Bar */}
         <div className="flex items-center gap-3">
           <Progress value={progress} className="h-2 flex-1" />
-          <span className="w-8 text-right text-xs font-medium text-slate-600 tabular-nums">
+          <span className="text-right text-xs font-medium text-slate-600 tabular-nums">
             {progress}%
+          </span>
+          <span className="text-xs text-slate-500">
+            {progress < 100 ? `~${Math.ceil((100 - progress) * 0.08)}s remaining` : 'Complete'}
           </span>
         </div>
       </div>
