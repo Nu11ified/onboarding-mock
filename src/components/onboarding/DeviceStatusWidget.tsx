@@ -92,6 +92,20 @@ export function DeviceStatusWidget({
     });
   }, [deviceId, status, phase, progress]);
 
+  // Fallback: if progress is still 0 after a short delay, kick off training
+  useEffect(() => {
+    const fallback = setTimeout(() => {
+      setProgress((p) => {
+        if (p === 0) {
+          setPhase((ph) => (ph === 'starting' ? 'training' : ph));
+          return 1;
+        }
+        return p;
+      });
+    }, 1200);
+    return () => clearTimeout(fallback);
+  }, [deviceId]);
+
   // Simulate raw telemetry (persistent)
   useEffect(() => {
     if (status === 'error') return;
