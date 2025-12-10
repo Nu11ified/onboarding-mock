@@ -205,7 +205,11 @@ We'll use the information you provided earlier to set up your account and then s
 Just say "yes" or "no".`,
     waitForUserInput: true,
     nextStepId: (context: FlowContext) =>
-      context.createAccount ? "account-created" : "session-saved",
+      context.createAccount === true
+        ? "account-created"
+        : context.createAccount === false
+        ? "session-saved"
+        : "demo-complete-message",
   },
 
   // ========== LIVE DEVICE FLOW ==========
@@ -259,6 +263,7 @@ When you have your device sending data, type "done" here and I'll validate it au
       type: "device-status-widget",
       data: {
         deviceId: "schema_validation",
+        persist: false,
         labels: {
           starting: "Waiting for Data",
           training: "Validating Schema",
@@ -279,6 +284,7 @@ When you have your device sending data, type "done" here and I'll validate it au
       type: "device-status-widget",
       data: {
         deviceId: "agent_validation",
+        persist: false,
         labels: {
           starting: "Starting Container",
           training: "Validating Data",
@@ -300,7 +306,11 @@ We've identified the different tags/channels being sent — these are essentiall
 Would you like to configure how your tags are grouped, or use the default configuration?`,
     waitForUserInput: true,
     nextStepId: (context: FlowContext) =>
-      context.configureChannels ? "live-channel-config" : "live-device-init",
+      context.configureChannels === true
+        ? "live-channel-config"
+        : context.configureChannels === false
+        ? "live-device-init"
+        : "live-data-received",
   },
 
   // Live: Channel configuration (only if user chose to configure)
@@ -351,7 +361,11 @@ We'll use the information you provided earlier to set up your account and then s
 Just say "yes" or "no".`,
     waitForUserInput: true,
     nextStepId: (context: FlowContext) =>
-      context.createAccount ? "account-created" : "session-saved",
+      context.createAccount === true
+        ? "account-created"
+        : context.createAccount === false
+        ? "session-saved"
+        : "live-complete-message",
   },
 
   // ========== COMMON END STEPS ==========
@@ -798,6 +812,11 @@ export class FlowManager {
 
     const nextStepIndex = this.flow.findIndex((step) => step.id === nextStepId);
     if (nextStepIndex === -1) return null;
+
+    // Guard: if next step resolves to the current step, do not advance
+    if (nextStepIndex === this.currentStepIndex) {
+      return null;
+    }
 
     this.currentStepIndex = nextStepIndex;
     return this.flow[nextStepIndex];

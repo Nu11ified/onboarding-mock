@@ -112,16 +112,16 @@ export function MQTTInstructionsPanel({
 
             <InstructionStep step={2} title="Configure Broker Settings">
               <p>Enter the following broker details:</p>
-              <div className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-3 text-xs">
-                <div className="flex justify-between">
+              <div className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-3 text-xs overflow-hidden">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-slate-500">URL:</span>
-                  <span className="font-mono text-slate-900">ssl://{brokerEndpoint}:{brokerPort}</span>
+                  <span className="font-mono text-slate-900 break-all">ssl://{brokerEndpoint}:{brokerPort}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-slate-500">Topic:</span>
-                  <span className="font-mono text-slate-900">{topic}</span>
+                  <span className="font-mono text-slate-900 break-all">{topic}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-slate-500">QoS:</span>
                   <span className="font-mono text-slate-900">1</span>
                 </div>
@@ -166,14 +166,14 @@ export function MQTTInstructionsPanel({
 
             <InstructionStep step={2} title="Configure MQTT Engine">
               <p>Navigate to <strong>Config → MQTT Transmission → Settings</strong> and add a new transmitter:</p>
-              <div className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-3 text-xs">
-                <div className="flex justify-between">
+              <div className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-3 text-xs overflow-hidden">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-slate-500">Server URL:</span>
-                  <span className="font-mono text-slate-900">ssl://{brokerEndpoint}:{brokerPort}</span>
+                  <span className="font-mono text-slate-900 break-all">ssl://{brokerEndpoint}:{brokerPort}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-slate-500">Topic Namespace:</span>
-                  <span className="font-mono text-slate-900">{topic}</span>
+                  <span className="font-mono text-slate-900 break-all">{topic}</span>
                 </div>
               </div>
             </InstructionStep>
@@ -209,18 +209,18 @@ export function MQTTInstructionsPanel({
           <div className="space-y-4">
             <InstructionStep step={1} title="Connection Details">
               <p>Use any MQTT client library to connect with these settings:</p>
-              <div className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-3 text-xs">
-                <div className="flex justify-between">
+              <div className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-3 text-xs overflow-hidden">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-slate-500">Broker:</span>
-                  <span className="font-mono text-slate-900">{brokerEndpoint}</span>
+                  <span className="font-mono text-slate-900 break-all">{brokerEndpoint}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-slate-500">Port:</span>
                   <span className="font-mono text-slate-900">{brokerPort} (TLS)</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-slate-500">Topic:</span>
-                  <span className="font-mono text-slate-900">{topic}</span>
+                  <span className="font-mono text-slate-900 break-all">{topic}</span>
                 </div>
               </div>
             </InstructionStep>

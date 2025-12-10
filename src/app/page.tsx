@@ -125,6 +125,7 @@ export default function LandingPage() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [showInvitePopup, setShowInvitePopup] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleSelect = (scenario: CtaKey) => {
     if (isRouting || selectedScenario) return;
@@ -283,10 +284,44 @@ export default function LandingPage() {
                   </a>
                 </p>
 
+                {/* Terms Checkbox */}
+                <label className="mt-4 flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span className="text-sm text-slate-600">
+                    I agree to the{" "}
+                    <a
+                      href="/terms"
+                      target="_blank"
+                      className="font-medium text-purple-600 hover:text-purple-700 underline"
+                    >
+                      Terms of Use
+                    </a>{" "}
+                    and{" "}
+                    <a
+                      href="/privacy"
+                      target="_blank"
+                      className="font-medium text-purple-600 hover:text-purple-700 underline"
+                    >
+                      Privacy Policy
+                    </a>
+                  </span>
+                </label>
+
                 {/* Submit Button */}
                 <button
                   onClick={handleInviteSubmit}
-                  className="mt-6 w-full rounded-xl bg-purple-600 px-6 py-3 text-base font-semibold text-white transition hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400/50"
+                  disabled={!termsAccepted}
+                  className={cn(
+                    "mt-6 w-full rounded-xl px-6 py-3 text-base font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
+                    termsAccepted
+                      ? "bg-purple-600 hover:bg-purple-700"
+                      : "bg-slate-300 cursor-not-allowed"
+                  )}
                 >
                   Continue
                 </button>
@@ -769,7 +804,7 @@ export default function LandingPage() {
               {
                 step: 2,
                 title: "Connect your data",
-                body: "Bring in live telemetry via MQTT, OPC UA, or Modbus with guided templates.",
+                body: "Stream live telemetry via MQTT—works with any MQTT-compatible software like Kepware or Ignition.",
               },
               {
                 step: 3,
@@ -811,10 +846,8 @@ export default function LandingPage() {
           <div className="flex flex-wrap items-center justify-center gap-3">
             {[
               { label: "MQTT", icon: Plug },
-              { label: "OPC UA", icon: Server },
-              { label: "Modbus", icon: Boxes },
-              { label: "REST API", icon: Server },
-              { label: "Webhooks", icon: Server },
+              { label: "Kepware", icon: Server },
+              { label: "Ignition", icon: Server },
             ].map((i) => {
               const Icon = i.icon;
               return (

@@ -36,8 +36,6 @@ function ResetPasswordContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
-    // if (!token) return; // Removed for bypass
 
     if (!password || password.length < 8) {
       setError("Password must be at least 8 characters");
@@ -50,57 +48,68 @@ function ResetPasswordContent() {
 
     setLoading(true);
     try {
-      // Complete reset
-      // Get email from localStorage (stored during onboarding)
-      const email = localStorage.getItem("pending_reset_email");
-
-      const complete = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "complete-password-reset",
-          token: token || undefined,
-          password,
-          email: email || undefined, // Send email if available
-        }),
-      });
-      const completeData = await complete.json();
-      if (!complete.ok || !completeData?.success) {
-        throw new Error(completeData?.error || "Failed to reset password");
-      }
-
-      // For demo purposes, login immediately after reset.
-      // Reuse the email variable defined above
-      if (email) {
-        const loginRes = await fetch("/api/auth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "login", email, password }),
-        });
-        const loginData = await loginRes.json();
-        if (loginRes.ok && loginData?.success) {
-          localStorage.setItem(
-            "user_session",
-            JSON.stringify({ email, userId: loginData.userId }),
-          );
+      // Get email from localStorage (stored during onboarding) or from onboarding_state
+      let email = localStorage.getItem("pending_reset_email");
+      
+      // Fallback: try to get email from onboarding_state
+      if (!email) {
+        const onboardingStateRaw = localStorage.getItem("onboarding_state");
+        if (onboardingStateRaw) {
+          try {
+            const state = JSON.parse(onboardingStateRaw);
+            email = state.email;
+          } catch {}
         }
       }
+      
+      // Fallback: try onboarding_machine context
+      if (!email) {
+        const machineRaw = localStorage.getItem("onboarding_machine");
+        if (machineRaw) {
+          try {
+            const machine = JSON.parse(machineRaw);
+            email = machine.context?.email;
+          } catch {}
+        }
+      }
+      
+      // Final fallback: use a demo email for bypass mode
+      if (!email) {
+        email = "demo@example.com";
+      }
 
-      // Signal onboarding to continue
+      // For demo: skip API validation entirely and just proceed
+      // Store password locally for demo purposes
+      localStorage.setItem("demo_password_set", "true");
+      
+      // Create a user session
+      const userId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+      localStorage.setItem(
+        "user_session",
+        JSON.stringify({ email, userId }),
+      );
+
+      // Signal onboarding to continue and preserve chat history
       const onboardingStateRaw = localStorage.getItem("onboarding_state");
       if (onboardingStateRaw) {
         try {
           const state = JSON.parse(onboardingStateRaw);
           localStorage.setItem(
             "onboarding_state",
-            JSON.stringify({ ...state, shouldContinue: true }),
+            JSON.stringify({ ...state, shouldContinue: true, email }),
           );
         } catch {}
+      } else {
+        // Create onboarding state with shouldContinue flag
+        localStorage.setItem(
+          "onboarding_state",
+          JSON.stringify({ shouldContinue: true, email }),
+        );
       }
 
-      // Redirect to dashboard - SMS consent will be shown there
+      // Redirect to dashboard
       router.replace(
-        "/demo/dashboard?onboarded=true&showDashboard=true&autoSelectMachine=true",
+        "/dashboard?onboarded=true&showDashboard=true&autoSelectMachine=true",
       );
     } catch (e: any) {
       setError(e?.message || "Something went wrong");

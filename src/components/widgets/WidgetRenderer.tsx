@@ -174,6 +174,7 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
               deviceId={deviceId}
               status={data.status || 'spawning'}
               showTraining={data.showTraining !== false}
+              persist={data.persist !== false}
               labels={data.labels}
               onComplete={() => {
                 if (data.onComplete) data.onComplete();

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { useScriptedOnboarding } from "@/hooks/useScriptedOnboarding";
+import { useFlow } from "@/hooks/useFlow";
 import { WidgetRenderer } from "@/components/widgets";
 import {
   StatusPanel,
@@ -50,66 +50,39 @@ const DEFAULT_PROMPTS: PromptTemplate[] = [
   },
 ];
 
-// Map flow step IDs to status panel phases
-function mapStepToPhase(
-  stepId: string | undefined,
+// Map machine state IDs to status panel phases
+function mapStateToPhase(
+  stateId: string | undefined,
   mode: "demo" | "live" | undefined,
 ): OnboardingPhase {
-  if (!stepId) return "welcome";
+  if (!stateId) return "welcome";
 
-  // Completion (check early)
-  if (stepId.includes("complete") || stepId.includes("dashboard") || stepId === "session-saved")
-    return "complete";
+  // Completion
+  if (stateId.includes("complete") || stateId === "session-saved") return "complete";
 
-  // Account creation step
-  if (stepId === "account-created" || stepId.includes("account-creation"))
-    return "account-creation";
+  // Account creation
+  if (stateId === "account-created") return "account-creation";
 
-  // Password setup - check before 'email' since 'send-reset-email' contains both
-  if (
-    stepId.includes("password") ||
-    stepId.includes("reset") ||
-    stepId.includes("login-button")
-  )
-    return "password-setup";
+  // Mode selection
+  if (stateId === "mode-select") return "device-selection";
 
-  // Welcome
-  if (stepId === "welcome-message") return "welcome";
-  // Mode selection - show demo video sidebar
-  if (stepId === "mode-selection") return "device-selection";
+  // User info
+  if (stateId.includes("user-info")) return "email";
 
-  // User info form steps
-  if (stepId.includes("user-info") || stepId === "user-info-prompt" || stepId === "user-info-processing")
-    return "email";
+  // OTP
+  if (stateId === "otp") return "otp";
 
-  // OTP-related steps
-  if (stepId.includes("otp") || stepId === "otp-prompt" || stepId === "otp-processing") return "otp";
+  // Machine details (live)
+  if (stateId === "live-machine-details") return "machine-details";
 
-  // Machine details (live flow)
-  if (stepId.includes("machine-details"))
-    return "machine-details";
+  // Channel config
+  if (stateId === "live-data-received" || stateId === "live-channel-config") return "channel-config";
 
-  // Channel configuration (explicitly handle live-data-received here)
-  if (stepId === "live-data-received" || stepId.includes("channel"))
-    return "channel-config";
+  // MQTT validation
+  if (stateId.startsWith("live-mqtt") || stateId.includes("validate")) return "mqtt-validation";
 
-  // MQTT/Live connection (exclude live-data so it doesn't override channel-config)
-  if (
-    stepId.includes("mqtt") ||
-    stepId.includes("schema")
-  )
-    return "mqtt-validation";
-
-  // Training/device spawn
-  if (
-    stepId.includes("spawn") ||
-    stepId.includes("device-status") ||
-    stepId.includes("training") ||
-    stepId.includes("device-init") ||
-    stepId.includes("slideshow") ||
-    stepId.includes("setup-message")
-  )
-    return "training";
+  // Training / spawning
+  if (stateId.includes("spawn")) return "training";
 
   return "welcome";
 }
@@ -133,14 +106,7 @@ export default function DualPaneOnboardingPage() {
     setIsLoggedIn(!!authToken);
   }, []);
 
-  const {
-    messages,
-    isProcessing,
-    handleUserInput,
-    getCurrentWidget,
-    getContext,
-    currentStep,
-  } = useScriptedOnboarding(isLoggedIn ? "logged-in" : "non-login");
+  const { messages, isProcessing, machine, api, addUserMessage, reset } = useFlow();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
@@ -152,14 +118,10 @@ export default function DualPaneOnboardingPage() {
     }
   }, [messages, isAutoScrollEnabled]);
 
-  // Get current context and determine phase/mode
-  const context = getContext();
-  const currentMode: OnboardingMode =
-    (context.mode as OnboardingMode) || "demo";
-  const currentPhase = mapStepToPhase(
-    currentStep?.id,
-    context.mode as "demo" | "live" | undefined,
-  );
+  // Determine phase/mode from machine
+  const context = machine.context as any;
+  const currentMode: OnboardingMode = (context.mode as OnboardingMode) || "demo";
+  const currentPhase = mapStateToPhase(machine.state?.id as string, context.mode as "demo" | "live" | undefined);
 
   const handleSavePrompt = () => {
     if (newPromptName.trim() && newPromptContent.trim()) {
@@ -182,11 +144,41 @@ export default function DualPaneOnboardingPage() {
     setPromptMenuOpen(false);
   };
 
-  const handleSendMessage = () => {
-    if (customInput.trim()) {
-      handleUserInput({ userMessage: customInput });
-      setCustomInput("");
+  // Auto-start device spawn steps
+  useEffect(() => {
+    const stateId = machine.state?.id as string;
+    if (stateId === 'demo-spawn') {
+      api.startDemoSpawn();
     }
+    if (stateId === 'live-spawn') {
+      api.startLiveSpawn(context?.profileConfig);
+    }
+  }, [machine.state?.id]);
+
+  const handleSendMessage = () => {
+    const text = customInput.trim();
+    if (!text) return;
+
+    // Echo user message
+    addUserMessage(text);
+
+    const lower = text.toLowerCase();
+    const stateId = machine.state?.id as string;
+
+    // Route based on current state
+    if (stateId === 'live-mqtt') {
+      if (lower.includes('done') || lower.includes('ready')) {
+        api.mqttReady();
+      }
+    } else if (stateId === 'live-data-received') {
+      if (lower.includes('configure')) api.configureChannels();
+      else if (lower.includes('skip') || lower.includes('default')) api.skipChannels();
+    } else if (stateId === 'demo-complete' || stateId === 'live-complete') {
+      if (lower.includes('yes') || lower.includes('create')) api.sayYesCreate();
+      else if (lower.includes('no') || lower.includes('later')) api.sayNoSkip();
+    }
+
+    setCustomInput("");
   };
 
   return (
@@ -203,14 +195,14 @@ export default function DualPaneOnboardingPage() {
               height={28}
               className="h-7 w-auto"
             />
-            <div className="h-6 w-px bg-slate-200" />
-            <span className="text-sm font-medium text-slate-600">
-              Onboarding
-            </span>
           </div>
           <div className="flex items-center gap-3">
-            <button className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100">
-              Help
+            <button
+              onClick={() => reset()}
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+              title="This is only for the demo to restart the flow"
+            >
+              Restart
             </button>
           </div>
         </header>
@@ -270,9 +262,34 @@ export default function DualPaneOnboardingPage() {
                     <WidgetRenderer
                       widget={message.widget}
                       onSubmit={async (data) => {
-                        await handleUserInput(data);
+                        const stateId = machine.state?.id as string;
+                        const type = (message.widget as any)?.type;
+                        const widgetDeviceId = (message.widget as any)?.data?.deviceId;
+
+                        if (type === 'user-info-form') return api.submitUserInfo(data);
+                        if (type === 'otp-form') return api.verifyOtp(data);
+                        if (type === 'device-option-form') {
+                          const mode = (data as any)?.mode;
+                          if (mode === 'demo') return api.selectDemo();
+                          if (mode === 'live') return api.selectLive();
+                          return;
+                        }
+                        if (type === 'machine-details-form') return api.machineDetailsSubmit(data);
+                        if (type === 'device-status-widget') {
+                          // Match widget's deviceId to expected state
+                          if (stateId === 'live-validate-schema' && widgetDeviceId === 'schema_validation') {
+                            return api.nextFromSchema();
+                          }
+                          if (stateId === 'live-validate-agent' && widgetDeviceId === 'agent_validation') {
+                            return api.nextFromAgent();
+                          }
+                          if (stateId === 'demo-spawn') return api.completeDemoSpawn();
+                          if (stateId === 'live-spawn') return api.completeLiveSpawn();
+                          return;
+                        }
+                        if (type === 'channel-configuration-widget') return api.channelConfigSubmit(data);
                       }}
-                      context={getContext()}
+                      context={context}
                     />
                   </div>
                 )}
@@ -506,7 +523,7 @@ export default function DualPaneOnboardingPage() {
             </div>
 
             {/* Text input */}
-            {currentStep?.waitForUserInput && (
+            {machine.state?.waitForUserInput && (
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -537,7 +554,7 @@ export default function DualPaneOnboardingPage() {
             )}
 
             {/* Status Indicator */}
-            {!currentStep?.waitForUserInput && (
+            {!machine.state?.waitForUserInput && (
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <div
                   className={cn(

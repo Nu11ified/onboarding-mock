@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Server, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
@@ -50,6 +50,7 @@ interface DeviceStatusWidgetProps {
   onComplete?: () => void;
   onRetry?: () => void;
   showTraining?: boolean;
+  persist?: boolean; // whether to persist status/progress in localStorage
   labels?: {
     starting?: string;
     training?: string;
@@ -63,6 +64,7 @@ export function DeviceStatusWidget({
   onComplete,
   onRetry,
   showTraining = true,
+  persist = true,
   labels = {}
 }: DeviceStatusWidgetProps) {
   const [status, setStatus] = useState(initialStatus);
@@ -70,8 +72,9 @@ export function DeviceStatusWidget({
   const [progress, setProgress] = useState(0);
   const [rawData, setRawData] = useState<Array<{ ts: number; temperature: number; pressure: number; vibration: number }>>([]);
 
-  // Load persisted state on mount
+  // Load persisted state on mount (optional)
   useEffect(() => {
+    if (!persist) return;
     const persisted = loadPersistedStatus(deviceId);
     if (persisted) {
       setStatus(persisted.status);
@@ -81,8 +84,9 @@ export function DeviceStatusWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist on any change
+  // Persist on any change (optional)
   useEffect(() => {
+    if (!persist) return;
     savePersistedStatus({
       deviceId,
       status,
@@ -90,7 +94,7 @@ export function DeviceStatusWidget({
       progress,
       updatedAt: Date.now(),
     });
-  }, [deviceId, status, phase, progress]);
+  }, [persist, deviceId, status, phase, progress]);
 
   // Fallback: if progress is still 0 after a short delay, kick off training
   useEffect(() => {
@@ -126,48 +130,61 @@ export function DeviceStatusWidget({
     return () => clearInterval(rawInterval);
   }, [status]);
 
+  // Track if onComplete has been called to prevent duplicates
+  const onCompleteCalledRef = useRef(false);
+
+  // Phase transitions
   useEffect(() => {
-    if (status === 'spawning') {
-      let cleanupFns: (() => void)[] = [];
+    let cleanup: (() => void) | undefined;
 
-      // Phase 1: Starting Container (0%)
-      if (phase === 'starting') {
-        setProgress(0);
-        
-        const startTimeout = setTimeout(() => {
-          setPhase('training');
-        }, 2000);
-        cleanupFns.push(() => clearTimeout(startTimeout));
-        
-      } else if (phase === 'training') {
-        // Phase 2: Training the Model (0-100%)
-        const trainingInterval = setInterval(() => {
-          setProgress((prev) => {
-            const next = Math.min(prev + 1, 100);
-            if (next >= 100) {
-              clearInterval(trainingInterval);
-              setPhase('complete');
-            }
-            return next;
-          });
-        }, 80); // Adjust speed here
-        cleanupFns.push(() => clearInterval(trainingInterval));
-        
-      } else if (phase === 'complete') {
-        // When training reaches 100%, mark as active and fire onComplete immediately
-        const completeTimeout = setTimeout(() => {
-          setStatus('active');
+    if (phase === 'starting') {
+      setProgress(0);
+      const to = setTimeout(() => setPhase('training'), 800);
+      cleanup = () => clearTimeout(to);
+    } else if (phase === 'complete' && progress >= 100 && !onCompleteCalledRef.current) {
+      // Only call onComplete once, after progress hits 100%
+      onCompleteCalledRef.current = true;
+      const to = setTimeout(() => {
+        setStatus('active');
+        try {
           localStorage.setItem('training_complete', JSON.stringify({ deviceId, completedAt: Date.now() }));
-          if (onComplete) onComplete();
-        }, 500);
-        cleanupFns.push(() => clearTimeout(completeTimeout));
-      }
-
-      return () => {
-        cleanupFns.forEach(fn => fn());
-      };
+        } catch {}
+        onComplete?.();
+      }, 600); // Slightly longer delay to let user see 100%
+      cleanup = () => clearTimeout(to);
     }
-  }, [status, phase, deviceId, onComplete, showTraining]); // Removed progress dependency to avoid loop issues with interval
+
+    return () => {
+      cleanup?.();
+    };
+  }, [phase, progress, deviceId, onComplete]);
+
+  // Robust progress incrementer (runs regardless of status)
+  const progressIntervalRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (phase !== 'training' || progress >= 100) return;
+    if (progressIntervalRef.current) return;
+
+    const id = window.setInterval(() => {
+      setProgress((prev) => {
+        const next = Math.min(prev + 1, 100);
+        if (next >= 100) {
+          window.clearInterval(id);
+          progressIntervalRef.current = null;
+          setPhase('complete');
+        }
+        return next;
+      });
+    }, 80);
+
+    progressIntervalRef.current = id;
+    return () => {
+      if (progressIntervalRef.current) {
+        window.clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+    };
+  }, [phase, progress]);
 
   return (
     <div className="rounded-xl border border-purple-200 bg-white p-4 shadow-sm">

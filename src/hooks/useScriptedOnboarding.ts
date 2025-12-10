@@ -119,7 +119,7 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
       return;
     }
 
-    const message: ChatMessage = {
+    const nextMessage: ChatMessage = {
       id: `msg-${messageIdCounter.current++}`,
       actor: currentStep.actor,
       message: renderedMessage,
@@ -127,7 +127,14 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, message]);
+    // Suppress immediate duplicate assistant messages (same text back-to-back)
+    setMessages(prev => {
+      const last = prev[prev.length - 1];
+      if (last && last.actor === 'assistant' && last.message === nextMessage.message) {
+        return prev;
+      }
+      return [...prev, nextMessage];
+    });
   }, [flowManager]);
   
   // Keep this for backwards compatibility
@@ -556,7 +563,7 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
         addUserMessage(textInput);
       }
 
-      // If we need to jump to a specific step, do it now and process actions/messages appropriately
+      // Handle explicit jumps first
       if (jumpToStepId) {
         const step = flowManager.jumpToStep(jumpToStepId);
         if (!step) {
@@ -615,6 +622,35 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
         return;
       }
 
+      // Special-case: status widgets completing should step once and STOP (no further auto-advance)
+      if (typeof input === 'object' && input && (input.status === 'active' || input.status === 'schema-validated')) {
+        const stepId = currentStep.id;
+        if (stepId === 'live-mqtt-schema-status') {
+          const step = flowManager.jumpToStep('live-agent-data-validate');
+          if (step) {
+            addMessageFromCurrentStep();
+            setIsProcessing(false);
+            return;
+          }
+        }
+        if (stepId === 'live-agent-data-validate') {
+          const step = flowManager.jumpToStep('live-data-received');
+          if (step) {
+            addMessageFromCurrentStep();
+            setIsProcessing(false);
+            return;
+          }
+        }
+        if (stepId === 'live-device-spawn' || stepId === 'demo-device-spawn') {
+          const step = flowManager.jumpToStep(stepId.startsWith('live') ? 'live-complete-message' : 'demo-complete-message');
+          if (step) {
+            addMessageFromCurrentStep();
+            setIsProcessing(false);
+            return;
+          }
+        }
+      }
+
       // Execute action if present on current step (only if it doesn't wait for user input)
       if (currentStep.action && !currentStep.waitForUserInput) {
         const success = await executeAction(currentStep.action, input);
@@ -625,7 +661,7 @@ export function useScriptedOnboarding(flowType: 'non-login' | 'logged-in' = 'non
         }
       }
 
-      // Keep advancing through steps that don't wait for user input
+      // Keep advancing through steps that don't wait for user input (guard against unintended leaps)
       let continueAdvancing = true;
       while (continueAdvancing) {
         console.log('📍 About to advance from:', currentStep?.id, 'Context:', flowManager.getContext());
