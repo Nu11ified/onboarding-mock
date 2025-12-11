@@ -787,20 +787,16 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
           const users = [{ name: email.split('@')[0] || 'User', email, role: 'Viewer' }];
           await executeAction('add-users', { users });
           await new Promise((resolve) => setTimeout(resolve, 500));
-          addAssistantMessage('Perfect — your invite has been sent.');
-
           const ctx = flowManager.getContext();
           const mode = ctx.mode || 'demo';
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          if (mode === 'demo') {
-            addAssistantMessage(
-              'Now, would you like to see the agentic workflow in action?\n\nSince this is a demo machine, I can introduce a controlled fault for you.\nThis will simulate the robotic arm’s motor behaving abnormally and causing vibration anomalies.\n\nHere’s what you’ll experience step-by-step:\n• The Machine Intelligence Agent will detect the abnormal sensor patterns\n• The Health Score will drop in real time\n• A fault notification will be generated with the identified root cause\n• A maintenance ticket will be automatically created\n• The alert will be sent to you or whichever engineer is assigned\n\nWould you like me to trigger this simulated fault now?'
-            );
-          } else {
-            addAssistantMessage(
-              'Would you like to see the agentic workflow in action?\n\nSince this is a live machine, I can’t introduce a fault — but you can safely create or reproduce a minor test condition on your side.\n\nOnce that happens, you’ll see:\n• The Machine Intelligence Agent detect the anomaly\n• The Health Score drop\n• A real-time alert with the identified root cause\n• A ticket automatically created\n\nLet me know once you’ve induced the test condition — as soon as the alert and ticket appear, I’ll retrieve the ticket for this device and guide you through the assignment process.'
-            );
-          }
+
+          const base = 'Perfect — your invite has been sent.';
+          const demoTail =
+            '\n\nNow, would you like to see the agentic workflow in action?\n\nSince this is a demo machine, I can introduce a controlled fault for you.\nThis will simulate the robotic arm’s motor behaving abnormally and causing vibration anomalies.\n\nHere’s what you’ll experience step-by-step:\n• The Machine Intelligence Agent will detect the abnormal sensor patterns\n• The Health Score will drop in real time\n• A fault notification will be generated with the identified root cause\n• A maintenance ticket will be automatically created\n• The alert will be sent to you or whichever engineer is assigned\n\nWould you like me to trigger this simulated fault now?';
+          const liveTail =
+            '\n\nWould you like to see the agentic workflow in action?\n\nSince this is a live machine, I can’t introduce a fault — but you can safely create or reproduce a minor test condition on your side.\n\nOnce that happens, you’ll see:\n• The Machine Intelligence Agent detect the anomaly\n• The Health Score drop\n• A real-time alert with the identified root cause\n• A ticket automatically created\n\nLet me know once you’ve induced the test condition — as soon as the alert and ticket appear, I’ll retrieve the ticket for this device and guide you through the assignment process.';
+
+          addAssistantMessage(mode === 'demo' ? base + demoTail : base + liveTail);
 
           postLoginStageRef.current = 'fault-question';
           setIsProcessing(false);
@@ -972,7 +968,7 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
 
             await new Promise((resolve) => setTimeout(resolve, 800));
             addAssistantMessage(
-              'Your Agentic Workflow is now active for this machine. This means the system is already:\n\n• Monitoring real-time behavior\n• Tracking health and maintenance risk\n• Generating alerts and tickets\n• Producing AI-driven insights and recommendations\n\nNow, let\'s set up who else should be involved.\nWould you like to invite other users to explore this machine with you and designate who should receive alerts and take action when something needs attention?'
+              'Your Agentic Workflow is active for this machine. This means the system is already:\n\n• Monitoring real-time behavior\n• Tracking health and maintenance risk\n• Generating alerts and tickets\n• Producing AI-driven insights and recommendations\n\nNow, let\'s set up who else should be involved.\nWould you like to invite other users to explore this machine with you and designate who should receive alerts and take action when something needs attention?'
             );
             postLoginStageRef.current = 'invite-question';
             setIsProcessing(false);
@@ -1061,21 +1057,17 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
               addUserMessage(input);
               await executeAction('add-users', { users });
               await new Promise((resolve) => setTimeout(resolve, 500));
-              addAssistantMessage('Perfect — your invite has been sent.');
-              postLoginStageRef.current = 'fault-question';
 
               const ctx = flowManager.getContext();
               const mode = ctx.mode || 'demo';
-              await new Promise((resolve) => setTimeout(resolve, 500));
-              if (mode === 'demo') {
-                addAssistantMessage(
-                  'Now, would you like to see the agentic workflow in action?\n\nSince this is a demo machine, I can introduce a controlled fault for you.\n\nWould you like me to trigger this simulated fault now?'
-                );
-              } else {
-                addAssistantMessage(
-                  'Would you like to see the agentic workflow in action?\n\nSince this is a live machine, I can’t introduce a fault — but you can safely create or reproduce a minor test condition on your side. Let me know once you’ve induced it.'
-                );
-              }
+              const base = 'Perfect — your invite has been sent.';
+              const demoTail =
+                '\n\nNow, would you like to see the agentic workflow in action?\n\nSince this is a demo machine, I can introduce a controlled fault for you.\n\nWould you like me to trigger this simulated fault now?';
+              const liveTail =
+                '\n\nWould you like to see the agentic workflow in action?\n\nSince this is a live machine, I can’t introduce a fault — but you can safely create or reproduce a minor test condition on your side. Let me know once you’ve induced it.';
+
+              addAssistantMessage(mode === 'demo' ? base + demoTail : base + liveTail);
+              postLoginStageRef.current = 'fault-question';
 
               setIsProcessing(false);
               return;
@@ -1175,6 +1167,19 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
           await new Promise((resolve) => setTimeout(resolve, 800));
           addAssistantMessage(
             `You can assign tickets directly through this chat interface — no need to navigate away.\n\nType the name/email of the person you'd like to assign ticket **${tid}** to, or type "show me users" to see the list.`,
+            {
+              type: 'info-grid',
+              data: {
+                title: 'APM Ticket Overview',
+                description: 'Snapshot of the current alert before assignment.',
+                fields: [
+                  { label: 'APM Ticket', value: 'APM-5967D3W2' },
+                  { label: 'Summary', value: 'Fault Detected – Vibration alert' },
+                  { label: 'Assigned To', value: '-' },
+                  { label: 'Severity', value: 'High' },
+                ],
+              },
+            },
           );
           postLoginStageRef.current = 'awaiting-assignee';
           setIsProcessing(false);

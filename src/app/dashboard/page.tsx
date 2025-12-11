@@ -71,6 +71,7 @@ import { SMSConsentPopup } from "@/components/SMSConsentPopup";
 import { VideoPopup } from "@/components/widgets/VideoPopup";
 import { VideoWidget } from "@/components/widgets/VideoWidget";
 import { InfoPopupButton } from "@/components/widgets/InfoPopupButton";
+import { InfoGridWidget } from "@/components/widgets/InfoGridWidget";
 import { ChannelConfigurationWidget } from "@/components/widgets/ChannelConfigurationWidget";
 import { LoginButtonWidget } from "@/components/widgets/LoginButtonWidget";
 import { RestartOnboardingWidget } from "@/components/widgets/RestartOnboardingWidget";
@@ -1277,6 +1278,15 @@ function DashboardPageContent() {
             />
           );
 
+        case "info-grid":
+          return (
+            <InfoGridWidget
+              title={widgetDef.data?.title}
+              description={widgetDef.data?.description}
+              fields={widgetDef.data?.fields || []}
+            />
+          );
+
         case "info-popup-button":
           return (
             <InfoPopupButton
@@ -1808,102 +1818,7 @@ function TopBar({
           <Menu className="h-4 w-4" />
         </button>
       </div>
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onOpenShare}
-          className="inline-flex items-center gap-2 rounded-full border border-purple-600 bg-purple-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-purple-700"
-        >
-          <Sparkles className="h-4 w-4" /> Share workspace
-        </button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="relative inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-4 py-2 text-xs font-semibold text-purple-600 hover:bg-purple-50">
-              <Bell className="h-4 w-4" /> Notifications
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="w-80 max-h-96 overflow-y-auto bg-white"
-          >
-            <div className="flex items-center justify-between px-2 py-2">
-              <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-                Notifications
-              </DropdownMenuLabel>
-              {unreadCount > 0 && (
-                <button
-                  onClick={onMarkAllNotificationsRead}
-                  className="text-xs font-semibold text-purple-600 hover:text-purple-700 hover:underline cursor-pointer transition-all"
-                >
-                  Mark all as read
-                </button>
-              )}
-            </div>
-            <DropdownMenuSeparator />
-            {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-slate-500">
-                No notifications
-              </div>
-            ) : (
-              notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={cn(
-                    "flex flex-col items-start gap-1 px-4 py-3 border-b border-slate-100 last:border-b-0",
-                    !notification.isRead && "bg-purple-50/30",
-                  )}
-                >
-                  <div className="flex w-full items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-slate-900">
-                          {notification.title}
-                        </p>
-                        {!notification.isRead && (
-                          <span className="h-2 w-2 rounded-full bg-purple-600" />
-                        )}
-                      </div>
-                      <p className="mt-1 text-xs text-slate-600 line-clamp-2">
-                        {notification.body}
-                      </p>
-                    </div>
-                    {!notification.isRead && (
-                      <button
-                        onClick={() => onMarkNotificationRead(notification.id)}
-                        className="ml-2 text-xs text-purple-600 hover:text-purple-700 hover:underline font-medium cursor-pointer transition-all"
-                      >
-                        Mark read
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                        notification.tone === "critical" &&
-                          "bg-red-100 text-red-700",
-                        notification.tone === "positive" &&
-                          "bg-green-100 text-green-700",
-                        notification.tone === "neutral" &&
-                          "bg-slate-100 text-slate-700",
-                      )}
-                    >
-                      {notification.tone}
-                    </span>
-                    <span className="text-xs text-slate-400">
-                      {notification.timestamp}
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      {/* Right side intentionally left minimal for demo (no share/notifications) */}
     </header>
   );
 }
