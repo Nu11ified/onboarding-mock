@@ -223,6 +223,29 @@ html {
   }
 }
 
+/* Rounded, minimal scrollbar styling for all scrollable areas */
+.scroll-rounded,
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar {
+  scrollbar-color: rgba(148, 163, 184, 0.7) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.7);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+}
+
 .copilotKitMessages {
   @apply pr-0!;
   div:empty {

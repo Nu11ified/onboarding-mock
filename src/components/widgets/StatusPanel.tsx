@@ -240,14 +240,14 @@ export function StatusPanel({
       return (
         <TrainingVideoPanel
           videoUrl={videoConfig?.url}
-          title={videoConfig?.title || 'What you’ll do next: onboarding walkthrough'}
+          title={videoConfig?.title || 'What you unlock with onboarding'}
           description={
             videoConfig?.description ??
-            'This video previews the exact steps you’re about to go through: connect data, validate telemetry, train the model, and then monitor health score, alerts, and tickets.'
+            'See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.'
           }
           duration={videoConfig?.duration}
-          headingTitle={'Training video'}
-          headingDescription={'A short walkthrough of the onboarding process (optional).'}
+          headingTitle={'Understanding activation of a machine'}
+          headingDescription={''}
         />
       );
     }
@@ -257,14 +257,14 @@ export function StatusPanel({
       return (
         <TrainingVideoPanel
           videoUrl={videoConfig?.url}
-          title={videoConfig?.title || 'What you’ll do next: onboarding walkthrough'}
+          title={videoConfig?.title || 'What you unlock with onboarding'}
           description={
             videoConfig?.description ??
-            'Before you choose demo vs live, here’s a walkthrough of the onboarding flow and what you’ll see in the dashboard afterward.'
+            'See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.'
           }
           duration={videoConfig?.duration}
-          headingTitle={'Training video'}
-          headingDescription={'A short walkthrough of the onboarding process (optional).'}
+          headingTitle={'Understanding activation of a machine'}
+          headingDescription={''}
         />
       );
     }

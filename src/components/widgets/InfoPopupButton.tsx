@@ -58,15 +58,10 @@ export function InfoPopupButton({
                 <div className="flex-1">
                   <h4 className="font-semibold text-slate-900 mb-1">Health Score</h4>
                   <p className="text-sm text-slate-600">
-                    A real-time indicator of your machine&apos;s operational health, ranging from 0-100.
-                    This score is calculated based on sensor readings, historical patterns, and AI-driven anomaly detection.
+                    A real-time indicator of your machine&apos;s operational health, calculated from sensor behavior,
+                    historical patterns, and AI-driven anomaly detection. Use this as a high-level signal for when
+                    attention is needed, rather than a precise engineering value.
                   </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <div className="h-2 flex-1 rounded-full bg-slate-200">
-                      <div className="h-2 rounded-full bg-green-500" style={{ width: `${data?.healthScore || 94}%` }} />
-                    </div>
-                    <span className="text-sm font-semibold text-slate-700">{data?.healthScore || 94}/100</span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -79,12 +74,10 @@ export function InfoPopupButton({
                 <div className="flex-1">
                   <h4 className="font-semibold text-slate-900 mb-1">Duty Rate</h4>
                   <p className="text-sm text-slate-600">
-                    The percentage of time your machine has been actively operating versus idle. 
-                    A higher duty rate indicates more active utilization.
+                    Describes how heavily the machine is being used over time (run time versus idle time). It helps you
+                    contextualize health and maintenance recommendations against real utilization, without needing to
+                    track percentages manually.
                   </p>
-                  <div className="mt-2">
-                    <span className="text-lg font-semibold text-blue-600">{data?.dutyRate || '78%'}</span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -97,15 +90,10 @@ export function InfoPopupButton({
                 <div className="flex-1">
                   <h4 className="font-semibold text-slate-900 mb-1">Days to Maintenance</h4>
                   <p className="text-sm text-slate-600">
-                    AI-predicted days until the next maintenance is required, based on current health trends and usage patterns.
+                    An AI-derived estimate of how long you have before maintenance is likely required, based on current
+                    health trends and usage. It is designed to support planning—not to replace your existing
+                    maintenance policies.
                   </p>
-                  <div className="mt-2 flex items-baseline gap-2">
-                    <span className="text-lg font-semibold text-slate-900">{data?.plannedDays || 30} days</span>
-                    <span className="text-sm text-slate-500">planned</span>
-                    <span className="ml-2 text-sm text-amber-600 font-medium">
-                      +{data?.predictedDays || 6} predicted
-                    </span>
-                  </div>
                 </div>
               </div>
             </div>

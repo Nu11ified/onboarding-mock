@@ -517,7 +517,7 @@ export default function DemoPage() {
                       setCustomInput("");
                     }
                   }}
-                  placeholder="Type anything to continue..."
+                  placeholder="Ask AI"
                   className="flex-1 rounded-full border border-purple-200 px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
                   disabled={isProcessing}
                 />

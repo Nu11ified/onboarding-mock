@@ -606,9 +606,9 @@ export default function DualPaneOnboardingPage() {
           }}
           videoConfig={{
             url: "https://youtu.be/YQj_I-Zpx4Q",
-            title: "What you’ll do next: onboarding walkthrough",
+            title: "What you unlock with onboarding",
             description:
-              "This video previews the exact steps you’re about to go through: connect data, validate telemetry, train the model, and then monitor health score, alerts, and tickets.",
+              "See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.",
             duration: "5:30",
           }}
         />

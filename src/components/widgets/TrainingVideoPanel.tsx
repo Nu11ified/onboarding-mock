@@ -87,17 +87,13 @@ export function TrainingVideoPanel({
   headingDescription = 'Watch this video to learn how to get the most out of your machine intelligence setup.',
 }: TrainingVideoPanelProps) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [hasWatched, setHasWatched] = useState(false);
 
   const videoInfo = getEmbedUrl(videoUrl);
 
   const handlePlay = () => {
     setIsPlaying(true);
-    // Mark as watched after a short delay (simulating video completion)
-    setTimeout(() => {
-      setHasWatched(true);
-      onVideoComplete?.();
-    }, 5000);
+    // Optionally notify parent when video starts
+    onVideoComplete?.();
   };
 
   return (
@@ -109,12 +105,6 @@ export function TrainingVideoPanel({
             <GraduationCap className="h-4 w-4 text-white" />
           </div>
           <h2 className="text-lg font-semibold text-slate-900">{headingTitle}</h2>
-          {hasWatched && (
-            <span className="ml-auto flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-              <CheckCircle2 className="h-3 w-3" />
-              Watched
-            </span>
-          )}
         </div>
         <p className="text-sm text-slate-600">
           {headingDescription}
@@ -199,20 +189,7 @@ export function TrainingVideoPanel({
 
         </div>
 
-        {/* Next steps hint */}
-        {hasWatched && (
-          <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3">
-            <div className="flex items-start gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-green-900">Great progress!</p>
-                <p className="text-xs text-green-700 mt-0.5">
-                  Continue with the chat to complete your machine setup.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Next steps hint intentionally removed for this demo implementation */}
       </div>
     </div>
   );

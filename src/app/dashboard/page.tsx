@@ -371,7 +371,7 @@ function OnboardingChatInput({
                 void handleSend();
               }
             }}
-            placeholder="Ask me to add a machine, manage users, or anything else..."
+            placeholder="Ask AI"
             className="flex-1 rounded-full border border-purple-200 px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
             disabled={isProcessing}
           />
@@ -2545,7 +2545,7 @@ const ChatSidebar = forwardRef<
                       }
                     }
                   }}
-                  placeholder="Type anything to continue... (try 'video')"
+                  placeholder="Ask AI"
                   className="flex-1 rounded-full border border-purple-200 px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
                 />
                 <button

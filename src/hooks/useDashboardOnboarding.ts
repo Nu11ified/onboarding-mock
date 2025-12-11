@@ -40,7 +40,6 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
     | 'waiting-ticket'
     | 'awaiting-assignee'
     | 'confirm-assignee'
-    | 'post-assignment-status-question'
   >('idle');
 
   type AssignableUser = {
@@ -57,8 +56,6 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
       }
     | null
   >(null);
-
-  const lastAssignedTicketIdRef = useRef<string | null>(null);
 
   // Initialize flow from saved state (runs once)
   useEffect(() => {
@@ -817,55 +814,6 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
         const userInput = text.toLowerCase();
 
         if (isPostLogin) {
-          // 0) Post-assignment follow-up (smooth continuation)
-          if (
-            postLoginStageRef.current === 'post-assignment-status-question' &&
-            (isYes(text) || isNo(text))
-          ) {
-            addUserMessage(input);
-
-            const ticketId = lastAssignedTicketIdRef.current;
-            if (!ticketId) {
-              await new Promise((resolve) => setTimeout(resolve, 300));
-              addAssistantMessage('I don’t have a recent ticket to update.');
-              postLoginStageRef.current = 'idle';
-              setIsProcessing(false);
-              return;
-            }
-
-            if (isNo(text)) {
-              await new Promise((resolve) => setTimeout(resolve, 300));
-              addAssistantMessage(
-                `Okay — leaving ticket **${ticketId}** as-is. You can always update it later from this chat (e.g. "update ticket ${ticketId} status to In Progress").`,
-              );
-              postLoginStageRef.current = 'idle';
-              setIsProcessing(false);
-              return;
-            }
-
-            try {
-              await fetch('/api/tickets', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  action: 'updateStatus',
-                  id: ticketId,
-                  status: 'In Progress',
-                }),
-              });
-            } catch {
-              // Non-fatal in this demo
-            }
-
-            await new Promise((resolve) => setTimeout(resolve, 350));
-            addAssistantMessage(
-              `Done — ticket **${ticketId}** is now **In Progress**.\n\nIf you'd like, I can also add a note for the assignee or reassign it at any time.`,
-            );
-            postLoginStageRef.current = 'idle';
-            setIsProcessing(false);
-            return;
-          }
-
           // 1) Ticket assignment conversational flow (after "I see the ticket")
           if (postLoginStageRef.current === 'awaiting-assignee') {
             // Allow showing user list without leaving the stage
@@ -985,20 +933,28 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
               // Non-fatal in this demo
             }
 
+            // Auto-mark ticket as In Progress to mirror real system behavior
+            try {
+              await fetch('/api/tickets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'updateStatus',
+                  id: pending.ticketId,
+                  status: 'In Progress',
+                }),
+              });
+            } catch {
+              // Non-fatal in this demo
+            }
+
             await new Promise((resolve) => setTimeout(resolve, 400));
             addAssistantMessage(
-              `Ticket **${pending.ticketId}** has been successfully assigned to **${pending.user.name}**.\n\nThis user will now receive notifications for this ticket and take appropriate action.\n\nYou can reassign or update this ticket at any time directly from this chat.`,
+              `Ticket **${pending.ticketId}** has been successfully assigned to **${pending.user.name}** and marked as **In Progress**.\n\nThis user will now receive notifications for this ticket and take appropriate action.\n\nYou can reassign or update this ticket at any time directly from this chat.`,
             );
 
-            lastAssignedTicketIdRef.current = pending.ticketId;
             pendingAssignmentRef.current = null;
-
-            await new Promise((resolve) => setTimeout(resolve, 700));
-            addAssistantMessage(
-              `Would you like me to move ticket **${pending.ticketId}** to **In Progress** now? (Yes/No)`,
-            );
-
-            postLoginStageRef.current = 'post-assignment-status-question';
+            postLoginStageRef.current = 'idle';
             setIsProcessing(false);
             return;
           }
