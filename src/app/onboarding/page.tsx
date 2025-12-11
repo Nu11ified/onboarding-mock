@@ -224,8 +224,8 @@ export default function DualPaneOnboardingPage() {
           )}
 
           <div className="space-y-6">
-            {messages.map((message) => (
-              <div key={message.id} className="group">
+            {messages.map((message, idx) => (
+              <div key={`${message.id}-${idx}`} className="group">
                 <div className="flex items-start gap-3">
                   <Avatar className="h-8 w-8 shrink-0">
                     <AvatarFallback
@@ -263,8 +263,24 @@ export default function DualPaneOnboardingPage() {
                       widget={message.widget}
                       onSubmit={async (data) => {
                         const stateId = machine.state?.id as string;
-                        const type = (message.widget as any)?.type;
+                        const rootType = (message.widget as any)?.type;
                         const widgetDeviceId = (message.widget as any)?.data?.deviceId;
+
+                        // Helper: detect nested widget type inside widget-stack
+                        const resolveTypeFromData = (): string | null => {
+                          if (!data || typeof data !== 'object') return null;
+                          if ((data as any)?.mode && rootType === 'device-option-form') return 'device-option-form';
+                          if ('email' in (data as any) && rootType === 'email-form') return 'email-form';
+                          if ('machineDetails' in (data as any)) return 'machine-details-form';
+                          if ('channelMapping' in (data as any)) return 'channel-configuration-widget';
+                          if ('otp' in (data as any)) return rootType === 'otp-form' ? 'otp-form' : 'sms-otp-form';
+                          if ((data as any)?.status === 'active') return 'device-status-widget';
+                          return null;
+                        };
+
+                        const type = rootType === 'widget-stack'
+                          ? resolveTypeFromData() || (message.widget as any)?.data?.widgets?.[0]?.type
+                          : rootType;
 
                         if (type === 'user-info-form') return api.submitUserInfo(data);
                         if (type === 'otp-form') return api.verifyOtp(data);
@@ -274,7 +290,10 @@ export default function DualPaneOnboardingPage() {
                           if (mode === 'live') return api.selectLive();
                           return;
                         }
-                        if (type === 'machine-details-form') return api.machineDetailsSubmit(data);
+                        if (type === 'machine-details-form') {
+                          const details = (data as any)?.machineDetails ?? data;
+                          return api.machineDetailsSubmit(details);
+                        }
                         if (type === 'device-status-widget') {
                           // Match widget's deviceId to expected state
                           if (stateId === 'live-validate-schema' && widgetDeviceId === 'schema_validation') {
@@ -287,7 +306,10 @@ export default function DualPaneOnboardingPage() {
                           if (stateId === 'live-spawn') return api.completeLiveSpawn();
                           return;
                         }
-                        if (type === 'channel-configuration-widget') return api.channelConfigSubmit(data);
+                        if (type === 'channel-configuration-widget') {
+                          const mapping = (data as any)?.channelMapping ?? data;
+                          return api.channelConfigSubmit(mapping);
+                        }
                       }}
                       context={context}
                     />
@@ -584,9 +606,9 @@ export default function DualPaneOnboardingPage() {
           }}
           videoConfig={{
             url: "https://youtu.be/YQj_I-Zpx4Q",
-            title: "Understand the Demo Machine",
+            title: "What you’ll do next: onboarding walkthrough",
             description:
-              "The demo device is a robotic arm which represents an industrial machine performing an operation. Here we are extracting key details such as acceleration, Current, Temperature, Velocity etc.",
+              "This video previews the exact steps you’re about to go through: connect data, validate telemetry, train the model, and then monitor health score, alerts, and tickets.",
             duration: "5:30",
           }}
         />

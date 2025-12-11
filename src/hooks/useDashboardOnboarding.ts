@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { FlowManager, type FlowStep, type FlowContext, type FlowStepAction, POST_LOGIN_FLOW } from '@/lib/onboarding/flows';
+import { FlowManager, type FlowStep, type FlowContext, type FlowStepAction } from '@/lib/onboarding/flows';
 
 interface ChatMessage {
   id: string;
@@ -23,6 +23,7 @@ interface DashboardOnboardingState {
 export function useDashboardOnboarding(): DashboardOnboardingState {
   const [flowManager] = useState(() => new FlowManager('logged-in'));
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const messagesRef = useRef<ChatMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isActive, setIsActive] = useState(false); // Start inactive, activated by user query
   const messageIdCounter = useRef(0);
@@ -30,6 +31,34 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
   const needsPostLoginFlowRef = useRef(false);
 
   const [isPostLogin, setIsPostLogin] = useState(false);
+  const postLoginStageRef = useRef<
+    | 'idle'
+    | 'workflow-question'
+    | 'invite-question'
+    | 'awaiting-invite-email'
+    | 'fault-question'
+    | 'waiting-ticket'
+    | 'awaiting-assignee'
+    | 'confirm-assignee'
+    | 'post-assignment-status-question'
+  >('idle');
+
+  type AssignableUser = {
+    name: string;
+    email: string;
+    role?: string;
+  };
+
+  const assignableUsersRef = useRef<AssignableUser[]>([]);
+  const pendingAssignmentRef = useRef<
+    | {
+        ticketId: string;
+        user: AssignableUser;
+      }
+    | null
+  >(null);
+
+  const lastAssignedTicketIdRef = useRef<string | null>(null);
 
   // Initialize flow from saved state (runs once)
   useEffect(() => {
@@ -39,14 +68,132 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
     const onboardingState = localStorage.getItem('onboarding_state');
     const savedMessages = localStorage.getItem('onboarding_chat_messages');
 
+    const machineConfigHelpWidget = {
+      type: 'info-popup-button',
+      data: {
+        infoType: 'machine-config-help',
+        title: 'Machine Parameter Configuration',
+        buttonText: 'View Parameter Configuration Info',
+        content: {},
+      },
+    };
+
+    const channelConfigHelpWidget = {
+      type: 'info-popup-button',
+      data: {
+        infoType: 'channel-config-help',
+        title: 'Channel Configuration',
+        buttonText: 'View Channel Configuration Info',
+        content: {},
+      },
+    };
+
+    const mqttHelpWidget = {
+      type: 'info-popup-button',
+      data: {
+        infoType: 'mqtt-setup',
+        title: 'MQTT Configuration',
+        buttonText: 'View MQTT Configuration Info',
+        content: {
+          brokerEndpoint: 'mqtt.industrialiq.ai',
+          brokerPort: 8883,
+          topic: 'telemetry',
+        },
+      },
+    };
+
+    const widgetHasButtonText = (w: any, buttonText: string): boolean => {
+      if (!w) return false;
+      if (w?.type === 'info-popup-button' && w?.data?.buttonText === buttonText) return true;
+      if (w?.type === 'widget-stack' && Array.isArray(w?.data?.widgets)) {
+        return w.data.widgets.some((child: any) => widgetHasButtonText(child, buttonText));
+      }
+      return false;
+    };
+
+    const prependWidgets = (existingWidget: any, toPrepend: any[]) => {
+      const additions = toPrepend.filter(
+        (nw) => !widgetHasButtonText(existingWidget, nw?.data?.buttonText),
+      );
+      if (additions.length === 0) return existingWidget;
+
+      if (!existingWidget) {
+        if (additions.length === 1) return additions[0];
+        return { type: 'widget-stack', data: { widgets: additions } };
+      }
+
+      if (existingWidget?.type === 'widget-stack' && Array.isArray(existingWidget?.data?.widgets)) {
+        return {
+          ...existingWidget,
+          data: {
+            ...existingWidget.data,
+            widgets: [...additions, ...existingWidget.data.widgets],
+          },
+        };
+      }
+
+      return { type: 'widget-stack', data: { widgets: [...additions, existingWidget] } };
+    };
+
+    const injectReferenceButtonsIntoHistory = (raw: any[]) => {
+      if (!Array.isArray(raw) || raw.length === 0) return raw;
+
+      // Remove legacy "standalone" reference buttons that were appended as separate messages.
+      const referenceButtonTexts = [
+        'View Parameter Configuration Info',
+        'View Channel Configuration Info',
+        'View MQTT Configuration Info',
+      ];
+
+      const cleaned = raw.filter((m: any) => {
+        const buttonText = (m as any)?.widget?.data?.buttonText;
+        const isStandaloneReferenceButton =
+          (m as any)?.actor === 'assistant' &&
+          ((m as any)?.message === '' || (m as any)?.message == null) &&
+          (m as any)?.widget?.type === 'info-popup-button' &&
+          referenceButtonTexts.includes(buttonText);
+
+        return !isStandaloneReferenceButton;
+      });
+
+      return cleaned.map((m: any) => {
+        if (!m || m.actor !== 'assistant') return m;
+
+        // Machine details step (has machine-details-form widget)
+        if (m?.widget?.type === 'machine-details-form') {
+          const nextWidget = prependWidgets(m.widget, [machineConfigHelpWidget]);
+          return nextWidget === m.widget ? m : { ...m, widget: nextWidget };
+        }
+
+        // Channel config step (has channel-configuration-widget widget)
+        if (m?.widget?.type === 'channel-configuration-widget') {
+          const nextWidget = prependWidgets(m.widget, [channelConfigHelpWidget]);
+          return nextWidget === m.widget ? m : { ...m, widget: nextWidget };
+        }
+
+        // MQTT step (message contains endpoint details; often no widget)
+        if (
+          typeof m?.message === 'string' &&
+          (m.message.includes('Endpoint: mqtt.industrialiq.ai') ||
+            m.message.includes("We'll provide you with MQTT broker details"))
+        ) {
+          const nextWidget = prependWidgets(m.widget, [mqttHelpWidget]);
+          return nextWidget === m.widget ? m : { ...m, widget: nextWidget };
+        }
+
+        return m;
+      });
+    };
+
     // Fallback: if we have messages saved, ensure chat is active even if flag missing
     if (savedMessages && !onboardingState) {
       try {
         const parsedMessages = JSON.parse(savedMessages);
         if (Array.isArray(parsedMessages) && parsedMessages.length > 0) {
+          const hydrated = injectReferenceButtonsIntoHistory(parsedMessages);
           setIsActive(true);
-          setMessages(parsedMessages);
-          messageIdCounter.current = parsedMessages.length;
+          setMessages(hydrated);
+          messageIdCounter.current = hydrated.length;
           // Assume post-login if we have saved messages but no active flow state
           setIsPostLogin(true);
         }
@@ -64,7 +211,11 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
           // Restore previous messages and ensure device status widget persists
           let initialMsgs: ChatMessage[] = [];
           if (savedMessages) {
-            try { initialMsgs = JSON.parse(savedMessages) as ChatMessage[]; } catch {}
+            try {
+              initialMsgs = injectReferenceButtonsIntoHistory(
+                JSON.parse(savedMessages) as ChatMessage[],
+              ) as ChatMessage[];
+            } catch {}
           }
           // If no device status widget found and we have a device, inject one
           const hasDeviceStatus = initialMsgs.some(m => (m as any)?.widget?.type === 'device-status-widget');
@@ -108,6 +259,11 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
     }
   }, [flowManager]);
 
+  // Keep a ref to the latest messages to avoid stale closures in callbacks
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   // Save messages whenever they change
   useEffect(() => {
     if (messages.length > 0 && isActive) {
@@ -126,15 +282,80 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
       return;
     }
 
+    const baseWidget = currentStep.actor === 'assistant' ? (currentStep.widget || widget) : undefined;
+
+    // Inject contextual "info" buttons under the SAME message (via widget-stack)
+    const helpWidgets: any[] = [];
+    if (currentStep.actor === 'assistant') {
+      if (currentStep.id === 'live-machine-details-prompt') {
+        helpWidgets.push({
+          type: 'info-popup-button',
+          data: {
+            infoType: 'machine-config-help',
+            title: 'Machine Parameter Configuration',
+            buttonText: 'View Parameter Configuration Info',
+            content: {},
+          },
+        });
+      }
+
+      if (currentStep.id === 'live-mqtt-prompt') {
+        helpWidgets.push({
+          type: 'info-popup-button',
+          data: {
+            infoType: 'mqtt-setup',
+            title: 'MQTT Configuration',
+            buttonText: 'View MQTT Configuration Info',
+            content: {
+              brokerEndpoint: 'mqtt.industrialiq.ai',
+              brokerPort: 8883,
+              topic: 'telemetry',
+            },
+          },
+        });
+      }
+
+      if (currentStep.id === 'live-channel-config') {
+        helpWidgets.push({
+          type: 'info-popup-button',
+          data: {
+            infoType: 'channel-config-help',
+            title: 'Channel Configuration',
+            buttonText: 'View Channel Configuration Info',
+            content: {},
+          },
+        });
+      }
+    }
+
+    const mergedWidget = (() => {
+      if (helpWidgets.length === 0) return baseWidget;
+      if (!baseWidget) {
+        return helpWidgets.length === 1
+          ? helpWidgets[0]
+          : { type: 'widget-stack', data: { widgets: helpWidgets } };
+      }
+      if (baseWidget?.type === 'widget-stack' && Array.isArray(baseWidget?.data?.widgets)) {
+        return {
+          ...baseWidget,
+          data: {
+            ...baseWidget.data,
+            widgets: [...helpWidgets, ...baseWidget.data.widgets],
+          },
+        };
+      }
+      return { type: 'widget-stack', data: { widgets: [...helpWidgets, baseWidget] } };
+    })();
+
     const message: ChatMessage = {
       id: `msg-${messageIdCounter.current++}`,
       actor: currentStep.actor,
       message: renderedMessage,
-      widget: currentStep.actor === 'assistant' ? (currentStep.widget || widget) : undefined,
+      widget: currentStep.actor === 'assistant' ? mergedWidget : undefined,
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, message]);
+    setMessages((prev) => [...prev, message]);
   }, [flowManager]);
 
   const addUserMessage = useCallback((text: string) => {
@@ -428,6 +649,7 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
       }
 
       case 'create-test-ticket': {
+        let ticketId = `T-${Date.now()}`;
         try {
           const res = await fetch('/api/v2/tickets/generate-sample', {
             method: 'POST',
@@ -435,14 +657,45 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
             body: JSON.stringify({ severity: 'Warning' }),
           });
           const data = await res.json();
-          const ticketId = data?.ticketId || `T-${Date.now()}`;
+          ticketId = data?.ticketId || ticketId;
           console.log('✅ Created test ticket via API:', ticketId);
-          flowManager.updateContext({ testTicketId: ticketId });
         } catch (e) {
-          const fallbackId = `T-${Date.now()}`;
-          console.warn('Test ticket API failed, using fallback:', fallbackId);
-          flowManager.updateContext({ testTicketId: fallbackId });
+          console.warn('Test ticket API failed, using fallback:', ticketId);
         }
+
+        flowManager.updateContext({ testTicketId: ticketId });
+
+        // Ensure the ticket exists in our demo tickets store so assignment/update succeeds.
+        try {
+          await fetch('/api/tickets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'create',
+              ticket: {
+                timestamp: new Date().toLocaleString(),
+                workorder: `WO-${Math.floor(8000 + Math.random() * 500)}`,
+                summary: 'Simulated fault detected (demo)',
+                related: ticketId,
+                severity: 'Warning',
+                owner: 'Unassigned',
+                status: 'New',
+                machine: 'Demo Machine',
+                timeline: [
+                  {
+                    id: `t-${Date.now()}`,
+                    author: 'System',
+                    body: 'Ticket auto-created by simulated fault.',
+                    timestamp: new Date().toLocaleString(),
+                  },
+                ],
+              },
+            }),
+          });
+        } catch (e) {
+          console.warn('Failed creating demo ticket in /api/tickets (non-fatal)', e);
+        }
+
         return true;
       }
 
@@ -467,11 +720,412 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
 
     try {
       const currentStep = flowManager.getCurrentStep();
+
+      const isYes = (s: string) => /^(y|yes|yeah|yep|sure|ok|okay|continue)$/i.test(s.trim());
+      const isNo = (s: string) => /^(n|no|nope|not now)$/i.test(s.trim());
+      const isInduced = (s: string) => /(induced|triggered|done|started|i did|i have induced|test condition)/i.test(s.trim());
+
+      const normalize = (s: string) =>
+        s
+          .toLowerCase()
+          .replace(/[^a-z0-9@\s._-]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      const fetchAssignableUsers = async (): Promise<AssignableUser[]> => {
+        const ctx = flowManager.getContext();
+        const invited = Array.isArray((ctx as any).invitedUsers) ? (ctx as any).invitedUsers : [];
+
+        const fallbackUsers: AssignableUser[] = [
+          { name: 'Amelia Chen', email: 'amelia@industrialiq.ai', role: 'Admin' },
+          { name: 'Jane Cooper', email: 'jcooper@industrialiq.ai', role: 'Manager' },
+          { name: 'Devon Lane', email: 'devon@industrialiq.ai', role: 'Technician' },
+          { name: 'Courtney Henry', email: 'courtney@industrialiq.ai', role: 'Operator' },
+        ];
+
+        try {
+          const res = await fetch('/api/state');
+          const data = await res.json();
+          const apiUsers = Array.isArray(data?.state?.collaborators) ? data.state.collaborators : [];
+
+          const merged = [...apiUsers, ...invited, ...fallbackUsers]
+            .filter((u: any) => u?.email)
+            .reduce((acc: AssignableUser[], u: any) => {
+              if (acc.some((x) => x.email === u.email)) return acc;
+              acc.push(u);
+              return acc;
+            }, []);
+
+          assignableUsersRef.current = merged;
+          return merged;
+        } catch {
+          const merged = [...invited, ...fallbackUsers]
+            .filter((u: any) => u?.email)
+            .reduce((acc: AssignableUser[], u: any) => {
+              if (acc.some((x) => x.email === u.email)) return acc;
+              acc.push(u);
+              return acc;
+            }, []);
+
+          assignableUsersRef.current = merged;
+          return merged;
+        }
+      };
+
+      const isShowUsersIntent = (s: string) =>
+        /^show\s+me\s+users$|^show\s+users$|list\s+users|who\s+can\s+i\s+assign/i.test(s.trim());
+
+      // === Post-login scripted flow (YES/NO gating per spec) ===
+      if (isPostLogin) {
+        // Handle widget submissions for invite email
+        if (
+          postLoginStageRef.current === 'awaiting-invite-email' &&
+          typeof input === 'object' &&
+          input &&
+          typeof (input as any).email === 'string' &&
+          (input as any).email.trim()
+        ) {
+          const email = (input as any).email.trim();
+          // Do NOT echo email back as a user message (privacy)
+          const users = [{ name: email.split('@')[0] || 'User', email, role: 'Viewer' }];
+          await executeAction('add-users', { users });
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          addAssistantMessage('Perfect — your invite has been sent.');
+
+          const ctx = flowManager.getContext();
+          const mode = ctx.mode || 'demo';
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          if (mode === 'demo') {
+            addAssistantMessage(
+              'Now, would you like to see the agentic workflow in action?\n\nSince this is a demo machine, I can introduce a controlled fault for you.\nThis will simulate the robotic arm’s motor behaving abnormally and causing vibration anomalies.\n\nHere’s what you’ll experience step-by-step:\n• The Machine Intelligence Agent will detect the abnormal sensor patterns\n• The Health Score will drop in real time\n• A fault notification will be generated with the identified root cause\n• A maintenance ticket will be automatically created\n• The alert will be sent to you or whichever engineer is assigned\n\nWould you like me to trigger this simulated fault now?'
+            );
+          } else {
+            addAssistantMessage(
+              'Would you like to see the agentic workflow in action?\n\nSince this is a live machine, I can’t introduce a fault — but you can safely create or reproduce a minor test condition on your side.\n\nOnce that happens, you’ll see:\n• The Machine Intelligence Agent detect the anomaly\n• The Health Score drop\n• A real-time alert with the identified root cause\n• A ticket automatically created\n\nLet me know once you’ve induced the test condition — as soon as the alert and ticket appear, I’ll retrieve the ticket for this device and guide you through the assignment process.'
+            );
+          }
+
+          postLoginStageRef.current = 'fault-question';
+          setIsProcessing(false);
+          return;
+        }
+      }
       
       // === REGEX-BASED INTENT PARSING (High Priority) ===
       if (typeof input === 'string' && input && input.trim()) {
         const text = input.trim();
         const userInput = text.toLowerCase();
+
+        if (isPostLogin) {
+          // 0) Post-assignment follow-up (smooth continuation)
+          if (
+            postLoginStageRef.current === 'post-assignment-status-question' &&
+            (isYes(text) || isNo(text))
+          ) {
+            addUserMessage(input);
+
+            const ticketId = lastAssignedTicketIdRef.current;
+            if (!ticketId) {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+              addAssistantMessage('I don’t have a recent ticket to update.');
+              postLoginStageRef.current = 'idle';
+              setIsProcessing(false);
+              return;
+            }
+
+            if (isNo(text)) {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+              addAssistantMessage(
+                `Okay — leaving ticket **${ticketId}** as-is. You can always update it later from this chat (e.g. "update ticket ${ticketId} status to In Progress").`,
+              );
+              postLoginStageRef.current = 'idle';
+              setIsProcessing(false);
+              return;
+            }
+
+            try {
+              await fetch('/api/tickets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'updateStatus',
+                  id: ticketId,
+                  status: 'In Progress',
+                }),
+              });
+            } catch {
+              // Non-fatal in this demo
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 350));
+            addAssistantMessage(
+              `Done — ticket **${ticketId}** is now **In Progress**.\n\nIf you'd like, I can also add a note for the assignee or reassign it at any time.`,
+            );
+            postLoginStageRef.current = 'idle';
+            setIsProcessing(false);
+            return;
+          }
+
+          // 1) Ticket assignment conversational flow (after "I see the ticket")
+          if (postLoginStageRef.current === 'awaiting-assignee') {
+            // Allow showing user list without leaving the stage
+            if (isShowUsersIntent(text)) {
+              addUserMessage(input);
+              const users = await fetchAssignableUsers();
+              const list = users.map((u) => `• ${u.name} (${u.email}) — ${u.role || 'User'}`).join('\n');
+              await new Promise((resolve) => setTimeout(resolve, 500));
+              addAssistantMessage(`Here are the users you can assign tickets to:\n\n${list}`);
+              setIsProcessing(false);
+              return;
+            }
+
+            if (isNo(text)) {
+              addUserMessage(input);
+              await new Promise((resolve) => setTimeout(resolve, 400));
+              addAssistantMessage('Okay — no assignment changes made.');
+              postLoginStageRef.current = 'idle';
+              setIsProcessing(false);
+              return;
+            }
+
+            addUserMessage(input);
+
+            const ticketId = flowManager.getContext().testTicketId;
+            if (!ticketId) {
+              await new Promise((resolve) => setTimeout(resolve, 400));
+              addAssistantMessage('I don’t have a ticket to assign yet. Please type "I see the ticket" first.');
+              setIsProcessing(false);
+              return;
+            }
+
+            const users = assignableUsersRef.current.length > 0 ? assignableUsersRef.current : await fetchAssignableUsers();
+            const normalizedInput = normalize(text);
+            const emailMatch = text.match(/[\w\.-]+@[\w\.-]+\.\w+/);
+
+            const matches = users.filter((u) => {
+              const email = normalize(u.email || '');
+              const name = normalize(u.name || '');
+
+              if (emailMatch) return email === normalize(emailMatch[0]);
+              if (!normalizedInput) return false;
+
+              // Exact or partial match on full name
+              if (name === normalizedInput) return true;
+              if (name.includes(normalizedInput)) return true;
+
+              // Token-based match (first/last name)
+              const tokens = name.split(' ');
+              return tokens.some((t) => t && (t === normalizedInput || t.startsWith(normalizedInput)));
+            });
+
+            if (matches.length === 0) {
+              await new Promise((resolve) => setTimeout(resolve, 400));
+              addAssistantMessage(
+                'I couldn’t match that to a user. Please type the full name or email, or type "show me users" to see the list again.',
+              );
+              setIsProcessing(false);
+              return;
+            }
+
+            if (matches.length > 1) {
+              const list = matches
+                .slice(0, 5)
+                .map((u) => `• ${u.name} (${u.email})`)
+                .join('\n');
+              await new Promise((resolve) => setTimeout(resolve, 400));
+              addAssistantMessage(
+                `I found multiple matches. Please type the full name or email:\n\n${list}`,
+              );
+              setIsProcessing(false);
+              return;
+            }
+
+            const selected = matches[0];
+            pendingAssignmentRef.current = { ticketId, user: selected };
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            addAssistantMessage(
+              `Would you like to assign ticket **${ticketId}** to **${selected.name}** (${selected.email})? (Yes/No)`,
+            );
+            postLoginStageRef.current = 'confirm-assignee';
+            setIsProcessing(false);
+            return;
+          }
+
+          if (postLoginStageRef.current === 'confirm-assignee' && (isYes(text) || isNo(text))) {
+            addUserMessage(input);
+
+            const pending = pendingAssignmentRef.current;
+            if (!pending) {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+              addAssistantMessage('No pending assignment found. Type a user name to assign the ticket.');
+              postLoginStageRef.current = 'awaiting-assignee';
+              setIsProcessing(false);
+              return;
+            }
+
+            if (isNo(text)) {
+              await new Promise((resolve) => setTimeout(resolve, 400));
+              addAssistantMessage('Okay — not assigning it yet. Type a different name/email, or type "show me users".');
+              postLoginStageRef.current = 'awaiting-assignee';
+              setIsProcessing(false);
+              return;
+            }
+
+            try {
+              await fetch('/api/tickets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'update',
+                  id: pending.ticketId,
+                  updates: { owner: pending.user.name },
+                }),
+              });
+            } catch {
+              // Non-fatal in this demo
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 400));
+            addAssistantMessage(
+              `Ticket **${pending.ticketId}** has been successfully assigned to **${pending.user.name}**.\n\nThis user will now receive notifications for this ticket and take appropriate action.\n\nYou can reassign or update this ticket at any time directly from this chat.`,
+            );
+
+            lastAssignedTicketIdRef.current = pending.ticketId;
+            pendingAssignmentRef.current = null;
+
+            await new Promise((resolve) => setTimeout(resolve, 700));
+            addAssistantMessage(
+              `Would you like me to move ticket **${pending.ticketId}** to **In Progress** now? (Yes/No)`,
+            );
+
+            postLoginStageRef.current = 'post-assignment-status-question';
+            setIsProcessing(false);
+            return;
+          }
+          // 0) Agentic workflow question gate
+          if (postLoginStageRef.current === 'workflow-question' && (isYes(text) || isNo(text))) {
+            addUserMessage(input);
+
+            if (isNo(text)) {
+              await new Promise((resolve) => setTimeout(resolve, 500));
+              addAssistantMessage('No problem — you can ask me to show the agentic workflow anytime.');
+              postLoginStageRef.current = 'idle';
+              setIsProcessing(false);
+              return;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            addAssistantMessage(
+              'Your Agentic Workflow is now active for this machine. This means the system is already:\n\n• Monitoring real-time behavior\n• Tracking health and maintenance risk\n• Generating alerts and tickets\n• Producing AI-driven insights and recommendations\n\nNow, let\'s set up who else should be involved.\nWould you like to invite other users to explore this machine with you and designate who should receive alerts and take action when something needs attention?'
+            );
+            postLoginStageRef.current = 'invite-question';
+            setIsProcessing(false);
+            return;
+          }
+
+          // 1) Invite other users gate
+          if (postLoginStageRef.current === 'invite-question' && (isYes(text) || isNo(text))) {
+            addUserMessage(input);
+
+            if (isNo(text)) {
+              await new Promise((resolve) => setTimeout(resolve, 500));
+              addAssistantMessage('Okay — we can set this up later.');
+              postLoginStageRef.current = 'idle';
+              setIsProcessing(false);
+              return;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            addAssistantMessage(
+              'Please provide the email address of the person you’d like to invite, and we’ll send them an invite so they can explore this machine and receive the appropriate alerts.',
+              {
+                type: 'email-form',
+                data: {
+                  label: 'Invitee Email Address',
+                  helperText: "We'll send an invite email so they can access this machine.",
+                  submitLabel: 'Send Invite',
+                },
+              }
+            );
+            postLoginStageRef.current = 'awaiting-invite-email';
+            setIsProcessing(false);
+            return;
+          }
+
+          // 2) Fault/test-condition gate (demo: trigger simulated fault, live: acknowledge)
+          if (
+            postLoginStageRef.current === 'fault-question' &&
+            (isYes(text) || isNo(text) || isInduced(text))
+          ) {
+            addUserMessage(input);
+
+            if (isNo(text)) {
+              await new Promise((resolve) => setTimeout(resolve, 500));
+              addAssistantMessage('No problem — you can ask me to walk through the workflow anytime.');
+              postLoginStageRef.current = 'idle';
+              setIsProcessing(false);
+              return;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            const ctx = flowManager.getContext();
+            const mode = ctx.mode || 'demo';
+
+            // If user already induced the condition, skip the "once you induce" wording.
+            if (mode !== 'demo' && isInduced(text) && !isYes(text)) {
+              addAssistantMessage(
+                'Great — thanks. Once the alert/ticket appears, I’ll retrieve it and guide you through assignment.\n\n(As this is a mock, please type "I see the ticket" to continue)'
+              );
+              postLoginStageRef.current = 'waiting-ticket';
+              setIsProcessing(false);
+              return;
+            }
+
+            if (mode === 'demo') {
+              addAssistantMessage(
+                'Great — I\'ve triggered the simulated fault.\n\nYou should soon see:\n• A drop in the Health Score\n• A fault notification\n• A newly generated ticket in the Tickets section of your dashboard\n\nLet me know once you see the ticket appear, and I\'ll walk you through retrieving it and assigning it to the right person.\n\n(As this is a mock, please type "I see the ticket" to continue)'
+              );
+            } else {
+              addAssistantMessage(
+                'Great — once you induce a minor test condition on your side, you should soon see:\n\n• A Health Score drop\n• An alert with an identified root cause\n• A ticket automatically created\n\nLet me know once you see the ticket appear, and I\'ll retrieve it and guide you through assignment.\n\n(As this is a mock, please type "I see the ticket" to continue)'
+              );
+            }
+            postLoginStageRef.current = 'waiting-ticket';
+            setIsProcessing(false);
+            return;
+          }
+
+          // If we asked for an invite email, accept typed email too
+          if (postLoginStageRef.current === 'awaiting-invite-email') {
+            const emails = text.match(/[\w\.-]+@[\w\.-]+\.\w+/g);
+            if (emails && emails.length > 0) {
+              const email = emails[0];
+              const users = [{ name: email.split('@')[0] || 'User', email, role: 'Viewer' }];
+              // Store the typed email as the user's message (OK in this demo)
+              addUserMessage(input);
+              await executeAction('add-users', { users });
+              await new Promise((resolve) => setTimeout(resolve, 500));
+              addAssistantMessage('Perfect — your invite has been sent.');
+              postLoginStageRef.current = 'fault-question';
+
+              const ctx = flowManager.getContext();
+              const mode = ctx.mode || 'demo';
+              await new Promise((resolve) => setTimeout(resolve, 500));
+              if (mode === 'demo') {
+                addAssistantMessage(
+                  'Now, would you like to see the agentic workflow in action?\n\nSince this is a demo machine, I can introduce a controlled fault for you.\n\nWould you like me to trigger this simulated fault now?'
+                );
+              } else {
+                addAssistantMessage(
+                  'Would you like to see the agentic workflow in action?\n\nSince this is a live machine, I can’t introduce a fault — but you can safely create or reproduce a minor test condition on your side. Let me know once you’ve induced it.'
+                );
+              }
+
+              setIsProcessing(false);
+              return;
+            }
+          }
+        }
 
         // 1. Assign Users to Tickets
         const assignMatch = userInput.match(/assign\s+(?:ticket\s+)?([a-z0-9-]+)\s+to\s+(.+)/i);
@@ -541,7 +1195,37 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
            return;
         }
 
-        // 4. Creating a Ticket
+        // 4. Demo Fault Simulation
+        if (userInput.match(/simulate|fault|trigger|demo fault|test fault/)) {
+          addUserMessage(input);
+          await new Promise(resolve => setTimeout(resolve, 800));
+          const ctx = flowManager.getContext();
+          const mode = ctx.mode || 'demo';
+          
+          if (mode === 'demo') {
+            addAssistantMessage(
+              'Great — I\'ve triggered the simulated fault. You should soon see:\n\n• A drop in the Health Score\n• A fault notification\n• A newly generated ticket in the Tickets section of your dashboard\n\nLet me know once you see the ticket appear, and I\'ll walk you through retrieving it and assigning it to the right person.\n\n(As this is a mock, please type "I see the ticket" to continue)'
+            );
+          }
+          setIsProcessing(false);
+          return;
+        }
+
+        // 4b. Ticket appeared response
+        if (userInput.match(/see.*ticket|ticket.*appear|ticket.*visible|found.*ticket/i)) {
+          addUserMessage(input);
+          await executeAction('create-test-ticket');
+          const tid = flowManager.getContext().testTicketId;
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          addAssistantMessage(
+            `You can assign tickets directly through this chat interface — no need to navigate away.\n\nType the name/email of the person you'd like to assign ticket **${tid}** to, or type "show me users" to see the list.`,
+          );
+          postLoginStageRef.current = 'awaiting-assignee';
+          setIsProcessing(false);
+          return;
+        }
+
+        // 5. Creating a Ticket
         if (userInput.match(/create ticket|open ticket|new ticket|issue|problem|repair/)) {
            addUserMessage(input);
            addAssistantMessage("Opening a new maintenance ticket for you...", { type: 'ticket-creation-form' }); 
@@ -561,8 +1245,25 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
            return;
         }
 
+        // 5.5 Show me users (ticket assignment helper)
+        if (isShowUsersIntent(text)) {
+          addUserMessage(input);
+
+          const merged = await fetchAssignableUsers();
+          const list = merged
+            .map((u) => `• ${u.name} (${u.email}) — ${u.role || 'User'}`)
+            .join('\n');
+
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          addAssistantMessage(`Here are the users you can assign tickets to:\n\n${list}`);
+
+          setIsProcessing(false);
+          return;
+        }
+
         // 6. Showing different dashboards / Switching graphs
-        const switchMatch = userInput.match(/switch|change graph|show\s+(.+)/i);
+        // IMPORTANT: do not treat "show me users" as a graph switch
+        const switchMatch = userInput.match(/(?:switch|change\s+graph|show)\s+(?!me\b)(.+)/i);
         if (switchMatch) {
            // Be careful not to over-match "show ticket"
            if (!userInput.includes('ticket')) {
@@ -595,12 +1296,30 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
           return;
         }
 
+
         // General / Help
         if (userInput.match(/help|hi|hello|start|options/)) {
            addUserMessage(input);
            addAssistantMessage("Thank you for logging in. You can now see the insights of your onboarded machine on the right. You can also:\n\n• **Invite Users**: Share this dashboard\n• **Get Recent Tickets**: See what's happening\n• **Create Ticket**: Report an issue\n• **Assign Tickets**: e.g., \"Assign T-123 to Alice\"\n• **Compare Sensors**: Analyze data\n\nWhat would you like to do?");
            setIsProcessing(false);
            return;
+        }
+
+        // Check if user wants to restart/start new onboarding
+        if (userInput.match(/restart|start.*new|onboard.*another|add.*another|fresh.*start/i)) {
+            addUserMessage(input);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            addAssistantMessage(
+              'Ready to onboard a new machine?',
+              { 
+                type: 'restart-onboarding-widget', 
+                data: { 
+                  message: 'Click the button below to start fresh with a new demo or live machine. Your current dashboard will remain accessible.' 
+                } 
+              }
+            );
+            setIsProcessing(false);
+            return;
         }
 
         // Check if user wants to onboard/add machine (Only if NOT in post-login mode?)
@@ -756,14 +1475,63 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
     if (needsPostLoginFlowRef.current) {
       needsPostLoginFlowRef.current = false;
       setTimeout(() => {
-        // Send the welcome message
+        const ctx = flowManager.getContext();
+        
+        // Send the welcome message (metrics explanation stays here)
         const welcomeMessage: ChatMessage = {
           id: `msg-${messageIdCounter.current++}`,
           actor: 'assistant',
-          message: 'Thank you for logging in. You can now see the insights of your onboarded machine on the right. You can also do:\n\n• **Invite users**\n• **Get recent tickets**\n• **Create a ticket**\n• **Assign users to tickets**\n• **Compare sensor values**\n• **Show different dashboards**',
+          message: 'Welcome to your Device Dashboard!\n\nOn the right, you\'re seeing the live view of your machine, where you can:\n• Monitor its Health Score\n• Track planned vs predicted days to maintenance\n• Watch real-time telemetry data\n• Receive alerts and notifications\n• View and manage maintenance tickets\n\nThis dashboard updates automatically as new data comes in. Feel free to explore it — click on any chart, alert, or ticket to dive deeper.',
+          widget: {
+            type: 'info-popup-button',
+            data: {
+              infoType: 'health-metrics',
+              title: 'Dashboard Metrics Explained',
+              buttonText: 'View Metrics Explanation',
+              content: {
+                healthScore: 94,
+                dutyRate: '78%',
+                plannedDays: 30,
+                predictedDays: 6,
+              },
+            },
+          },
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, welcomeMessage]);
+
+        setMessages((prev) => {
+          // NOTE: reference buttons are injected into the ORIGINAL onboarding messages (machine details / MQTT / channel config)
+          // so they appear under the correct part of the chat history, not as a block at the bottom.
+          return [...prev, welcomeMessage];
+        });
+        
+        // Check if user consented to SMS during onboarding
+        const smsConsent = localStorage.getItem('sms_consent');
+        let consentData = null;
+        try {
+          consentData = smsConsent ? JSON.parse(smsConsent) : null;
+        } catch {}
+        
+        // Save SMS consent status to context
+        if (consentData?.consent) {
+          flowManager.updateContext({
+            smsNotificationsEnabled: true,
+            phoneNumber: consentData.phoneNumber,
+          });
+        }
+        
+        // Add workflow message
+        setTimeout(() => {
+          const workflowMessage: ChatMessage = {
+            id: `msg-${messageIdCounter.current++}`,
+            actor: 'assistant',
+            message: 'Before we continue, would you like to move on and see how the agentic workflow is already working behind the scenes for this machine?',
+            timestamp: new Date(),
+          };
+          postLoginStageRef.current = 'workflow-question';
+          setMessages((prev) => [...prev, workflowMessage]);
+        }, 1500);
+        
         setIsActive(true);
       }, 1000);
     }

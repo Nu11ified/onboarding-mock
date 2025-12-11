@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, MessageSquare, Shield, Bell, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SmsOtpFormWidget } from '@/components/onboarding/SmsOtpFormWidget';
 
 // Common country codes
 const COUNTRY_CODES = [
@@ -33,14 +34,25 @@ interface SMSConsentPopupProps {
   onClose: () => void;
   onConsent: (consent: boolean, phoneNumber?: string) => void;
   requirePhoneNumber?: boolean; // true = show phone input, false = just yes/no
+  forceOtpVerification?: boolean; // for demos: always show OTP step after consent
+  existingPhoneNumber?: string | null; // optional pre-filled E.164 phone
 }
 
-export function SMSConsentPopup({ isOpen, onClose, onConsent, requirePhoneNumber = false }: SMSConsentPopupProps) {
+export function SMSConsentPopup({
+  isOpen,
+  onClose,
+  onConsent,
+  requirePhoneNumber = false,
+  forceOtpVerification = false,
+  existingPhoneNumber = null,
+}: SMSConsentPopupProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [countryCode, setCountryCode] = useState('+1');
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [phoneError, setPhoneError] = useState('');
+  const [showOtpStep, setShowOtpStep] = useState(false);
+  const [fullPhoneNumber, setFullPhoneNumber] = useState('');
 
   if (!isOpen) return null;
 
@@ -53,6 +65,18 @@ export function SMSConsentPopup({ isOpen, onClose, onConsent, requirePhoneNumber
   const handleResponse = async (consent: boolean) => {
     setPhoneError('');
     
+    // If user clicks "Not Now", just close
+    if (!consent) {
+      localStorage.setItem('sms_consent', JSON.stringify({
+        consent: false,
+        phoneNumber: null,
+        timestamp: new Date().toISOString(),
+      }));
+      await onConsent(false);
+      onClose();
+      return;
+    }
+    
     // If consenting and phone number is required, validate it
     if (consent && requirePhoneNumber) {
       if (!phoneNumber.trim()) {
@@ -63,21 +87,41 @@ export function SMSConsentPopup({ isOpen, onClose, onConsent, requirePhoneNumber
         setPhoneError('Please enter a valid phone number');
         return;
       }
+      
+      // Show OTP step instead of completing
+      const fullPhone = `${countryCode}${phoneNumber.replace(/\D/g, '')}`;
+      setFullPhoneNumber(fullPhone);
+      setShowOtpStep(true);
+      return;
+    }
+
+    // For non-requirePhoneNumber flow (user already has phone on file)
+    // If forced (demo links), still show OTP step so presenters can demo it.
+    if (forceOtpVerification) {
+      let phone = existingPhoneNumber || '';
+      if (!phone) {
+        try {
+          const raw = localStorage.getItem('sms_consent');
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed?.phoneNumber) phone = parsed.phoneNumber;
+        } catch {}
+      }
+      if (!phone) phone = '+15551234567';
+
+      setFullPhoneNumber(phone);
+      setShowOtpStep(true);
+      return;
     }
 
     setIsSubmitting(true);
     try {
-      const fullPhoneNumber = requirePhoneNumber && consent ? `${countryCode}${phoneNumber.replace(/\D/g, '')}` : undefined;
-      
-      // Store consent preference
       localStorage.setItem('sms_consent', JSON.stringify({
-        consent,
-        phoneNumber: fullPhoneNumber,
+        consent: true,
+        phoneNumber: null, // Already have it
         timestamp: new Date().toISOString(),
       }));
       
-      // Call parent handler
-      await onConsent(consent, fullPhoneNumber);
+      await onConsent(true);
       onClose();
     } catch (error) {
       console.error('Error handling SMS consent:', error);
@@ -85,8 +129,67 @@ export function SMSConsentPopup({ isOpen, onClose, onConsent, requirePhoneNumber
       setIsSubmitting(false);
     }
   };
+  
+  const handleOtpVerified = async (_otp: string) => {
+    setIsSubmitting(true);
+    try {
+      // Store consent preference with verified phone
+      localStorage.setItem('sms_consent', JSON.stringify({
+        consent: true,
+        phoneNumber: fullPhoneNumber,
+        verified: true,
+        timestamp: new Date().toISOString(),
+      }));
+      
+      // Call parent handler
+      await onConsent(true, fullPhoneNumber);
+      onClose();
+    } catch (error) {
+      console.error('Error handling SMS OTP:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const selectedCountry = COUNTRY_CODES.find(c => c.code === countryCode) || COUNTRY_CODES[0];
+
+  // If showing OTP step, render OTP widget
+  if (showOtpStep) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" />
+        <div className="relative w-full max-w-md mx-4 rounded-3xl border border-purple-200/80 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-1 shadow-2xl animate-fade-in-up">
+          <div className="rounded-[22px] bg-white p-8">
+            <button
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="absolute top-6 right-6 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <div className="mb-4">
+              <h2 className="text-center text-xl font-semibold text-slate-900 mb-2">
+                Verify Your Phone Number
+              </h2>
+              <p className="text-center text-sm text-slate-600">
+                We&apos;ve sent a 6-digit code to your phone to verify it&apos;s you.
+              </p>
+            </div>
+            
+            <SmsOtpFormWidget
+              phoneNumber={fullPhoneNumber}
+              onSubmit={handleOtpVerified}
+              onResend={async () => {
+                console.log('Resending SMS OTP to:', fullPhoneNumber);
+                // In production, trigger SMS resend API
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">

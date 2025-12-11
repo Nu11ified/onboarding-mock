@@ -1,5 +1,6 @@
 export { EmailFormWidget } from './EmailFormWidget';
 export { OtpFormWidget } from './OtpFormWidget';
+export { SmsOtpFormWidget } from './SmsOtpFormWidget';
 export { DeviceOptionWidget } from './DeviceOptionWidget';
 export { ProfileConfigFormWidget } from './ProfileConfigFormWidget';
 export { DeviceStatusWidget } from './DeviceStatusWidget';

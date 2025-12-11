@@ -6,7 +6,7 @@ export const ONBOARDING_FLOW: FlowDefinition = {
   states: {
     'user-info': {
       id: 'user-info',
-      message: `You’re about to set up a new machine, where you can explore it’s real-time telemetry, AI insights, with interactive dashboards.`,
+      message: `You're about to set up a new machine, where you can explore it's real-time telemetry, AI insights, with interactive dashboards.`,
       widget: { type: 'user-info-form' },
       waitForUserInput: true,
       on: {
@@ -32,8 +32,8 @@ Didn't get the code? You can resend it after a few seconds, or check your spam/j
       widget: { type: 'device-option-form' },
       waitForUserInput: true,
       on: {
-        SELECT_DEMO: { target: 'demo-spawn' },
-        SELECT_LIVE: { target: 'live-machine-details' },
+        SELECT_DEMO: { target: 'demo-spawn', action: 'select-demo-mode' },
+        SELECT_LIVE: { target: 'live-machine-details', action: 'select-live-mode' },
       },
     },
 
@@ -75,7 +75,23 @@ Just say "yes" or "no".`,
       message: `Now we'll start understanding your live machine so we can configure AI insights and predictive analytics.
 
 To get started, I need a few details about your device:`,
-      widget: { type: 'machine-details-form' },
+      widget: {
+        type: 'widget-stack',
+        data: {
+          widgets: [
+            {
+              type: 'info-popup-button',
+              data: {
+                infoType: 'machine-config-help',
+                title: 'Machine Parameter Configuration',
+                buttonText: 'View Parameter Configuration Info',
+                content: {},
+              },
+            },
+            { type: 'machine-details-form' },
+          ],
+        },
+      },
       waitForUserInput: true,
       on: {
         SUBMIT: { target: 'live-mqtt' },
@@ -93,6 +109,19 @@ Endpoint: mqtt.industrialiq.ai\nPort: 8883\nTopic: telemetry
 Don't worry about the format — you can send data in your existing format. We'll validate it on our side and make sure it's acceptable.
 
 When you have your device sending data, type "done" here and I'll validate it automatically.`,
+      widget: {
+        type: 'info-popup-button',
+        data: {
+          infoType: 'mqtt-setup',
+          title: 'MQTT Configuration',
+          buttonText: 'View MQTT Configuration Info',
+          content: {
+            brokerEndpoint: 'mqtt.industrialiq.ai',
+            brokerPort: 8883,
+            topic: 'telemetry',
+          },
+        },
+      },
       waitForUserInput: true,
       on: {
         DONE: { target: 'live-validate-schema' },
@@ -131,7 +160,23 @@ Would you like to configure how your tags are grouped, or use the default config
     'live-channel-config': {
       id: 'live-channel-config',
       message: "Great! Let's configure your channels. You can organize your tags into groups below:",
-      widget: { type: 'channel-configuration-widget' },
+      widget: {
+        type: 'widget-stack',
+        data: {
+          widgets: [
+            {
+              type: 'info-popup-button',
+              data: {
+                infoType: 'channel-config-help',
+                title: 'Channel Configuration',
+                buttonText: 'View Channel Configuration Info',
+                content: {},
+              },
+            },
+            { type: 'channel-configuration-widget' },
+          ],
+        },
+      },
       waitForUserInput: true,
       on: {
         SUBMIT: { target: 'live-spawn' },
@@ -170,10 +215,21 @@ Just say "yes" or "no".`,
       message: `Your account has been created! We've sent you an email with instructions to set your password. Once you log in, you'll have full access to your dashboard and all features.`,
       widget: { type: 'login-button-widget', data: { url: '/reset', buttonText: 'Resend Email', message: 'Check your email to complete account setup.' } },
       waitForUserInput: true,
+      on: {
+        RESTART: { target: 'restart-confirmation' },
+      },
     },
     'session-saved': {
       id: 'session-saved',
       message: 'No problem! Your session has been saved. You can come back anytime using the same email address to continue where you left off. Your demo machine will remain active.',
+      widget: { type: 'restart-onboarding-widget', data: { message: 'Want to onboard another machine? You can start a new onboarding flow anytime.' } },
+      waitForUserInput: true,
+    },
+    'restart-confirmation': {
+      id: 'restart-confirmation',
+      message: 'Ready to onboard another machine?',
+      widget: { type: 'restart-onboarding-widget', data: { message: 'Click below to start a fresh onboarding flow for a new machine.' } },
+      waitForUserInput: true,
     },
   },
 };

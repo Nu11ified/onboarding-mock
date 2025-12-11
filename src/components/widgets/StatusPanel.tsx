@@ -88,7 +88,7 @@ function WelcomePanel() {
   );
 }
 
-function MachineConfigHelpPanel() {
+export function MachineConfigHelpPanel() {
   return (
     <div className="flex flex-col px-4 py-6">
       <div className="flex items-center gap-2 mb-4">
@@ -153,7 +153,7 @@ function MachineConfigHelpPanel() {
   );
 }
 
-function ChannelConfigHelpPanel() {
+export function ChannelConfigHelpPanel() {
   return (
     <div className="flex flex-col px-4 py-6">
       <div className="flex items-center gap-2 mb-4">
@@ -194,8 +194,8 @@ function ChannelConfigHelpPanel() {
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
           <p className="text-sm font-semibold text-blue-900 mb-2">Example</p>
           <p className="text-sm text-blue-700">
-            You might create a "Motor" group with temperature and vibration channels, and a "Hydraulics" group 
-            with pressure and flow rate channels. Each group will have its own health score, making it easier 
+            You might create a &quot;Motor&quot; group with temperature and vibration channels, and a &quot;Hydraulics&quot; group
+            with pressure and flow rate channels. Each group will have its own health score, making it easier
             to pinpoint issues.
           </p>
         </div>
@@ -240,11 +240,14 @@ export function StatusPanel({
       return (
         <TrainingVideoPanel
           videoUrl={videoConfig?.url}
-          title={videoConfig?.title || 'Understand the Demo Machine'}
-          description={videoConfig?.description ?? 'The demo device is a robotic arm which represents an industrial machine performing an operation. Here we are extracting key details such as acceleration, Current, Temperature, Velocity etc.'}
+          title={videoConfig?.title || 'What you’ll do next: onboarding walkthrough'}
+          description={
+            videoConfig?.description ??
+            'This video previews the exact steps you’re about to go through: connect data, validate telemetry, train the model, and then monitor health score, alerts, and tickets.'
+          }
           duration={videoConfig?.duration}
-          headingTitle={'Demo Device'}
-          headingDescription={''}
+          headingTitle={'Training video'}
+          headingDescription={'A short walkthrough of the onboarding process (optional).'}
         />
       );
     }
@@ -254,11 +257,14 @@ export function StatusPanel({
       return (
         <TrainingVideoPanel
           videoUrl={videoConfig?.url}
-          title={'Understand the Demo Machine'}
-          description={'The demo device is a robotic arm which represents an industrial machine performing an operation. Here we are extracting key details such as acceleration, Current, Temperature, Velocity etc.'}
+          title={videoConfig?.title || 'What you’ll do next: onboarding walkthrough'}
+          description={
+            videoConfig?.description ??
+            'Before you choose demo vs live, here’s a walkthrough of the onboarding flow and what you’ll see in the dashboard afterward.'
+          }
           duration={videoConfig?.duration}
-          headingTitle={'Demo Device'}
-          headingDescription={''}
+          headingTitle={'Training video'}
+          headingDescription={'A short walkthrough of the onboarding process (optional).'}
         />
       );
     }

@@ -19,9 +19,22 @@ export const actions: ActionsRegistry = {
       }
     });
   },
+  'validate-sms-otp': async (ctx, event: FlowEvent) => {
+    const smsOtp = (event.data as any)?.otp || ctx.smsOtp;
+    ctx.smsOtp = smsOtp;
+    ctx.phoneVerified = true;
+    // Mock SMS OTP validation - in production, verify via backend
+    console.log('SMS OTP validated:', smsOtp);
+  },
   'validate-otp': async (ctx) => {
     const mockProfileKey = `profile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     ctx.profileKey = mockProfileKey;
+  },
+  'select-demo-mode': async (ctx) => {
+    ctx.mode = 'demo';
+  },
+  'select-live-mode': async (ctx) => {
+    ctx.mode = 'live';
   },
   'spawn-demo-device': async (ctx) => {
     const mockDeviceId = `demo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;

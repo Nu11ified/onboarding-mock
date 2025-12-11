@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { isValidEmail } from '@/lib/onboarding/utils';
 import { Button } from '@/components/ui/button';
-import { Loader2, Mail, User, Phone } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 interface UserInfo {
   email: string;
@@ -83,15 +83,12 @@ export function UserInfoFormWidget({
     }
   };
 
-  const modeText = mode === 'demo' 
-    ? 'Demo Machine' 
-    : 'Live Machine';
 
   return (
     <div className="rounded-xl border border-purple-200 bg-white p-5 shadow-sm">
       <div className="mb-5">
         <h3 className="text-base font-semibold text-slate-900">
-          Set up your {modeText}
+          Set up your machine
         </h3>
         <p className="mt-1.5 text-sm text-slate-600">
           To get started and save your session so you can come back later, I just need a few details from you:
@@ -101,8 +98,7 @@ export function UserInfoFormWidget({
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Email Field */}
         <div>
-          <label htmlFor="email" className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-            <Mail className="h-3.5 w-3.5 text-slate-400" />
+          <label htmlFor="email" className="mb-1.5 block text-xs font-semibold text-slate-700">
             Email Address
           </label>
           <input
@@ -125,8 +121,7 @@ export function UserInfoFormWidget({
         {/* Name Fields - Side by Side */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="firstName" className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-              <User className="h-3.5 w-3.5 text-slate-400" />
+            <label htmlFor="firstName" className="mb-1.5 block text-xs font-semibold text-slate-700">
               First Name
             </label>
             <input
@@ -164,8 +159,7 @@ export function UserInfoFormWidget({
 
         {/* Phone Number */}
         <div>
-          <label htmlFor="phoneNumber" className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-            <Phone className="h-3.5 w-3.5 text-slate-400" />
+          <label htmlFor="phoneNumber" className="mb-1.5 block text-xs font-semibold text-slate-700">
             Phone Number
           </label>
           <input

@@ -8,9 +8,18 @@ import { Loader2 } from 'lucide-react';
 interface EmailFormWidgetProps {
   onSubmit: (email: string) => Promise<void>;
   initialEmail?: string;
+  label?: string;
+  helperText?: string;
+  submitLabel?: string;
 }
 
-export function EmailFormWidget({ onSubmit, initialEmail = '' }: EmailFormWidgetProps) {
+export function EmailFormWidget({
+  onSubmit,
+  initialEmail = '',
+  label = 'Email Address',
+  helperText = "We'll send you a verification code to confirm your email",
+  submitLabel = 'Continue',
+}: EmailFormWidgetProps) {
   const [email, setEmail] = useState(initialEmail);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -44,7 +53,7 @@ export function EmailFormWidget({ onSubmit, initialEmail = '' }: EmailFormWidget
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label htmlFor="email" className="mb-1.5 block text-xs font-semibold text-slate-700">
-            Email Address
+            {label}
           </label>
           <input
             id="email"
@@ -70,13 +79,13 @@ export function EmailFormWidget({ onSubmit, initialEmail = '' }: EmailFormWidget
               Sending...
             </>
           ) : (
-            'Continue'
+            submitLabel
           )}
         </Button>
       </form>
-      <p className="mt-3 text-xs text-slate-500 text-center">
-        We&apos;ll send you a verification code to confirm your email
-      </p>
+      {helperText ? (
+        <p className="mt-3 text-xs text-slate-500 text-center">{helperText}</p>
+      ) : null}
     </div>
   );
 }

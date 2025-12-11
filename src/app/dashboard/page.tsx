@@ -58,16 +58,22 @@ import {
 import { cn } from "@/lib/utils";
 import { useDashboardOnboarding } from "@/hooks/useDashboardOnboarding";
 import {
+  EmailFormWidget,
   UserInvitationWidget,
   NotificationPreferencesWidget,
   DeviceStatusWidget,
   MqttConnectionInfoWidget,
   ProfileSelectionWidget,
   ProfileConfigFormWidget,
+  MachineDetailsFormWidget,
 } from "@/components/onboarding";
 import { SMSConsentPopup } from "@/components/SMSConsentPopup";
 import { VideoPopup } from "@/components/widgets/VideoPopup";
 import { VideoWidget } from "@/components/widgets/VideoWidget";
+import { InfoPopupButton } from "@/components/widgets/InfoPopupButton";
+import { ChannelConfigurationWidget } from "@/components/widgets/ChannelConfigurationWidget";
+import { LoginButtonWidget } from "@/components/widgets/LoginButtonWidget";
+import { RestartOnboardingWidget } from "@/components/widgets/RestartOnboardingWidget";
 
 type AssetProfile = {
   id: string;
@@ -1175,7 +1181,10 @@ function DashboardPageContent() {
     (widgetDef: any) => {
       const context = getOnboardingContext();
 
-      switch (widgetDef.type) {
+      const render = (def: any): React.ReactNode => {
+        if (!def) return null;
+
+        switch (def.type) {
         case "profile-selection-form":
           return (
             <ProfileSelectionWidget
@@ -1198,6 +1207,19 @@ function DashboardPageContent() {
                   profileKey: null,
                   profileConfig: null,
                 });
+              }}
+            />
+          );
+
+        case "email-form":
+          return (
+            <EmailFormWidget
+              initialEmail={widgetDef.data?.initialEmail}
+              label={widgetDef.data?.label}
+              helperText={widgetDef.data?.helperText}
+              submitLabel={widgetDef.data?.submitLabel}
+              onSubmit={async (email: string) => {
+                await handleOnboardingInput({ email });
               }}
             />
           );
@@ -1255,9 +1277,74 @@ function DashboardPageContent() {
             />
           );
 
+        case "info-popup-button":
+          return (
+            <InfoPopupButton
+              type={widgetDef.data?.infoType || 'custom'}
+              title={widgetDef.data?.title || 'Information'}
+              buttonText={widgetDef.data?.buttonText || 'View Details'}
+              data={widgetDef.data?.content}
+            />
+          );
+
+        case "machine-details-form":
+          return (
+            <MachineDetailsFormWidget
+              onSubmit={async (details) => {
+                await handleOnboardingInput({ machineDetails: details });
+              }}
+            />
+          );
+
+        case "channel-configuration-widget":
+          return (
+            <ChannelConfigurationWidget
+              onSubmit={async (mapping) => {
+                await handleOnboardingInput({ channelMapping: mapping });
+              }}
+            />
+          );
+
+        case "login-button-widget":
+          return (
+            <LoginButtonWidget
+              buttonText={widgetDef.data?.buttonText || 'Resend Email'}
+              url={widgetDef.data?.url || '/reset'}
+              message={widgetDef.data?.message}
+              onSubmit={() => {
+                console.log('Login button clicked');
+              }}
+            />
+          );
+
+        case "restart-onboarding-widget":
+          return (
+            <RestartOnboardingWidget
+              message={widgetDef.data?.message}
+              onRestart={() => {
+                console.log('Restarting onboarding...');
+              }}
+            />
+          );
+
+        case "widget-stack": {
+          const widgets = def.data?.widgets;
+          if (!Array.isArray(widgets) || widgets.length === 0) return null;
+          return (
+            <div className="space-y-3">
+              {widgets.map((w: any, idx: number) => (
+                <div key={w?.type ? `${w.type}-${idx}` : idx}>{render(w)}</div>
+              ))}
+            </div>
+          );
+        }
+
         default:
           return null;
       }
+    };
+
+    return render(widgetDef);
     },
     [getOnboardingContext, handleOnboardingInput],
   );
@@ -1279,6 +1366,7 @@ function DashboardPageContent() {
         onClose={() => setShowSMSConsent(false)}
         onConsent={handleSMSConsent}
         requirePhoneNumber={smsConsentRequiresPhone}
+        forceOtpVerification={smsConsentParam === "true" || smsConsentParam === "new"}
       />
       <div className="relative flex h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100 text-slate-900">
         <Sidebar

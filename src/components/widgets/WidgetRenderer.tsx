@@ -10,11 +10,13 @@ import { LoginButtonWidget } from './LoginButtonWidget';
 import { SchemaValidationWidget } from './SchemaValidationWidget';
 import { ChannelConfigurationWidget } from './ChannelConfigurationWidget';
 import { VideoWidget } from './VideoWidget';
+import { InfoPopupButton } from './InfoPopupButton';
 
 // Import existing onboarding widgets
 import {
   EmailFormWidget,
   OtpFormWidget,
+  SmsOtpFormWidget,
   DeviceOptionWidget,
   ProfileConfigFormWidget,
   DeviceStatusWidget,
@@ -117,6 +119,20 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
               if (onSubmit) await onSubmit({ email });
             }}
             initialEmail={data.initialEmail}
+          />
+        );
+
+      case 'sms-otp-form':
+        return (
+          <SmsOtpFormWidget
+            phoneNumber={data.phoneNumber || context.phoneNumber}
+            onSubmit={async (otp: string) => {
+              // Don't print the OTP code in chat history, just validate
+              if (onSubmit) await onSubmit({ otp });
+            }}
+            onResend={data.allowResend ? async () => {
+              console.log('Resend SMS OTP requested');
+            } : undefined}
           />
         );
 
@@ -286,6 +302,30 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
             description={data.description}
           />
         );
+
+      case 'info-popup-button':
+        return (
+          <InfoPopupButton
+            type={data.infoType || 'custom'}
+            title={data.title || 'Information'}
+            buttonText={data.buttonText}
+            data={data.content}
+          />
+        );
+
+      case 'widget-stack': {
+        const widgets = (data as any)?.widgets;
+        if (!Array.isArray(widgets) || widgets.length === 0) return null;
+        return (
+          <div className="space-y-3">
+            {widgets.map((w: any, idx: number) => (
+              <div key={w?.type ? `${w.type}-${idx}` : idx}>
+                <WidgetRenderer widget={w} onSubmit={onSubmit} context={context} />
+              </div>
+            ))}
+          </div>
+        );
+      }
 
       // New widgets for the updated onboarding flow
       case 'welcome-buttons':
