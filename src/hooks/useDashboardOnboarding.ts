@@ -946,7 +946,20 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
 
             await new Promise((resolve) => setTimeout(resolve, 400));
             addAssistantMessage(
-              `Ticket **${pending.ticketId}** has been successfully assigned to **${pending.user.name}** and marked as **In Progress**.\n\nThis user will now receive notifications for this ticket and take appropriate action.\n\nYou can reassign or update this ticket at any time directly from this chat.`,
+              `Ticket **${pending.ticketId}** has been successfully assigned to **${pending.user.name}** and marked as **In Progress**.\\n\\nThis user will now receive notifications for this ticket and take appropriate action.\\n\\nYou can reassign or update this ticket at any time directly from this chat.`,
+              {
+                type: 'info-grid',
+                data: {
+                  title: 'APM Ticket Overview',
+                  description: 'Updated ticket after assignment.',
+                  fields: [
+                    { label: 'APM Ticket', value: pending.ticketId },
+                    { label: 'Summary', value: 'Fault Detected – Vibration alert' },
+                    { label: 'Assigned To', value: pending.user.name },
+                    { label: 'Severity', value: 'High' },
+                  ],
+                },
+              },
             );
 
             pendingAssignmentRef.current = null;
