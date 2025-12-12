@@ -71,18 +71,46 @@ export function DeviceStatusWidget({
   const [phase, setPhase] = useState<DevicePhase>('starting');
   const [progress, setProgress] = useState(0);
   const [rawData, setRawData] = useState<Array<{ ts: number; temperature: number; pressure: number; vibration: number }>>([]);
+  const deviceIdRef = useRef<string | null>(null);
 
-  // Load persisted state on mount (optional)
+  // Reset state when deviceId changes (important for new spawns)
   useEffect(() => {
-    if (!persist) return;
-    const persisted = loadPersistedStatus(deviceId);
-    if (persisted) {
-      setStatus(persisted.status);
-      setPhase(persisted.phase);
-      setProgress(persisted.progress || 0);
+    // If deviceId changed, reset everything
+    if (deviceIdRef.current !== null && deviceIdRef.current !== deviceId) {
+      setStatus(initialStatus);
+      setPhase('starting');
+      setProgress(0);
+      setRawData([]);
+      // Clear old persisted state for the old deviceId
+      if (deviceIdRef.current && persist) {
+        try {
+          localStorage.removeItem(`device_status_${deviceIdRef.current}`);
+        } catch {}
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    deviceIdRef.current = deviceId;
+
+    // Load persisted state only on initial mount or if deviceId matches persisted data
+    if (persist) {
+      const persisted = loadPersistedStatus(deviceId);
+      if (persisted && persisted.deviceId === deviceId) {
+        // Only load if it's for the current deviceId
+        setStatus(persisted.status);
+        setPhase(persisted.phase);
+        setProgress(persisted.progress || 0);
+      } else {
+        // No persisted state or different deviceId - start fresh
+        setStatus(initialStatus);
+        setPhase('starting');
+        setProgress(0);
+      }
+    } else {
+      // Not persisting - always start fresh
+      setStatus(initialStatus);
+      setPhase('starting');
+      setProgress(0);
+    }
+  }, [deviceId, initialStatus, persist]);
 
   // Persist on any change (optional)
   useEffect(() => {
@@ -100,15 +128,15 @@ export function DeviceStatusWidget({
   useEffect(() => {
     const fallback = setTimeout(() => {
       setProgress((p) => {
-        if (p === 0) {
-          setPhase((ph) => (ph === 'starting' ? 'training' : ph));
+        if (p === 0 && phase === 'starting') {
+          setPhase('training');
           return 1;
         }
         return p;
       });
     }, 1200);
     return () => clearTimeout(fallback);
-  }, [deviceId]);
+  }, [deviceId, phase]);
 
   // Simulate raw telemetry (persistent)
   useEffect(() => {
