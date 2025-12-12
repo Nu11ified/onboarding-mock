@@ -22,6 +22,11 @@ import {
   type OnboardingPhase,
   type OnboardingMode,
 } from "@/components/widgets/StatusPanel";
+import {
+  RightSidePanelProvider,
+  useRightSidePanel,
+} from "@/components/widgets/RightSidePanelContext";
+import { RightSidePanel } from "@/components/widgets/RightSidePanel";
 
 type PromptTemplate = {
   id: string;
@@ -88,6 +93,14 @@ function mapStateToPhase(
 }
 
 export default function DualPaneOnboardingPage() {
+  return (
+    <RightSidePanelProvider>
+      <DualPaneOnboardingPageInner />
+    </RightSidePanelProvider>
+  );
+}
+
+function DualPaneOnboardingPageInner() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [customInput, setCustomInput] = useState("");
@@ -117,6 +130,100 @@ export default function DualPaneOnboardingPage() {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isAutoScrollEnabled]);
+
+  const { panel: rightPanel, openPanel, closePanel } = useRightSidePanel();
+
+  // Auto-open the right-side help panel as soon as a "View …" info button appears in chat.
+  const autoOpenedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const unwrapInfoPayload = (node: any): any => {
+      let p = node;
+      for (let i = 0; i < 5; i++) {
+        if (!p || typeof p !== 'object') return {};
+        if ('infoType' in p || 'buttonText' in p || 'title' in p || 'content' in p) return p;
+        if (p.data && typeof p.data === 'object') {
+          p = p.data;
+          continue;
+        }
+        break;
+      }
+      return p || {};
+    };
+
+    const panelFromWidget = (w: any) => {
+      if (!w) return null;
+      if (w.type === 'widget-stack' && Array.isArray(w?.data?.widgets)) {
+        for (const child of w.data.widgets) {
+          const candidate = panelFromWidget(child);
+          if (candidate) return candidate;
+        }
+      }
+      if (w.type === 'right-panel-button') {
+        const p = w?.data || {};
+        const panelType = p?.panelType;
+        if (
+          panelType !== 'machine-config-help' &&
+          panelType !== 'channel-config-help' &&
+          panelType !== 'mqtt-setup' &&
+          panelType !== 'health-metrics'
+        ) {
+          return null;
+        }
+        return {
+          type: panelType,
+          title: p?.title,
+          data: p?.content,
+        };
+      }
+      if (w.type === 'info-popup-button') {
+        const payload = unwrapInfoPayload(w);
+
+        const inferInfoType = (t?: string, b?: string) => {
+          const s = `${t || ''} ${b || ''}`.toLowerCase();
+          if (s.includes('mqtt')) return 'mqtt-setup';
+          if (s.includes('channel')) return 'channel-config-help';
+          if (s.includes('parameter') || s.includes('machine configuration') || s.includes('machine parameter')) {
+            return 'machine-config-help';
+          }
+          if (s.includes('metrics') || s.includes('health score') || s.includes('dashboard metrics')) {
+            return 'health-metrics';
+          }
+          return null;
+        };
+
+        const infoType =
+          payload?.infoType || inferInfoType(payload?.title, payload?.buttonText);
+        if (
+          infoType !== 'machine-config-help' &&
+          infoType !== 'channel-config-help' &&
+          infoType !== 'mqtt-setup' &&
+          infoType !== 'health-metrics'
+        ) {
+          return null;
+        }
+        return {
+          type: infoType,
+          title: payload?.title,
+          data: payload?.content,
+        };
+      }
+      return null;
+    };
+
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg: any = messages[i];
+      if (!msg || msg.actor !== 'assistant') continue;
+      if (!msg.id) continue;
+      if (autoOpenedRef.current.has(msg.id)) continue;
+
+      const nextPanel = panelFromWidget(msg.widget);
+      if (nextPanel) {
+        openPanel(nextPanel as any);
+        autoOpenedRef.current.add(msg.id);
+        break;
+      }
+    }
+  }, [messages, openPanel]);
 
   // Determine phase/mode from machine
   const context = machine.context as any;
@@ -593,25 +700,29 @@ export default function DualPaneOnboardingPage() {
         </div>
       </div>
 
-      {/* Right Pane - Status Panel */}
+      {/* Right Pane */}
       <div className="w-[440px] flex-shrink-0 overflow-y-auto bg-gradient-to-br from-slate-50 to-purple-50/30 p-6">
-        <StatusPanel
-          phase={currentPhase}
-          mode={currentMode}
-          mqttConfig={{
-            brokerEndpoint:
-              context.mqttConnection?.brokerEndpoint || "mqtt.industrialiq.ai",
-            brokerPort: context.mqttConnection?.brokerPort || 8883,
-            topic: context.mqttConnection?.topic || "telemetry",
-          }}
-          videoConfig={{
-            url: "https://youtu.be/YQj_I-Zpx4Q",
-            title: "What you unlock with onboarding",
-            description:
-              "See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.",
-            duration: "5:30",
-          }}
-        />
+        {rightPanel ? (
+          <RightSidePanel panel={rightPanel} onClose={closePanel} />
+        ) : (
+          <StatusPanel
+            phase={currentPhase}
+            mode={currentMode}
+            mqttConfig={{
+              brokerEndpoint:
+                context.mqttConnection?.brokerEndpoint || "mqtt.industrialiq.ai",
+              brokerPort: context.mqttConnection?.brokerPort || 8883,
+              topic: context.mqttConnection?.topic || "telemetry",
+            }}
+            videoConfig={{
+              url: "https://youtu.be/YQj_I-Zpx4Q",
+              title: "What you unlock with onboarding",
+              description:
+                "See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.",
+              duration: "5:30",
+            }}
+          />
+        )}
       </div>
     </div>
   );

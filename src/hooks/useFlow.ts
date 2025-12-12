@@ -38,8 +38,199 @@ export function useFlow() {
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setMessages(parsed);
-            messageId.current = parsed.length;
+            const hasWidgetType = (w: any, t: string): boolean => {
+              if (!w) return false;
+              if (w?.type === t) return true;
+              if (w?.type === 'widget-stack' && Array.isArray(w?.data?.widgets)) {
+                return w.data.widgets.some((child: any) => hasWidgetType(child, t));
+              }
+              return false;
+            };
+
+            const hasInfoButton = (w: any, infoType: string): boolean => {
+              if (!w) return false;
+              if (w?.type === 'right-panel-button') {
+                const payload = w?.data && typeof w.data === 'object' ? w.data : w;
+                return payload?.panelType === infoType;
+              }
+              if (w?.type === 'info-popup-button') {
+                const payload =
+                  w?.data && typeof w.data === 'object' && (w.data.infoType || w.data.buttonText)
+                    ? w.data
+                    : w;
+                return payload?.infoType === infoType;
+              }
+              if (w?.type === 'widget-stack' && Array.isArray(w?.data?.widgets)) {
+                return w.data.widgets.some((child: any) => hasInfoButton(child, infoType));
+              }
+              return false;
+            };
+
+            const migrateInfoButtonsToRightPanel = (w: any): any => {
+              if (!w) return w;
+              if (w?.type === 'widget-stack' && Array.isArray(w?.data?.widgets)) {
+                return {
+                  ...w,
+                  data: {
+                    ...w.data,
+                    widgets: w.data.widgets.map((child: any) => migrateInfoButtonsToRightPanel(child)),
+                  },
+                };
+              }
+
+              if (w?.type === 'info-popup-button') {
+                const payload =
+                  w?.data && typeof w.data === 'object' && (w.data.infoType || w.data.buttonText)
+                    ? w.data
+                    : w;
+                const infoType = payload?.infoType;
+                const supported =
+                  infoType === 'machine-config-help' ||
+                  infoType === 'channel-config-help' ||
+                  infoType === 'mqtt-setup' ||
+                  infoType === 'health-metrics';
+                if (supported) {
+                  return {
+                    type: 'right-panel-button',
+                    data: {
+                      panelType: infoType,
+                      title: payload?.title,
+                      buttonText: payload?.buttonText,
+                      content: payload?.content,
+                    },
+                  };
+                }
+              }
+
+              return w;
+            };
+
+            const removeBrokenInfoButtons = (w: any) => {
+              if (!w) return w;
+              if (w?.type === 'widget-stack' && Array.isArray(w?.data?.widgets)) {
+                const filtered = w.data.widgets.filter((child: any) => {
+                  if (child?.type !== 'info-popup-button' && child?.type !== 'right-panel-button') return true;
+                  const payload =
+                    child?.data && typeof child.data === 'object' ? child.data : child;
+                  const panelType = payload?.panelType ?? payload?.infoType;
+                  const buttonText = payload?.buttonText;
+                  const looksValid = !!panelType && !!buttonText && buttonText !== 'View Details';
+                  return looksValid;
+                });
+                return { ...w, data: { ...w.data, widgets: filtered } };
+              }
+              return w;
+            };
+
+            const ensureHelpButton = (
+              msg: any,
+              {
+                cue,
+                widgetType,
+                infoType,
+                title,
+                buttonText,
+                content,
+              }: {
+                cue?: (message: string) => boolean;
+                widgetType?: string;
+                infoType: string;
+                title: string;
+                buttonText: string;
+                content: any;
+              },
+            ) => {
+              if (!msg || msg.actor !== 'assistant') return msg;
+              const byWidget = widgetType ? hasWidgetType(msg.widget, widgetType) : false;
+              const byCue =
+                cue && typeof msg.message === 'string' ? cue(msg.message) : false;
+              if (!byWidget && !byCue) return msg;
+
+              const cleaned = migrateInfoButtonsToRightPanel(removeBrokenInfoButtons(msg.widget));
+              if (hasInfoButton(cleaned, infoType)) {
+                return cleaned === msg.widget ? msg : { ...msg, widget: cleaned };
+              }
+
+              const help = {
+                type: 'right-panel-button',
+                data: {
+                  panelType: infoType,
+                  title,
+                  buttonText,
+                  content,
+                },
+              };
+
+              // If widget is a stack, prepend help; otherwise wrap.
+              let nextWidget = cleaned;
+              if (!nextWidget) {
+                nextWidget = help;
+              } else if (
+                nextWidget?.type === 'widget-stack' &&
+                Array.isArray(nextWidget?.data?.widgets)
+              ) {
+                nextWidget = {
+                  ...nextWidget,
+                  data: {
+                    ...nextWidget.data,
+                    widgets: [help, ...nextWidget.data.widgets],
+                  },
+                };
+              } else {
+                nextWidget = { type: 'widget-stack', data: { widgets: [help, nextWidget] } };
+              }
+
+              return nextWidget === msg.widget ? msg : { ...msg, widget: nextWidget };
+            };
+
+            const cleanedParsed = (parsed as any[]).filter((m: any) => {
+              const isStandalone =
+                m?.actor === 'assistant' &&
+                (m?.message === '' || m?.message == null) &&
+                (m?.widget?.type === 'info-popup-button' ||
+                  m?.widget?.type === 'right-panel-button');
+              if (!isStandalone) return true;
+              const payload =
+                m?.widget?.data && typeof m.widget.data === 'object'
+                  ? m.widget.data
+                  : m.widget;
+              const buttonText = payload?.buttonText;
+              return !!buttonText && buttonText !== 'View Details';
+            });
+
+            const repaired = cleanedParsed.map((m: any) => {
+              let next = m;
+              next = ensureHelpButton(next, {
+                widgetType: 'machine-details-form',
+                infoType: 'machine-config-help',
+                title: 'Machine Parameter Configuration',
+                buttonText: 'View Parameter Configuration Info',
+                content: {},
+              });
+              next = ensureHelpButton(next, {
+                cue: (s) => s.includes('Endpoint: mqtt.industrialiq.ai'),
+                infoType: 'mqtt-setup',
+                title: 'MQTT Configuration',
+                buttonText: 'View MQTT Configuration Info',
+                content: {
+                  brokerEndpoint: 'mqtt.industrialiq.ai',
+                  brokerPort: 8883,
+                  topic: 'telemetry',
+                },
+              });
+              next = ensureHelpButton(next, {
+                widgetType: 'channel-configuration-widget',
+                cue: (s) => s.includes('configure your channels'),
+                infoType: 'channel-config-help',
+                title: 'Channel Configuration',
+                buttonText: 'View Channel Configuration Info',
+                content: {},
+              });
+              return next;
+            });
+
+            setMessages(repaired);
+            messageId.current = repaired.length;
             initializedRef.current = true; // Skip initial message since we restored
           }
         }

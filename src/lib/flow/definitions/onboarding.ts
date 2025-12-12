@@ -80,9 +80,9 @@ To get started, I need a few details about your device:`,
         data: {
           widgets: [
             {
-              type: 'info-popup-button',
+              type: 'right-panel-button',
               data: {
-                infoType: 'machine-config-help',
+                panelType: 'machine-config-help',
                 title: 'Machine Parameter Configuration',
                 buttonText: 'View Parameter Configuration Info',
                 content: {},
@@ -110,9 +110,9 @@ Don't worry about the format — you can send data in your existing format. We'l
 
 When you have your device sending data, type "done" here and I'll validate it automatically.`,
       widget: {
-        type: 'info-popup-button',
+        type: 'right-panel-button',
         data: {
-          infoType: 'mqtt-setup',
+          panelType: 'mqtt-setup',
           title: 'MQTT Configuration',
           buttonText: 'View MQTT Configuration Info',
           content: {
@@ -165,9 +165,9 @@ Would you like to configure how your tags are grouped, or use the default config
         data: {
           widgets: [
             {
-              type: 'info-popup-button',
+              type: 'right-panel-button',
               data: {
-                infoType: 'channel-config-help',
+                panelType: 'channel-config-help',
                 title: 'Channel Configuration',
                 buttonText: 'View Channel Configuration Info',
                 content: {},

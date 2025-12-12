@@ -11,6 +11,7 @@ import { SchemaValidationWidget } from './SchemaValidationWidget';
 import { ChannelConfigurationWidget } from './ChannelConfigurationWidget';
 import { VideoWidget } from './VideoWidget';
 import { InfoPopupButton } from './InfoPopupButton';
+import { RightPanelButton } from './RightPanelButton';
 
 // Import existing onboarding widgets
 import {
@@ -303,15 +304,94 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
           />
         );
 
-      case 'info-popup-button':
+      case 'right-panel-button': {
+        const extractPayload = (input: any) => {
+          let p = input;
+          for (let i = 0; i < 5; i++) {
+            if (!p || typeof p !== 'object') return {};
+            if ('panelType' in p || 'buttonText' in p || 'title' in p || 'content' in p) return p;
+            if (p.data && typeof p.data === 'object') {
+              p = p.data;
+              continue;
+            }
+            return p;
+          }
+          return p || {};
+        };
+
+        const payload: any = extractPayload(widget);
+        const panelType = payload?.panelType;
+        if (!panelType) return null;
         return (
-          <InfoPopupButton
-            type={data.infoType || 'custom'}
-            title={data.title || 'Information'}
-            buttonText={data.buttonText}
-            data={data.content}
+          <RightPanelButton
+            panelType={panelType}
+            title={payload?.title || 'Information'}
+            buttonText={payload?.buttonText}
+            data={payload?.content}
           />
         );
+      }
+
+      case 'info-popup-button': {
+        const extractPayload = (input: any) => {
+          let p = input;
+          for (let i = 0; i < 5; i++) {
+            if (!p || typeof p !== 'object') return {};
+            if ('infoType' in p || 'buttonText' in p || 'title' in p || 'content' in p) {
+              return p;
+            }
+            if (p.data && typeof p.data === 'object') {
+              p = p.data;
+              continue;
+            }
+            return p;
+          }
+          return p || {};
+        };
+
+        const payload: any = extractPayload(widget);
+
+        const inferInfoType = (t?: string, b?: string) => {
+          const s = `${t || ''} ${b || ''}`.toLowerCase();
+          if (s.includes('mqtt')) return 'mqtt-setup';
+          if (s.includes('channel')) return 'channel-config-help';
+          if (s.includes('parameter') || s.includes('machine configuration') || s.includes('machine parameter')) {
+            return 'machine-config-help';
+          }
+          if (s.includes('metrics') || s.includes('health score') || s.includes('dashboard metrics')) {
+            return 'health-metrics';
+          }
+          return null;
+        };
+
+        const infoType =
+          payload?.infoType ||
+          inferInfoType(payload?.title, payload?.buttonText) ||
+          'custom';
+
+        const defaultButtonTextForType = (it: string) => {
+          if (it === 'channel-config-help') return 'View Channel Configuration Info';
+          if (it === 'machine-config-help') return 'View Parameter Configuration Info';
+          if (it === 'mqtt-setup') return 'View MQTT Configuration Info';
+          if (it === 'health-metrics') return 'View Metrics Explanation';
+          return undefined;
+        };
+
+        const rawButtonText = payload?.buttonText;
+        const buttonText =
+          rawButtonText && rawButtonText !== 'View Details'
+            ? rawButtonText
+            : defaultButtonTextForType(infoType);
+
+        return (
+          <InfoPopupButton
+            type={infoType}
+            title={payload?.title || 'Information'}
+            buttonText={buttonText}
+            data={payload?.content}
+          />
+        );
+      }
 
       case 'widget-stack': {
         const widgets = (data as any)?.widgets;

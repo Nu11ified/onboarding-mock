@@ -2,10 +2,12 @@
 
 import * as Dialog from '@radix-ui/react-dialog';
 import { useMemo, useState } from 'react';
-import { Info, X, Gauge, Activity, Calendar } from 'lucide-react';
+import { Info, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MQTTInstructionsPanel } from './MQTTInstructionsPanel';
 import { ChannelConfigHelpPanel, MachineConfigHelpPanel } from './StatusPanel';
+import { useRightSidePanelOptional } from './RightSidePanelContext';
+import { HealthMetricsHelpPanel } from './HealthMetricsHelpPanel';
 
 export type InfoType =
   | 'health-metrics'
@@ -33,92 +35,91 @@ export function InfoPopupButton({
   data,
   className,
 }: InfoPopupButtonProps) {
+  // Some callers historically pass a nested payload under `data` (e.g. data.infoType/data.buttonText).
+  // Normalize that here so the button label + panel routing always work.
+  const normalized = useMemo(() => {
+    const maybe: any = data;
+    const hasNestedPayload =
+      !children &&
+      type === 'custom' &&
+      maybe &&
+      typeof maybe === 'object' &&
+      (maybe.infoType || maybe.title || maybe.buttonText || maybe.content);
+
+    const normalizedType: InfoType = (hasNestedPayload ? maybe.infoType : type) || type;
+    const normalizedTitle = (hasNestedPayload ? maybe.title : title) || title;
+
+    const defaultButtonTextForType = (t: InfoType) => {
+      if (t === 'machine-config-help') return 'View Parameter Configuration Info';
+      if (t === 'channel-config-help') return 'View Channel Configuration Info';
+      if (t === 'mqtt-setup') return 'View MQTT Configuration Info';
+      if (t === 'health-metrics') return 'View Metrics Explanation';
+      return 'View Details';
+    };
+
+    const normalizedButtonTextRaw =
+      (hasNestedPayload ? maybe.buttonText : buttonText) || buttonText;
+    const normalizedButtonText =
+      normalizedButtonTextRaw === 'View Details'
+        ? defaultButtonTextForType(normalizedType)
+        : normalizedButtonTextRaw;
+
+    const normalizedData = hasNestedPayload
+      ? (maybe.content ?? maybe.data ?? maybe)
+      : data;
+
+    return {
+      type: normalizedType,
+      title: normalizedTitle,
+      buttonText: normalizedButtonText,
+      data: normalizedData,
+    };
+  }, [children, type, title, buttonText, data]);
+
+  const rightPanel = useRightSidePanelOptional();
+  const useSidePanel =
+    !!rightPanel &&
+    (normalized.type === 'machine-config-help' ||
+      normalized.type === 'channel-config-help' ||
+      normalized.type === 'mqtt-setup' ||
+      normalized.type === 'health-metrics');
+
   const [open, setOpen] = useState(false);
 
   const mqtt = useMemo(() => {
     return {
-      brokerEndpoint: data?.brokerEndpoint,
-      brokerPort: data?.brokerPort,
-      topic: data?.topic,
+      brokerEndpoint: (normalized.data as any)?.brokerEndpoint,
+      brokerPort: (normalized.data as any)?.brokerPort,
+      topic: (normalized.data as any)?.topic,
     };
-  }, [data?.brokerEndpoint, data?.brokerPort, data?.topic]);
+  }, [normalized.data]);
 
   const renderContent = () => {
     if (children) return children;
 
-    switch (type) {
+    switch (normalized.type) {
       case 'health-metrics':
-        return (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
-                  <Gauge className="h-5 w-5 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-slate-900 mb-1">Health Score</h4>
-                  <p className="text-sm text-slate-600">
-                    A real-time indicator of your machine&apos;s operational health, calculated from sensor behavior,
-                    historical patterns, and AI-driven anomaly detection. Use this as a high-level signal for when
-                    attention is needed, rather than a precise engineering value.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                  <Activity className="h-5 w-5 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-slate-900 mb-1">Duty Rate</h4>
-                  <p className="text-sm text-slate-600">
-                    Describes how heavily the machine is being used over time (run time versus idle time). It helps you
-                    contextualize health and maintenance recommendations against real utilization, without needing to
-                    track percentages manually.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100">
-                  <Calendar className="h-5 w-5 text-amber-600" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-slate-900 mb-1">Days to Maintenance</h4>
-                  <p className="text-sm text-slate-600">
-                    An AI-derived estimate of how long you have before maintenance is likely required, based on current
-                    health trends and usage. It is designed to support planning—not to replace your existing
-                    maintenance policies.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+        return <HealthMetricsHelpPanel />;
 
       case 'mqtt-connection':
         return (
           <div className="space-y-3">
-            {data?.brokerEndpoint && (
+            {(normalized.data as any)?.brokerEndpoint && (
               <div className="rounded-lg bg-slate-50 p-3">
                 <div className="text-xs text-slate-500 mb-1">Broker Endpoint</div>
-                <div className="font-mono text-sm text-slate-900">{data.brokerEndpoint}</div>
+                <div className="font-mono text-sm text-slate-900">{(normalized.data as any).brokerEndpoint}</div>
               </div>
             )}
-            {data?.brokerPort && (
+            {(normalized.data as any)?.brokerPort && (
               <div className="rounded-lg bg-slate-50 p-3">
                 <div className="text-xs text-slate-500 mb-1">Port</div>
-                <div className="font-mono text-sm text-slate-900">{data.brokerPort}</div>
+                <div className="font-mono text-sm text-slate-900">{(normalized.data as any).brokerPort}</div>
               </div>
             )}
-            {data?.topic && (
+            {(normalized.data as any)?.topic && (
               <div className="rounded-lg bg-slate-50 p-3">
                 <div className="text-xs text-slate-500 mb-1">Topic</div>
-                <div className="font-mono text-sm text-slate-900">{data.topic}</div>
+                <div className="font-mono text-sm text-slate-900">{(normalized.data as any).topic}</div>
               </div>
             )}
           </div>
@@ -142,12 +143,15 @@ export function InfoPopupButton({
       case 'machine-details':
         return (
           <div className="space-y-3">
-            {data && Object.entries(data).map(([key, value]) => (
-              <div key={key} className="rounded-lg bg-slate-50 p-3">
-                <div className="text-xs text-slate-500 mb-1 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
-                <div className="text-sm text-slate-900">{String(value)}</div>
-              </div>
-            ))}
+            {normalized.data &&
+              Object.entries(normalized.data).map(([key, value]) => (
+                <div key={key} className="rounded-lg bg-slate-50 p-3">
+                  <div className="text-xs text-slate-500 mb-1 capitalize">
+                    {key.replace(/([A-Z])/g, ' $1').trim()}
+                  </div>
+                  <div className="text-sm text-slate-900">{String(value)}</div>
+                </div>
+              ))}
           </div>
         );
 
@@ -155,6 +159,37 @@ export function InfoPopupButton({
         return <p className="text-sm text-slate-600">Information not available.</p>;
     }
   };
+
+  if (useSidePanel) {
+    const panelType =
+      normalized.type === 'machine-config-help'
+        ? 'machine-config-help'
+        : normalized.type === 'channel-config-help'
+          ? 'channel-config-help'
+          : normalized.type === 'health-metrics'
+            ? 'health-metrics'
+            : 'mqtt-setup';
+
+    return (
+      <button
+        type="button"
+        onClick={() =>
+          rightPanel?.openPanel({
+            type: panelType,
+            title: normalized.title,
+            data: panelType === 'mqtt-setup' ? mqtt : normalized.data,
+          })
+        }
+        className={cn(
+          'inline-flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 transition hover:bg-purple-100 hover:border-purple-300',
+          className,
+        )}
+      >
+        <Info className="h-4 w-4" />
+        {normalized.buttonText}
+      </button>
+    );
+  }
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -166,7 +201,7 @@ export function InfoPopupButton({
           )}
         >
           <Info className="h-4 w-4" />
-          {buttonText}
+          {normalized.buttonText}
         </button>
       </Dialog.Trigger>
 
@@ -175,7 +210,7 @@ export function InfoPopupButton({
         <Dialog.Content className="fixed left-[50%] top-[50%] z-50 max-h-[85vh] w-[90vw] max-w-[500px] translate-x-[-50%] translate-y-[-50%] overflow-y-auto rounded-2xl border border-purple-200 bg-white p-6 shadow-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]">
           <div className="flex items-start justify-between mb-4">
             <Dialog.Title className="text-xl font-semibold text-slate-900">
-              {title}
+              {normalized.title}
             </Dialog.Title>
             <Dialog.Close asChild>
               <button className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">

@@ -20,6 +20,8 @@ import {
   AppWindow,
   Bell,
   Check,
+  Maximize2,
+  Minimize2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -71,10 +73,16 @@ import { SMSConsentPopup } from "@/components/SMSConsentPopup";
 import { VideoPopup } from "@/components/widgets/VideoPopup";
 import { VideoWidget } from "@/components/widgets/VideoWidget";
 import { InfoPopupButton } from "@/components/widgets/InfoPopupButton";
+import { RightPanelButton } from "@/components/widgets/RightPanelButton";
 import { InfoGridWidget } from "@/components/widgets/InfoGridWidget";
 import { ChannelConfigurationWidget } from "@/components/widgets/ChannelConfigurationWidget";
 import { LoginButtonWidget } from "@/components/widgets/LoginButtonWidget";
 import { RestartOnboardingWidget } from "@/components/widgets/RestartOnboardingWidget";
+import {
+  RightSidePanelProvider,
+  useRightSidePanel,
+} from "@/components/widgets/RightSidePanelContext";
+import { RightSidePanel } from "@/components/widgets/RightSidePanel";
 
 type AssetProfile = {
   id: string;
@@ -463,6 +471,8 @@ function OnboardingContentArea() {
 
 function DashboardPageContent() {
   const searchParams = useSearchParams();
+  const { panel: rightPanel, isOpen: rightPanelOpen, openPanel, closePanel } =
+    useRightSidePanel();
 
   // New onboarding system
   const {
@@ -560,24 +570,166 @@ function DashboardPageContent() {
 
   const testTicketRef = useRef<TicketRow | null>(null);
 
+  // If the chat is closed, also close any open right-side help panel
+  useEffect(() => {
+    if (chatCollapsed) closePanel();
+  }, [chatCollapsed, closePanel]);
+
+  // Auto-open the right-side help panel as soon as a "View …" info button appears in chat.
+  const autoOpenedRef = useRef<Set<string>>(new Set());
+  const seededAutoOpenRef = useRef(false);
+  const hasPersistedChatHistoryRef = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    if (hasPersistedChatHistoryRef.current !== null) return;
+    try {
+      const raw = localStorage.getItem('onboarding_chat_messages');
+      if (!raw) {
+        hasPersistedChatHistoryRef.current = false;
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      hasPersistedChatHistoryRef.current = Array.isArray(parsed) && parsed.length > 0;
+    } catch {
+      hasPersistedChatHistoryRef.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (chatCollapsed) return;
+
+    // If we restored chat history from localStorage, treat the current list as "history" and do NOT
+    // auto-open panels from it (prevents wrong panel on /onboarding -> /dashboard).
+    if (
+      !seededAutoOpenRef.current &&
+      hasPersistedChatHistoryRef.current === true &&
+      onboardingMessages.length > 0
+    ) {
+      seededAutoOpenRef.current = true;
+      for (const m of onboardingMessages as any[]) {
+        if (m?.actor === 'assistant' && m?.id) {
+          autoOpenedRef.current.add(m.id);
+        }
+      }
+    }
+
+    const unwrapInfoPayload = (node: any): any => {
+      let p = node;
+      for (let i = 0; i < 5; i++) {
+        if (!p || typeof p !== 'object') return {};
+        if ('infoType' in p || 'buttonText' in p || 'title' in p || 'content' in p) return p;
+        if (p.data && typeof p.data === 'object') {
+          p = p.data;
+          continue;
+        }
+        break;
+      }
+      return p || {};
+    };
+
+    const panelFromWidget = (w: any) => {
+      if (!w) return null;
+      if (w.type === 'widget-stack' && Array.isArray(w?.data?.widgets)) {
+        for (const child of w.data.widgets) {
+          const candidate = panelFromWidget(child);
+          if (candidate) return candidate;
+        }
+      }
+      if (w.type === 'right-panel-button') {
+        const p = w?.data || {};
+        const panelType = p?.panelType;
+        if (
+          panelType !== 'machine-config-help' &&
+          panelType !== 'channel-config-help' &&
+          panelType !== 'mqtt-setup' &&
+          panelType !== 'health-metrics'
+        ) {
+          return null;
+        }
+        return {
+          type: panelType,
+          title: p?.title,
+          data: p?.content,
+        };
+      }
+      if (w.type === 'info-popup-button') {
+        const payload = unwrapInfoPayload(w);
+
+        const inferInfoType = (t?: string, b?: string) => {
+          const s = `${t || ''} ${b || ''}`.toLowerCase();
+          if (s.includes('mqtt')) return 'mqtt-setup';
+          if (s.includes('channel')) return 'channel-config-help';
+          if (s.includes('parameter') || s.includes('machine configuration') || s.includes('machine parameter')) {
+            return 'machine-config-help';
+          }
+          if (s.includes('metrics') || s.includes('health score') || s.includes('dashboard metrics')) {
+            return 'health-metrics';
+          }
+          return null;
+        };
+
+        const infoType =
+          payload?.infoType || inferInfoType(payload?.title, payload?.buttonText);
+        if (
+          infoType !== 'machine-config-help' &&
+          infoType !== 'channel-config-help' &&
+          infoType !== 'mqtt-setup' &&
+          infoType !== 'health-metrics'
+        ) {
+          return null;
+        }
+        return {
+          type: infoType,
+          title: payload?.title,
+          data: payload?.content,
+        };
+      }
+      return null;
+    };
+
+    for (let i = onboardingMessages.length - 1; i >= 0; i--) {
+      const msg: any = onboardingMessages[i];
+      if (!msg || msg.actor !== 'assistant') continue;
+      if (!msg.id) continue;
+      if (autoOpenedRef.current.has(msg.id)) continue;
+
+      const nextPanel = panelFromWidget(msg.widget);
+      if (nextPanel) {
+        openPanel(nextPanel as any);
+        autoOpenedRef.current.add(msg.id);
+        break;
+      }
+    }
+  }, [chatCollapsed, onboardingMessages, openPanel]);
+
   // URL params are now read at the top of the component
 
   // Check URL params for SMS consent popup
   const smsConsentParam = searchParams.get("smsConsent");
 
   // Check if user just completed onboarding - do this BEFORE other effects
+  const openedMetricsAfterOnboardingRef = useRef(false);
   useEffect(() => {
     if (onboardedParam === "true") {
+      // Chat should be visible for post-onboarding flow
+      setChatCollapsed(false);
+
       const onboardingData = localStorage.getItem("onboarding_complete");
       if (onboardingData) {
         const data = JSON.parse(onboardingData);
         console.log("✅ Onboarding completed:", data);
 
-        // Chat should be visible for post-onboarding flow
-        setChatCollapsed(false);
-
         // Clear the flags
         localStorage.removeItem("onboarding_complete");
+      }
+
+      // Force the metrics explanation panel open on first dashboard entry after onboarding.
+      if (!openedMetricsAfterOnboardingRef.current) {
+        openedMetricsAfterOnboardingRef.current = true;
+        openPanel({
+          type: 'health-metrics',
+          title: 'Dashboard Metrics Explained',
+        } as any);
       }
 
       // Always show SMS consent popup after onboarding/password setup
@@ -588,7 +740,7 @@ function DashboardPageContent() {
         setShowSMSConsent(true);
       }, 1000);
     }
-  }, [onboardedParam]);
+  }, [onboardedParam, openPanel]);
 
   // Handle SMS consent URL param (for manually triggering the popup)
   useEffect(() => {
@@ -1287,15 +1439,93 @@ function DashboardPageContent() {
             />
           );
 
-        case "info-popup-button":
+        case "right-panel-button": {
+          const extractPayload = (input: any) => {
+            let p = input;
+            for (let i = 0; i < 5; i++) {
+              if (!p || typeof p !== 'object') return {};
+              if ('panelType' in p || 'buttonText' in p || 'title' in p || 'content' in p) return p;
+              if (p.data && typeof p.data === 'object') {
+                p = p.data;
+                continue;
+              }
+              return p;
+            }
+            return p || {};
+          };
+
+          const p: any = extractPayload(def);
+          if (!p?.panelType) return null;
           return (
-            <InfoPopupButton
-              type={widgetDef.data?.infoType || 'custom'}
-              title={widgetDef.data?.title || 'Information'}
-              buttonText={widgetDef.data?.buttonText || 'View Details'}
-              data={widgetDef.data?.content}
+            <RightPanelButton
+              panelType={p.panelType}
+              title={p.title || 'Information'}
+              buttonText={p.buttonText}
+              data={p.content}
             />
           );
+        }
+
+        case "info-popup-button": {
+          const extractPayload = (input: any) => {
+            let p = input;
+            for (let i = 0; i < 5; i++) {
+              if (!p || typeof p !== 'object') return {};
+              if ('infoType' in p || 'buttonText' in p || 'title' in p || 'content' in p) {
+                return p;
+              }
+              if (p.data && typeof p.data === 'object') {
+                p = p.data;
+                continue;
+              }
+              return p;
+            }
+            return p || {};
+          };
+
+          const payload: any = extractPayload(widgetDef);
+
+          const inferInfoType = (t?: string, b?: string) => {
+            const s = `${t || ''} ${b || ''}`.toLowerCase();
+            if (s.includes('mqtt')) return 'mqtt-setup';
+            if (s.includes('channel')) return 'channel-config-help';
+            if (s.includes('parameter') || s.includes('machine configuration') || s.includes('machine parameter')) {
+              return 'machine-config-help';
+            }
+            if (s.includes('metrics') || s.includes('health score') || s.includes('dashboard metrics')) {
+              return 'health-metrics';
+            }
+            return null;
+          };
+
+          const infoType =
+            payload?.infoType ||
+            inferInfoType(payload?.title, payload?.buttonText) ||
+            'custom';
+
+          const defaultButtonTextForType = (it: string) => {
+            if (it === 'channel-config-help') return 'View Channel Configuration Info';
+            if (it === 'machine-config-help') return 'View Parameter Configuration Info';
+            if (it === 'mqtt-setup') return 'View MQTT Configuration Info';
+            if (it === 'health-metrics') return 'View Metrics Explanation';
+            return 'View Details';
+          };
+
+          const rawButtonText = payload?.buttonText;
+          const buttonText =
+            rawButtonText && rawButtonText !== 'View Details'
+              ? rawButtonText
+              : defaultButtonTextForType(infoType);
+
+          return (
+            <InfoPopupButton
+              type={infoType}
+              title={payload?.title || 'Information'}
+              buttonText={buttonText}
+              data={payload?.content}
+            />
+          );
+        }
 
         case "machine-details-form":
           return (
@@ -1400,7 +1630,7 @@ function DashboardPageContent() {
           <div className="relative flex-1 overflow-hidden">
             {/* Docked layout (chat consumes its own space) */}
             {!chatCollapsed && !chatOverlay ? (
-              <div className="h-full min-h-0 flex">
+              <div className="h-full min-h-0 flex relative">
                 <div className="relative" style={{ width: `${chatWidth}px` }}>
                   <ChatSidebar
                     ref={chatSidebarRef}
@@ -1418,6 +1648,8 @@ function DashboardPageContent() {
                     renderWidget={renderOnboardingWidget}
                     fullWidth
                     isMaximized={false}
+                    rightPanelOpen={rightPanelOpen}
+                    onToggleRightPanel={() => closePanel()}
                     onToggleMaximize={() => {
                       // capture scroll, then maximize
                       chatScrollTopRef.current = getChatScrollTop();
@@ -1437,6 +1669,17 @@ function DashboardPageContent() {
                     title="Resize (docked)"
                   />
                 </div>
+
+                {/* Right-side help panel (docked): overlays the dashboard, anchored to the chat edge */}
+                {rightPanel && !chatMaximized && (
+                  <div
+                    className="absolute top-0 bottom-0 z-30 w-[440px] max-w-[calc(100vw-16px)] p-4"
+                    style={{ left: `${chatWidth}px` }}
+                  >
+                    <RightSidePanel panel={rightPanel} onClose={closePanel} className="h-full" />
+                  </div>
+                )}
+
                 <main className="h-full flex-1 overflow-hidden">
                   <DashboardMain
                     activeNav={activeNav}
@@ -1591,12 +1834,15 @@ function DashboardPageContent() {
                   renderWidget={renderOnboardingWidget}
                   fullWidth
                   isMaximized={false}
+                  rightPanelOpen={rightPanelOpen}
+                  onToggleRightPanel={() => closePanel()}
                   onToggleMaximize={() => {
                     chatScrollTopRef.current = getChatScrollTop();
                     setChatMaximized(true);
                   }}
                   restoredScrollTop={chatScrollTopRef.current}
                 />
+
                 {/* Resize Handle (overlay) */}
                 <div
                   className={cn(
@@ -1609,37 +1855,59 @@ function DashboardPageContent() {
               </div>
             )}
 
+            {/* Right-side help panel (overlay): anchored to the chat edge */}
+            {rightPanel && !chatCollapsed && chatOverlay && !chatMaximized && (
+              <div
+                className="absolute top-16 bottom-0 z-40 w-[440px] max-w-[calc(100vw-16px)] p-4"
+                style={{ left: `${chatWidth}px` }}
+              >
+                <RightSidePanel panel={rightPanel} onClose={closePanel} className="h-full" />
+              </div>
+            )}
+
             {/* Maximized chat overlay (full page) */}
             {!chatCollapsed && chatMaximized && (
               <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm">
-                <ChatSidebar
-                  ref={chatSidebarRef}
-                  messages={onboardingMessages}
-                  threads={THREADS}
-                  activeThread={activeThread}
-                  onSelectThread={handleThreadChange}
-                  onSendCustom={async (text: string) => {
-                    await handleOnboardingInput(text);
-                  }}
-                  onVideoSubmit={handleVideoSubmit}
-                  isDashboard
-                  isOnboarding={true}
-                  onboardingProcessing={onboardingProcessing}
-                  renderWidget={renderOnboardingWidget}
-                  fullWidth
-                  isMaximized
-                  onToggleMaximize={() => {
-                    // restore to minimized overlay or docked based on width
-                    chatScrollTopRef.current = getChatScrollTop();
-                    setChatMaximized(false);
-                  }}
-                  onClose={() => {
-                    chatScrollTopRef.current = getChatScrollTop();
-                    setChatCollapsed(true);
-                    setChatMaximized(false);
-                  }}
-                  restoredScrollTop={chatScrollTopRef.current}
-                />
+                <div className="flex h-full min-h-0">
+                  <div className="flex-1 min-w-0">
+                    <ChatSidebar
+                      ref={chatSidebarRef}
+                      messages={onboardingMessages}
+                      threads={THREADS}
+                      activeThread={activeThread}
+                      onSelectThread={handleThreadChange}
+                      onSendCustom={async (text: string) => {
+                        await handleOnboardingInput(text);
+                      }}
+                      onVideoSubmit={handleVideoSubmit}
+                      isDashboard
+                      isOnboarding={true}
+                      onboardingProcessing={onboardingProcessing}
+                      renderWidget={renderOnboardingWidget}
+                      fullWidth
+                      isMaximized
+                      rightPanelOpen={rightPanelOpen}
+                      onToggleRightPanel={() => closePanel()}
+                      onToggleMaximize={() => {
+                        // restore to minimized overlay or docked based on width
+                        chatScrollTopRef.current = getChatScrollTop();
+                        setChatMaximized(false);
+                      }}
+                      onClose={() => {
+                        chatScrollTopRef.current = getChatScrollTop();
+                        setChatCollapsed(true);
+                        setChatMaximized(false);
+                      }}
+                      restoredScrollTop={chatScrollTopRef.current}
+                    />
+                  </div>
+
+                  {rightPanel && (
+                    <div className="w-[440px] shrink-0 border-l border-purple-100 bg-white p-4">
+                      <RightSidePanel panel={rightPanel} onClose={closePanel} className="h-full" />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1681,7 +1949,9 @@ export default function DashboardPage() {
         </div>
       }
     >
-      <DashboardPageContent />
+      <RightSidePanelProvider>
+        <DashboardPageContent />
+      </RightSidePanelProvider>
     </Suspense>
   );
 }
@@ -1917,6 +2187,8 @@ const ChatSidebar = forwardRef<
     onToggleMaximize?: () => void;
     onClose?: () => void;
     restoredScrollTop?: number | null;
+    rightPanelOpen?: boolean;
+    onToggleRightPanel?: () => void;
   }
 >(
   (
@@ -1936,6 +2208,8 @@ const ChatSidebar = forwardRef<
       onToggleMaximize,
       onClose,
       restoredScrollTop,
+      rightPanelOpen,
+      onToggleRightPanel,
     },
     ref,
   ) => {
@@ -2020,10 +2294,18 @@ const ChatSidebar = forwardRef<
             <div className="relative flex-1">
               <button
                 onClick={() => setThreadSearchOpen(!threadSearchOpen)}
-                className="w-full flex items-center justify-between rounded-lg border border-purple-200 bg-white px-2 py-1.5 text-left text-xs hover:bg-purple-50"
+                className="w-full flex items-center justify-between rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-left text-xs hover:bg-purple-100"
               >
-                <span className="font-medium text-slate-700 truncate">
-                  {threads[activeThread]}
+                <span className="flex items-center gap-2 min-w-0">
+                  <Clock className="h-3.5 w-3.5 text-purple-600" />
+                  <span className="min-w-0">
+                    <span className="block text-[10px] font-semibold text-slate-500 leading-none">
+                      History
+                    </span>
+                    <span className="block text-xs font-semibold text-slate-800 truncate">
+                      {threads[activeThread]}
+                    </span>
+                  </span>
                 </span>
                 <ChevronDown className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
               </button>
@@ -2078,7 +2360,7 @@ const ChatSidebar = forwardRef<
               )}
             </div>
             <button
-              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 flex-shrink-0"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 flex-shrink-0"
               onClick={() => {
                 // Create new thread logic
                 alert("Create new thread functionality");
@@ -2088,13 +2370,27 @@ const ChatSidebar = forwardRef<
               <Plus className="h-3.5 w-3.5" />
             </button>
             <div className="flex items-center gap-2">
+              {rightPanelOpen && (
+                <button
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 flex-shrink-0"
+                  onClick={onToggleRightPanel}
+                  title="Close info panel"
+                  aria-label="Close info panel"
+                >
+                  <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+                </button>
+              )}
               <button
-                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 flex-shrink-0"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 flex-shrink-0"
                 onClick={onToggleMaximize}
-                title={isMaximized ? "Restore chat" : "Maximize chat"}
-                aria-label={isMaximized ? "Restore chat" : "Maximize chat"}
+                title={isMaximized ? "Minimize chat" : "Maximize chat"}
+                aria-label={isMaximized ? "Minimize chat" : "Maximize chat"}
               >
-                <AppWindow className="h-3.5 w-3.5" />
+                {isMaximized ? (
+                  <Minimize2 className="h-3.5 w-3.5" />
+                ) : (
+                  <Maximize2 className="h-3.5 w-3.5" />
+                )}
               </button>
               {isMaximized && (
                 <button
