@@ -5,6 +5,7 @@ import { CheckCircle2 } from 'lucide-react';
 export function AgenticWorkflowHelpPanel() {
   return (
     <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-slate-900 mb-4 pr-10">What can the Agentic Workflow do?</h3>
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 shrink-0">

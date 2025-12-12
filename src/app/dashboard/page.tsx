@@ -83,6 +83,7 @@ import {
   useRightSidePanel,
 } from "@/components/widgets/RightSidePanelContext";
 import { RightSidePanel } from "@/components/widgets/RightSidePanel";
+import { StatusPanel } from "@/components/widgets/StatusPanel";
 
 type AssetProfile = {
   id: string;
@@ -572,7 +573,9 @@ function DashboardPageContent() {
 
   // If the chat is closed, also close any open right-side help panel
   useEffect(() => {
-    if (chatCollapsed) closePanel();
+    if (chatCollapsed) {
+      closePanel();
+    }
   }, [chatCollapsed, closePanel]);
 
   // Auto-open the right-side help panel as soon as a "View …" info button appears in chat.
@@ -1700,13 +1703,17 @@ function DashboardPageContent() {
                   />
                 </div>
 
-                {/* Right-side help panel (docked): overlays the dashboard, anchored to the chat edge */}
-                {rightPanel && !chatMaximized && (
+                {/* Right-side help panel (docked): only show when a specific panel is open */}
+                {rightPanel && (
                   <div
                     className="absolute top-0 bottom-0 z-30 w-[440px] max-w-[calc(100vw-16px)] p-4"
                     style={{ left: `${chatWidth}px` }}
                   >
-                    <RightSidePanel panel={rightPanel} onClose={closePanel} className="h-full" />
+                    <RightSidePanel 
+                      panel={rightPanel} 
+                      onClose={closePanel} 
+                      className="h-full" 
+                    />
                   </div>
                 )}
 
@@ -1885,13 +1892,17 @@ function DashboardPageContent() {
               </div>
             )}
 
-            {/* Right-side help panel (overlay): anchored to the chat edge */}
-            {rightPanel && !chatCollapsed && chatOverlay && !chatMaximized && (
+            {/* Right-side help panel (overlay): only show when a specific panel is open */}
+            {!chatCollapsed && chatOverlay && !chatMaximized && rightPanel && (
               <div
                 className="absolute top-16 bottom-0 z-40 w-[440px] max-w-[calc(100vw-16px)] p-4"
                 style={{ left: `${chatWidth}px` }}
               >
-                <RightSidePanel panel={rightPanel} onClose={closePanel} className="h-full" />
+                <RightSidePanel 
+                  panel={rightPanel} 
+                  onClose={closePanel} 
+                  className="h-full" 
+                />
               </div>
             )}
 
@@ -1932,11 +1943,28 @@ function DashboardPageContent() {
                     />
                   </div>
 
-                  {rightPanel && (
-                    <div className="w-[440px] shrink-0 border-l border-purple-100 bg-white p-4">
-                      <RightSidePanel panel={rightPanel} onClose={closePanel} className="h-full" />
-                    </div>
-                  )}
+                  <div className="w-[440px] shrink-0 border-l border-purple-100 bg-white p-4">
+                    {rightPanel ? (
+                      <RightSidePanel 
+                        panel={rightPanel} 
+                        onClose={closePanel} 
+                        className="h-full" 
+                      />
+                    ) : (
+                      <StatusPanel
+                        phase="welcome"
+                        mode="demo"
+                        videoConfig={{
+                          url: "https://youtu.be/YQj_I-Zpx4Q",
+                          title: "What you unlock with onboarding",
+                          description:
+                            "See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.",
+                          duration: "5:30",
+                        }}
+                        className="h-full"
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -2429,16 +2457,7 @@ const ChatSidebar = forwardRef<
               <Plus className="h-3.5 w-3.5" />
             </button>
             <div className="flex items-center gap-2">
-              {rightPanelOpen && (
-                <button
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 flex-shrink-0"
-                  onClick={onToggleRightPanel}
-                  title="Close info panel"
-                  aria-label="Close info panel"
-                >
-                  <ChevronRight className="h-3.5 w-3.5 rotate-180" />
-                </button>
-              )}
+              {/* Remove close panel button - panel space is always reserved */}
               <button
                 className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 flex-shrink-0"
                 onClick={onToggleMaximize}

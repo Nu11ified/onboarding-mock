@@ -123,6 +123,7 @@ const categories: ActionCategory[] = [
 export function WhatCanIDoNextPanel() {
   return (
     <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-slate-900 mb-4 pr-10">What can I do next?</h3>
       {categories.map((category, categoryIdx) => (
         <div key={categoryIdx} className="space-y-3">
           <div className="flex items-center gap-2 pb-2 border-b border-slate-200">

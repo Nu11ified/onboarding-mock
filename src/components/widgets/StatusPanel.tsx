@@ -90,8 +90,8 @@ function WelcomePanel() {
 
 export function MachineConfigHelpPanel() {
   return (
-    <div className="flex flex-col px-4 py-6">
-      <div className="flex items-center gap-2 mb-4">
+    <div className="flex flex-col px-4 py-4">
+      <div className="flex items-center gap-2 mb-4 pr-10">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500">
           <Settings className="h-5 w-5 text-white" />
         </div>
@@ -155,8 +155,8 @@ export function MachineConfigHelpPanel() {
 
 export function ChannelConfigHelpPanel() {
   return (
-    <div className="flex flex-col px-4 py-6">
-      <div className="flex items-center gap-2 mb-4">
+    <div className="flex flex-col px-4 py-4">
+      <div className="flex items-center gap-2 mb-4 pr-10">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500">
           <Layers className="h-5 w-5 text-white" />
         </div>

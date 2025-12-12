@@ -5,6 +5,7 @@ import { Activity, Calendar, Gauge } from 'lucide-react';
 export function HealthMetricsHelpPanel() {
   return (
     <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-slate-900 mb-4 pr-10">What are the metrics?</h3>
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">

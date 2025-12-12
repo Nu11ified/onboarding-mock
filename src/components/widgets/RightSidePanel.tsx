@@ -13,7 +13,7 @@ export function RightSidePanel({
   panel,
   onClose,
   className,
-  showHeader = true,
+  showHeader = false,
 }: {
   panel: RightSidePanelState;
   onClose?: () => void;
@@ -37,7 +37,7 @@ export function RightSidePanel({
   return (
     <div
       className={cn(
-        'h-full w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col',
+        'h-full w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col relative',
         className,
       )}
       aria-label={title}
@@ -58,7 +58,19 @@ export function RightSidePanel({
         </div>
       )}
 
-      <div className="flex-1 overflow-auto p-4">
+      {/* Close button in top-right corner inside the panel when header is hidden */}
+      {!showHeader && onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 z-10 h-7 w-7 inline-flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
+          aria-label="Close panel"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+
+      <div className="flex-1 overflow-auto p-4 pt-4">
         {panel.type === 'machine-config-help' && <MachineConfigHelpPanel />}
         {panel.type === 'channel-config-help' && <ChannelConfigHelpPanel />}
         {panel.type === 'health-metrics' && <HealthMetricsHelpPanel />}

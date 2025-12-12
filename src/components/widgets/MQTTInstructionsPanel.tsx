@@ -267,11 +267,11 @@ client.publish("${topic}", json.dumps({
     <div className={cn('flex flex-col', className)}>
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-2 pr-10">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100">
             <HelpCircle className="h-4 w-4 text-purple-600" />
           </div>
-          <h2 className="text-lg font-semibold text-slate-900">How to connect your data source</h2>
+          <h2 className="text-lg font-semibold text-slate-900">MQTT Configuration</h2>
         </div>
         <p className="text-sm text-slate-600">
           Choose your data source platform to see specific setup instructions.
