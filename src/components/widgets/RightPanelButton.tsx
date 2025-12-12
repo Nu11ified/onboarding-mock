@@ -23,7 +23,7 @@ export function RightPanelButton({
     if (t === 'machine-config-help') return 'View Parameter Configuration Info';
     if (t === 'channel-config-help') return 'View Channel Configuration Info';
     if (t === 'mqtt-setup') return 'View MQTT Configuration Info';
-    if (t === 'health-metrics') return 'View Metrics Explanation';
+    if (t === 'health-metrics') return 'What are the metrics?';
     return 'View Details';
   };
 

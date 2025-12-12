@@ -6,7 +6,9 @@ export type RightSidePanelType =
   | 'machine-config-help'
   | 'mqtt-setup'
   | 'channel-config-help'
-  | 'health-metrics';
+  | 'health-metrics'
+  | 'agentic-workflow'
+  | 'what-can-i-do-next';
 
 export type RightSidePanelState = {
   type: RightSidePanelType;

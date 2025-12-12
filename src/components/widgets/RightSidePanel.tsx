@@ -6,6 +6,8 @@ import type { RightSidePanelState } from './RightSidePanelContext';
 import { MQTTInstructionsPanel } from './MQTTInstructionsPanel';
 import { ChannelConfigHelpPanel, MachineConfigHelpPanel } from './StatusPanel';
 import { HealthMetricsHelpPanel } from './HealthMetricsHelpPanel';
+import { AgenticWorkflowHelpPanel } from './AgenticWorkflowHelpPanel';
+import { WhatCanIDoNextPanel } from './WhatCanIDoNextPanel';
 
 export function RightSidePanel({
   panel,
@@ -26,7 +28,11 @@ export function RightSidePanel({
         ? 'Channel configuration'
         : panel.type === 'health-metrics'
           ? 'Dashboard metrics explained'
-          : 'MQTT configuration');
+          : panel.type === 'agentic-workflow'
+            ? 'Agentic Workflow Capabilities'
+            : panel.type === 'what-can-i-do-next'
+              ? 'What can I do next?'
+              : 'MQTT configuration');
 
   return (
     <div
@@ -56,6 +62,8 @@ export function RightSidePanel({
         {panel.type === 'machine-config-help' && <MachineConfigHelpPanel />}
         {panel.type === 'channel-config-help' && <ChannelConfigHelpPanel />}
         {panel.type === 'health-metrics' && <HealthMetricsHelpPanel />}
+        {panel.type === 'agentic-workflow' && <AgenticWorkflowHelpPanel />}
+        {panel.type === 'what-can-i-do-next' && <WhatCanIDoNextPanel />}
         {panel.type === 'mqtt-setup' && (
           <MQTTInstructionsPanel
             brokerEndpoint={panel.data?.brokerEndpoint}

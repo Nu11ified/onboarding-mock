@@ -47,7 +47,7 @@ export function DeviceOptionWidget({ onSelect }: DeviceOptionWidgetProps) {
       description: 'Configure your own machine with custom settings',
       features: [
         'Custom configuration',
-        'MQTT/OPC UA connection',
+        'MQTT connection compatible with Kepware, Ignition, and other industrial software platforms',
         'Your real sensor data',
         'Production-ready setup',
       ],

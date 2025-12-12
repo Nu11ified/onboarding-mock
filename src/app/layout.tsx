@@ -21,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${manrope.variable} ${GeistMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${manrope.variable} ${GeistMono.variable}`}>
       <body className="subpixel-antialiased">{children}</body>
     </html>
   );

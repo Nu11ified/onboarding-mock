@@ -583,7 +583,7 @@ function DashboardPageContent() {
   useEffect(() => {
     if (hasPersistedChatHistoryRef.current !== null) return;
     try {
-      const raw = localStorage.getItem('onboarding_chat_messages');
+      const raw = localStorage.getItem('dashboard_chat_messages');
       if (!raw) {
         hasPersistedChatHistoryRef.current = false;
         return;
@@ -642,7 +642,9 @@ function DashboardPageContent() {
           panelType !== 'machine-config-help' &&
           panelType !== 'channel-config-help' &&
           panelType !== 'mqtt-setup' &&
-          panelType !== 'health-metrics'
+          panelType !== 'health-metrics' &&
+          panelType !== 'agentic-workflow' &&
+          panelType !== 'what-can-i-do-next'
         ) {
           return null;
         }
@@ -665,6 +667,12 @@ function DashboardPageContent() {
           if (s.includes('metrics') || s.includes('health score') || s.includes('dashboard metrics')) {
             return 'health-metrics';
           }
+          if (s.includes('agentic workflow') || s.includes('agentic') || s.includes('workflow')) {
+            return 'agentic-workflow';
+          }
+          if (s.includes('what can i do next') || s.includes('what can i do')) {
+            return 'what-can-i-do-next';
+          }
           return null;
         };
 
@@ -674,7 +682,9 @@ function DashboardPageContent() {
           infoType !== 'machine-config-help' &&
           infoType !== 'channel-config-help' &&
           infoType !== 'mqtt-setup' &&
-          infoType !== 'health-metrics'
+          infoType !== 'health-metrics' &&
+          infoType !== 'agentic-workflow' &&
+          infoType !== 'what-can-i-do-next'
         ) {
           return null;
         }
@@ -687,6 +697,25 @@ function DashboardPageContent() {
       return null;
     };
 
+    // First priority: if a metrics-explanation widget appears, always open it.
+    // This ensures that when the "View Metrics Explanation" message arrives after
+    // /onboarding -> /dashboard, it takes over the right panel (even if something
+    // like channel-config-help was previously auto-opened).
+    for (let i = onboardingMessages.length - 1; i >= 0; i--) {
+      const msg: any = onboardingMessages[i];
+      if (!msg || msg.actor !== 'assistant') continue;
+      if (!msg.id) continue;
+      if (autoOpenedRef.current.has(msg.id)) continue;
+
+      const nextPanel = panelFromWidget(msg.widget);
+      if (nextPanel?.type === 'health-metrics') {
+        openPanel(nextPanel as any);
+        autoOpenedRef.current.add(msg.id);
+        return;
+      }
+    }
+
+    // Default: open the most recent supported panel.
     for (let i = onboardingMessages.length - 1; i >= 0; i--) {
       const msg: any = onboardingMessages[i];
       if (!msg || msg.actor !== 'assistant') continue;
@@ -708,7 +737,6 @@ function DashboardPageContent() {
   const smsConsentParam = searchParams.get("smsConsent");
 
   // Check if user just completed onboarding - do this BEFORE other effects
-  const openedMetricsAfterOnboardingRef = useRef(false);
   useEffect(() => {
     if (onboardedParam === "true") {
       // Chat should be visible for post-onboarding flow
@@ -723,15 +751,6 @@ function DashboardPageContent() {
         localStorage.removeItem("onboarding_complete");
       }
 
-      // Force the metrics explanation panel open on first dashboard entry after onboarding.
-      if (!openedMetricsAfterOnboardingRef.current) {
-        openedMetricsAfterOnboardingRef.current = true;
-        openPanel({
-          type: 'health-metrics',
-          title: 'Dashboard Metrics Explained',
-        } as any);
-      }
-
       // Always show SMS consent popup after onboarding/password setup
       // Default to requiring phone number for new users
       // Small delay to let the dashboard render first
@@ -740,7 +759,7 @@ function DashboardPageContent() {
         setShowSMSConsent(true);
       }, 1000);
     }
-  }, [onboardedParam, openPanel]);
+  }, [onboardedParam]);
 
   // Handle SMS consent URL param (for manually triggering the popup)
   useEffect(() => {
@@ -831,13 +850,24 @@ function DashboardPageContent() {
     }
   }, [autoSelectMachine, machines]);
 
+  const readJsonSafe = useCallback(async (res: Response) => {
+    const text = await res.text();
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch {
+      // Surface a useful error but don't throw a SyntaxError from res.json()
+      throw new Error(text.slice(0, 200));
+    }
+  }, []);
+
   // Load asset profiles, machines and tickets from API on mount
   useEffect(() => {
     const loadData = async () => {
       try {
         // Load asset profiles
         const profilesRes = await fetch("/api/machines?type=profiles");
-        const profilesData = await profilesRes.json();
+        const profilesData: any = await readJsonSafe(profilesRes);
         if (profilesData.profiles) {
           setAssetProfiles(profilesData.profiles);
           // Select first profile by default
@@ -848,7 +878,7 @@ function DashboardPageContent() {
 
         // Load all machines
         const machinesRes = await fetch("/api/machines");
-        const machinesData = await machinesRes.json();
+        const machinesData: any = await readJsonSafe(machinesRes);
         if (machinesData.machines) {
           setMachines(machinesData.machines);
           // Select the Injection Molding Machine (m456) by default
@@ -864,7 +894,7 @@ function DashboardPageContent() {
 
         // Prefer loading tickets and collaborators from state API
         const stateRes = await fetch("/api/state");
-        const stateData = await stateRes.json();
+        const stateData: any = await readJsonSafe(stateRes);
         if (stateData.state?.collaborators) {
           setCollaborators(stateData.state.collaborators);
         } else {
@@ -881,7 +911,7 @@ function DashboardPageContent() {
         } else {
           // Fallback to default tickets API if state has none
           const ticketsRes = await fetch("/api/tickets");
-          const ticketsData = await ticketsRes.json();
+          const ticketsData: any = await readJsonSafe(ticketsRes);
           if (ticketsData.tickets) {
             setTickets(ticketsData.tickets);
             if (ticketsData.tickets.length > 0 && !selectedTicketId) {
@@ -895,7 +925,7 @@ function DashboardPageContent() {
       }
     };
     void loadData();
-  }, [selectedMachineId, selectedTicketId]);
+  }, [readJsonSafe, selectedMachineId, selectedTicketId]);
 
   const sortedTickets = useMemo(() => {
     return [...tickets].sort((a, b) => {
@@ -1507,7 +1537,7 @@ function DashboardPageContent() {
             if (it === 'channel-config-help') return 'View Channel Configuration Info';
             if (it === 'machine-config-help') return 'View Parameter Configuration Info';
             if (it === 'mqtt-setup') return 'View MQTT Configuration Info';
-            if (it === 'health-metrics') return 'View Metrics Explanation';
+            if (it === 'health-metrics') return 'What are the metrics?';
             return 'View Details';
           };
 
@@ -2128,6 +2158,35 @@ const DEFAULT_PROMPTS: PromptTemplate[] = [
   },
 ];
 
+function renderMarkdownLite(text: string) {
+  // Intentionally minimal: supports **bold** and treats \n as real line breaks.
+  const renderInline = (line: string) => {
+    const parts = line.split('**');
+    if (parts.length === 1) return line;
+    return parts.map((part, idx) =>
+      idx % 2 === 1 ? (
+        <strong key={`b-${idx}`} className="font-semibold text-slate-900">
+          {part}
+        </strong>
+      ) : (
+        <span key={`t-${idx}`}>{part}</span>
+      ),
+    );
+  };
+
+  const lines = text.split('\n');
+  return (
+    <>
+      {lines.map((line, idx) => (
+        <span key={`l-${idx}`}>
+          {renderInline(line)}
+          {idx < lines.length - 1 ? <br /> : null}
+        </span>
+      ))}
+    </>
+  );
+}
+
 function ChatBubble({ message }: { message: any }) {
   const actor = message?.actor || message?.author || "assistant";
   const text = message?.message || message?.text || "";
@@ -2155,7 +2214,7 @@ function ChatBubble({ message }: { message: any }) {
           </div>
           {text && (
             <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
-              <p className="whitespace-pre-wrap leading-relaxed">{text}</p>
+              <div className="leading-relaxed">{renderMarkdownLite(text)}</div>
             </div>
           )}
         </div>
@@ -2411,8 +2470,8 @@ const ChatSidebar = forwardRef<
         >
           {isOnboarding
             ? // ✅ Render onboarding messages with widgets
-              messages.map((msg: any) => (
-                <div key={msg.id} className="group">
+              messages.map((msg: any, idx: number) => (
+                <div key={`${msg.id}-${idx}`} className="group">
                   <div className="flex items-start gap-2">
                     <Avatar className="h-7 w-7 shrink-0">
                       <AvatarFallback
@@ -2437,9 +2496,9 @@ const ChatSidebar = forwardRef<
                       </div>
                       {msg.message && (
                         <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                          <p className="whitespace-pre-wrap leading-relaxed">
-                            {msg.message}
-                          </p>
+                          <div className="leading-relaxed">
+                            {renderMarkdownLite(msg.message)}
+                          </div>
                         </div>
                       )}
                     </div>

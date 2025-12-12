@@ -183,7 +183,41 @@ export function useFlow() {
               return nextWidget === msg.widget ? msg : { ...msg, widget: nextWidget };
             };
 
+            const widgetContainsPanelType = (w: any, panelType: string): boolean => {
+              if (!w) return false;
+              if (w?.type === 'right-panel-button') {
+                const p = w?.data && typeof w.data === 'object' ? w.data : w;
+                return p?.panelType === panelType;
+              }
+              if (w?.type === 'info-popup-button') {
+                const p = w?.data && typeof w.data === 'object' ? w.data : w;
+                return p?.infoType === panelType;
+              }
+              if (w?.type === 'widget-stack' && Array.isArray(w?.data?.widgets)) {
+                return w.data.widgets.some((child: any) => widgetContainsPanelType(child, panelType));
+              }
+              return false;
+            };
+
+            const isDashboardOnlyLeak = (m: any): boolean => {
+              if (!m || m.actor !== 'assistant') return false;
+
+              // Dashboard-only panels/widgets that sometimes leaked into onboarding_chat_messages.
+              if (widgetContainsPanelType(m.widget, 'health-metrics')) return true;
+              if (m?.widget?.type === 'info-grid' && (m as any)?.widget?.data?.title === 'APM Ticket Overview') {
+                return true;
+              }
+
+              const s = typeof m?.message === 'string' ? m.message : '';
+              if (s.includes('Welcome to your Device Dashboard')) return true;
+              if (s.includes('Your Agentic Workflow is active')) return true;
+
+              return false;
+            };
+
             const cleanedParsed = (parsed as any[]).filter((m: any) => {
+              if (isDashboardOnlyLeak(m)) return false;
+
               const isStandalone =
                 m?.actor === 'assistant' &&
                 (m?.message === '' || m?.message == null) &&
@@ -311,11 +345,13 @@ export function useFlow() {
     machine.reset({});
     setMessages([]);
     messageId.current = 0;
-    // Clear saved chat messages from localStorage
+    // Clear saved chat messages from localStorage (both onboarding and dashboard keys)
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem('onboarding_chat_messages');
+        localStorage.removeItem('dashboard_chat_messages');
         localStorage.removeItem('onboarding_state');
+        localStorage.removeItem('onboarding_complete');
       } catch {}
     }
     // Show initial message after reset

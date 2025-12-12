@@ -63,13 +63,57 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
     user: AssignableUser;
   } | null>(null);
 
+  const DASHBOARD_CHAT_KEY = "dashboard_chat_messages";
+  const ONBOARDING_CHAT_KEY = "onboarding_chat_messages";
+
   // Initialize flow from saved state (runs once)
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
 
     const onboardingState = localStorage.getItem("onboarding_state");
-    const savedMessages = localStorage.getItem("onboarding_chat_messages");
+
+    // Prefer dashboard chat history, but fall back to the onboarding chat history
+    // (so the dashboard can pick up right after /onboarding without polluting /onboarding history).
+    const dashboardSaved = localStorage.getItem(DASHBOARD_CHAT_KEY);
+    const onboardingSaved = localStorage.getItem(ONBOARDING_CHAT_KEY);
+    const loadedFromOnboardingChat = !dashboardSaved && !!onboardingSaved;
+    const savedMessages = dashboardSaved || onboardingSaved;
+    
+    // If we're loading from onboarding chat and transitioning to dashboard,
+    // migrate messages to dashboard key and clear onboarding key to prevent duplicates
+    if (loadedFromOnboardingChat && onboardingSaved) {
+      try {
+        // Copy onboarding messages to dashboard key
+        localStorage.setItem(DASHBOARD_CHAT_KEY, onboardingSaved);
+        // Immediately clear onboarding messages to prevent duplicates
+        localStorage.removeItem(ONBOARDING_CHAT_KEY);
+      } catch {}
+    }
+
+    const normalizeMessageIds = (raw: any[]): any[] => {
+      if (!Array.isArray(raw)) return raw;
+
+      const used = new Set<string>();
+      let counter = 0;
+
+      return raw.map((m: any) => {
+        const baseId = typeof m?.id === 'string' && m.id ? m.id : '';
+        const preferredBase = loadedFromOnboardingChat ? 'onb' : 'msg';
+
+        let nextId = baseId;
+        if (!nextId || used.has(nextId)) {
+          // If we're importing onboarding chat into dashboard, rewrite ids to avoid collisions.
+          nextId = `${preferredBase}-${counter++}`;
+        }
+        while (used.has(nextId)) {
+          nextId = `${preferredBase}-${counter++}`;
+        }
+        used.add(nextId);
+
+        return { ...m, id: nextId };
+      });
+    };
 
     const machineConfigHelpWidget = {
       type: "right-panel-button",
@@ -247,18 +291,30 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
     };
 
     // Fallback: if we have messages saved, ensure chat is active even if flag missing
+    // BUT: Only load if we have onboarding_state (meaning user completed onboarding),
+    // otherwise clear messages to prevent stale chat from previous sessions
     if (savedMessages && !onboardingState) {
-      try {
-        const parsedMessages = JSON.parse(savedMessages);
-        if (Array.isArray(parsedMessages) && parsedMessages.length > 0) {
-          const hydrated = injectReferenceButtonsIntoHistory(parsedMessages);
-          setIsActive(true);
-          setMessages(hydrated);
-          messageIdCounter.current = hydrated.length;
-          // Assume post-login if we have saved messages but no active flow state
-          setIsPostLogin(true);
-        }
-      } catch {}
+      // If no onboarding_state, this might be a fresh start - clear old messages
+      // Only load messages if they're dashboard messages (not onboarding messages)
+      const isDashboardMessages = !!localStorage.getItem(DASHBOARD_CHAT_KEY);
+      if (!isDashboardMessages) {
+        // Clear stale onboarding messages if no onboarding state
+        localStorage.removeItem(ONBOARDING_CHAT_KEY);
+        localStorage.removeItem(DASHBOARD_CHAT_KEY);
+      } else {
+        try {
+          const parsedMessages = JSON.parse(savedMessages);
+          if (Array.isArray(parsedMessages) && parsedMessages.length > 0) {
+            const hydrated = injectReferenceButtonsIntoHistory(parsedMessages);
+            const normalized = normalizeMessageIds(hydrated);
+            setIsActive(true);
+            setMessages(normalized);
+            messageIdCounter.current = normalized.length;
+            // Assume post-login if we have saved messages but no active flow state
+            setIsPostLogin(true);
+          }
+        } catch {}
+      }
     }
 
     if (onboardingState) {
@@ -273,8 +329,10 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
           let initialMsgs: ChatMessage[] = [];
           if (savedMessages) {
             try {
-              initialMsgs = injectReferenceButtonsIntoHistory(
-                JSON.parse(savedMessages) as ChatMessage[],
+              initialMsgs = normalizeMessageIds(
+                injectReferenceButtonsIntoHistory(
+                  JSON.parse(savedMessages) as ChatMessage[],
+                ) as ChatMessage[],
               ) as ChatMessage[];
             } catch {}
           }
@@ -334,13 +392,10 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
     messagesRef.current = messages;
   }, [messages]);
 
-  // Save messages whenever they change
+  // Save messages whenever they change (dashboard-local key)
   useEffect(() => {
     if (messages.length > 0 && isActive) {
-      localStorage.setItem(
-        "onboarding_chat_messages",
-        JSON.stringify(messages),
-      );
+      localStorage.setItem(DASHBOARD_CHAT_KEY, JSON.stringify(messages));
     }
   }, [messages, isActive]);
 
@@ -954,9 +1009,9 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
 
             const base = "Perfect — your invite has been sent.";
             const demoTail =
-              "\n\nNow, would you like to see the agentic workflow in action?\n\nSince this is a demo machine, I can introduce a controlled fault for you.\nThis will simulate the robotic arm’s motor behaving abnormally and causing vibration anomalies.\n\nHere’s what you’ll experience step-by-step:\n• The Machine Intelligence Agent will detect the abnormal sensor patterns\n• The Health Score will drop in real time\n• A fault notification will be generated with the identified root cause\n• A maintenance ticket will be automatically created\n• The alert will be sent to you or whichever engineer is assigned\n\nWould you like me to trigger this simulated fault now?";
+              "\n\nNow, would you like to see the agentic workflow in action?\n\nSince this is a demo machine, I can introduce a controlled fault for you.\nThis will simulate the robotic arm’s motor behaving abnormally and causing vibration faults.\n\nHere’s what you’ll experience step-by-step:\n• The Machine Intelligence Agent will detect the abnormal sensor patterns\n• The Health Score will drop in real time\n• A fault notification will be generated with the identified root cause\n• A maintenance ticket will be automatically created\n• The alert will be sent to you or whichever engineer is assigned\n\nWould you like me to trigger this simulated fault now?";
             const liveTail =
-              "\n\nWould you like to see the agentic workflow in action?\n\nSince this is a live machine, I can’t introduce a fault — but you can safely create or reproduce a minor test condition on your side.\n\nOnce that happens, you’ll see:\n• The Machine Intelligence Agent detect the anomaly\n• The Health Score drop\n• A real-time alert with the identified root cause\n• A ticket automatically created\n\nLet me know once you’ve induced the test condition — as soon as the alert and ticket appear, I’ll retrieve the ticket for this device and guide you through the assignment process.";
+              "\n\nWould you like to see the agentic workflow in action?\n\nSince this is a live machine, I can’t introduce a fault — but you can safely create or reproduce a minor test condition on your side.\n\nOnce that happens, you’ll see:\n• The Machine Intelligence Agent detect the fault\n• The Health Score drop\n• A real-time alert with the identified root cause\n• A ticket automatically created\n\nLet me know once you’ve induced the test condition — as soon as the alert and ticket appear, I’ll retrieve the ticket for this device and guide you through the assignment process.";
 
             addAssistantMessage(
               mode === "demo" ? base + demoTail : base + liveTail,
@@ -1132,18 +1187,34 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
               addAssistantMessage(
                 `Ticket **${pending.ticketId}** has been successfully assigned to **${pending.user.name}** and marked as **In Progress**. This user will now receive notifications for this ticket and take appropriate action.\\n\\nYou can reassign or update this ticket at any time directly from this chat.`,
                 {
-                  type: "info-grid",
+                  type: "widget-stack",
                   data: {
-                    title: "APM Ticket Overview",
-                    description: "Updated ticket after assignment.",
-                    fields: [
-                      { label: "APM Ticket", value: pending.ticketId },
+                    widgets: [
                       {
-                        label: "Summary",
-                        value: "Fault Detected – Vibration alert",
+                        type: "info-grid",
+                        data: {
+                          title: "APM Ticket Overview",
+                          description: "Updated ticket after assignment.",
+                          fields: [
+                            { label: "APM Ticket", value: pending.ticketId },
+                            {
+                              label: "Summary",
+                              value: "Fault Detected – Vibration alert",
+                            },
+                            { label: "Assigned To", value: pending.user.name },
+                            { label: "Severity", value: "High" },
+                          ],
+                        },
                       },
-                      { label: "Assigned To", value: pending.user.name },
-                      { label: "Severity", value: "High" },
+                      {
+                        type: "right-panel-button",
+                        data: {
+                          panelType: "what-can-i-do-next",
+                          title: "What can I do next?",
+                          buttonText: "What can I do next?",
+                          content: {},
+                        },
+                      },
                     ],
                   },
                 },
@@ -1174,6 +1245,15 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
               await new Promise((resolve) => setTimeout(resolve, 800));
               addAssistantMessage(
                 "Your Agentic Workflow is active for this machine. This means the system is already:\n\n• Monitoring real-time behavior\n• Tracking health and maintenance risk\n• Generating alerts and tickets\n• Producing AI-driven insights and recommendations\n\nNow, let's set up who else should be involved.\nWould you like to invite other users to explore this machine with you and designate who should receive alerts and take action when something needs attention?",
+                {
+                  type: "right-panel-button",
+                  data: {
+                    panelType: "agentic-workflow",
+                    title: "Agentic Workflow Capabilities",
+                    buttonText: "What can the Agentic Workflow do?",
+                    content: {},
+                  },
+                },
               );
               postLoginStageRef.current = "invite-question";
               setIsProcessing(false);
@@ -1237,7 +1317,7 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
               // If user already induced the condition, skip the "once you induce" wording.
               if (mode !== "demo" && isInduced(text) && !isYes(text)) {
                 addAssistantMessage(
-                  'Great — thanks. Once the alert/ticket appears, I’ll retrieve it and guide you through assignment.\n\n(As this is a mock, please type "I see the ticket" to continue)',
+                  'Great — thanks. Once the alert/ticket appears, I’ll retrieve it and guide you through assignment.\n\n(To continue, type "I see the ticket".)',
                 );
                 postLoginStageRef.current = "waiting-ticket";
                 setIsProcessing(false);
@@ -1246,11 +1326,11 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
 
               if (mode === "demo") {
                 addAssistantMessage(
-                  "Great — I've triggered the simulated fault.\n\nYou should soon see:\n• A drop in the Health Score\n• A fault notification\n• A newly generated ticket in the Tickets section of your dashboard\n\nLet me know once you see the ticket appear, and I'll walk you through retrieving it and assigning it to the right person.\n\n(As this is a mock, please type \"I see the ticket\" to continue)",
+                  "Great — I've triggered the simulated fault.\n\nYou should soon see:\n• A drop in the Health Score\n• A fault notification\n• A newly generated ticket in the Tickets section of your dashboard\n\nLet me know once you see the ticket appear, and I'll walk you through retrieving it and assigning it to the right person.\n\n(To continue, type \"I see the ticket\".)",
                 );
               } else {
                 addAssistantMessage(
-                  'Great — once you induce a minor test condition on your side, you should soon see:\n\n• A Health Score drop\n• An alert with an identified root cause\n• A ticket automatically created\n\nLet me know once you see the ticket appear, and I\'ll retrieve it and guide you through assignment.\n\n(As this is a mock, please type "I see the ticket" to continue)',
+                  'Great — once you induce a minor test condition on your side, you should soon see:\n\n• A Health Score drop\n• An alert with an identified root cause\n• A ticket automatically created\n\nLet me know once you see the ticket appear, and I\'ll retrieve it and guide you through assignment.\n\n(To continue, type "I see the ticket".)',
                 );
               }
               postLoginStageRef.current = "waiting-ticket";
@@ -1747,35 +1827,6 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
       setTimeout(() => {
         const ctx = flowManager.getContext();
 
-        // Send the welcome message (metrics explanation stays here)
-        const welcomeMessage: ChatMessage = {
-          id: `msg-${messageIdCounter.current++}`,
-          actor: "assistant",
-          message:
-            "Welcome to your Device Dashboard!\n\nOn the right, you're seeing the live view of your machine, where you can:\n• Monitor its Health Score\n• Track planned vs predicted days to maintenance\n• Watch real-time telemetry data\n• Receive alerts and notifications\n• View and manage maintenance tickets\n\nThis dashboard updates automatically as new data comes in. Feel free to explore it — click on any chart, alert, or ticket to dive deeper.",
-          widget: {
-            type: "right-panel-button",
-            data: {
-              panelType: "health-metrics",
-              title: "Dashboard Metrics Explained",
-              buttonText: "View Metrics Explanation",
-              content: {
-                healthScore: 94,
-                dutyRate: "78%",
-                plannedDays: 30,
-                predictedDays: 6,
-              },
-            },
-          },
-          timestamp: new Date(),
-        };
-
-        setMessages((prev) => {
-          // NOTE: reference buttons are injected into the ORIGINAL onboarding messages (machine details / MQTT / channel config)
-          // so they appear under the correct part of the chat history, not as a block at the bottom.
-          return [...prev, welcomeMessage];
-        });
-
         // Check if user consented to SMS during onboarding
         const smsConsent = localStorage.getItem("sms_consent");
         let consentData = null;
@@ -1791,18 +1842,35 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
           });
         }
 
-        // Add workflow message
-        setTimeout(() => {
-          const workflowMessage: ChatMessage = {
-            id: `msg-${messageIdCounter.current++}`,
-            actor: "assistant",
-            message:
-              "Before we continue, would you like to move on and see how the agentic workflow is already working behind the scenes for this machine?",
-            timestamp: new Date(),
-          };
-          postLoginStageRef.current = "workflow-question";
-          setMessages((prev) => [...prev, workflowMessage]);
-        }, 1500);
+        // Send combined welcome and workflow message
+        const combinedMessage: ChatMessage = {
+          id: `msg-${messageIdCounter.current++}`,
+          actor: "assistant",
+          message:
+            "Welcome to your Device Dashboard!\n\nOn the right, you're seeing the live view of your machine, where you can:\n• Monitor its Health Score\n• Track planned vs predicted days to maintenance\n• Watch real-time telemetry data\n• Receive alerts and notifications\n• View and manage maintenance tickets\n\nThis dashboard updates automatically as new data comes in. Feel free to explore it — click on any chart, alert, or ticket to dive deeper.\n\nBefore we continue, would you like to move on and see how the agentic workflow is already working behind the scenes for this machine?",
+          widget: {
+            type: "right-panel-button",
+            data: {
+              panelType: "health-metrics",
+              title: "Dashboard Metrics Explained",
+              buttonText: "What are the metrics?",
+              content: {
+                healthScore: 94,
+                dutyRate: "78%",
+                plannedDays: 30,
+                predictedDays: 6,
+              },
+            },
+          },
+          timestamp: new Date(),
+        };
+
+        postLoginStageRef.current = "workflow-question";
+        setMessages((prev) => {
+          // NOTE: reference buttons are injected into the ORIGINAL onboarding messages (machine details / MQTT / channel config)
+          // so they appear under the correct part of the chat history, not as a block at the bottom.
+          return [...prev, combinedMessage];
+        });
 
         setIsActive(true);
       }, 1000);

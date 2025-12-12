@@ -361,6 +361,12 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
           if (s.includes('metrics') || s.includes('health score') || s.includes('dashboard metrics')) {
             return 'health-metrics';
           }
+          if (s.includes('agentic workflow') || s.includes('agentic') || s.includes('workflow')) {
+            return 'agentic-workflow';
+          }
+          if (s.includes('what can i do next') || s.includes('what can i do')) {
+            return 'what-can-i-do-next';
+          }
           return null;
         };
 
@@ -373,7 +379,7 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
           if (it === 'channel-config-help') return 'View Channel Configuration Info';
           if (it === 'machine-config-help') return 'View Parameter Configuration Info';
           if (it === 'mqtt-setup') return 'View MQTT Configuration Info';
-          if (it === 'health-metrics') return 'View Metrics Explanation';
+          if (it === 'health-metrics') return 'What are the metrics?';
           return undefined;
         };
 

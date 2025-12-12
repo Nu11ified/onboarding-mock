@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Maximize2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { InfoField } from '@/lib/widgets/types';
 
 interface InfoGridWidgetProps {
@@ -84,22 +84,12 @@ export function InfoGridWidget({ title, description, fields }: InfoGridWidgetPro
 
   return (
     <>
-      {/* Inline compact grid with expand icon */}
-      <div className="flex w-full items-start gap-2">
-        <div className="w-full overflow-x-auto scroll-rounded">
-          {renderTable(true)}
-        </div>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 hover:text-slate-700 hover:border-purple-300 shadow-sm"
-          title="Expand ticket overview"
-        >
-          <Maximize2 className="h-3.5 w-3.5" />
-        </button>
+      {/* Inline compact grid */}
+      <div className="w-full overflow-x-auto scroll-rounded">
+        {renderTable(true)}
       </div>
 
-      {/* Dialog with full-width grid */}
+      {/* Dialog with full-width grid (functionality kept but button removed) */}
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />

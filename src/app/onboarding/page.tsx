@@ -161,11 +161,11 @@ function DualPaneOnboardingPageInner() {
       if (w.type === 'right-panel-button') {
         const p = w?.data || {};
         const panelType = p?.panelType;
+        // /onboarding should never auto-open the dashboard metrics panel.
         if (
           panelType !== 'machine-config-help' &&
           panelType !== 'channel-config-help' &&
-          panelType !== 'mqtt-setup' &&
-          panelType !== 'health-metrics'
+          panelType !== 'mqtt-setup'
         ) {
           return null;
         }
@@ -196,8 +196,7 @@ function DualPaneOnboardingPageInner() {
         if (
           infoType !== 'machine-config-help' &&
           infoType !== 'channel-config-help' &&
-          infoType !== 'mqtt-setup' &&
-          infoType !== 'health-metrics'
+          infoType !== 'mqtt-setup'
         ) {
           return null;
         }
@@ -227,6 +226,13 @@ function DualPaneOnboardingPageInner() {
 
   // Determine phase/mode from machine
   const context = machine.context as any;
+
+  // At the mode-selection step, the right pane should show the video/status panel (not any help overlay).
+  useEffect(() => {
+    if (machine.state?.id === 'mode-select' && rightPanel) {
+      closePanel();
+    }
+  }, [machine.state?.id, rightPanel, closePanel]);
   const currentMode: OnboardingMode = (context.mode as OnboardingMode) || "demo";
   const currentPhase = mapStateToPhase(machine.state?.id as string, context.mode as "demo" | "live" | undefined);
 
@@ -373,20 +379,60 @@ function DualPaneOnboardingPageInner() {
                         const rootType = (message.widget as any)?.type;
                         const widgetDeviceId = (message.widget as any)?.data?.deviceId;
 
-                        // Helper: detect nested widget type inside widget-stack
+                        // Helper: detect nested widget type inside widget-stack.
+                        // This is intentionally data-driven so stacked widgets still submit correctly
+                        // even when an info/help widget appears before the form.
                         const resolveTypeFromData = (): string | null => {
                           if (!data || typeof data !== 'object') return null;
-                          if ((data as any)?.mode && rootType === 'device-option-form') return 'device-option-form';
-                          if ('email' in (data as any) && rootType === 'email-form') return 'email-form';
-                          if ('machineDetails' in (data as any)) return 'machine-details-form';
-                          if ('channelMapping' in (data as any)) return 'channel-configuration-widget';
-                          if ('otp' in (data as any)) return rootType === 'otp-form' ? 'otp-form' : 'sms-otp-form';
-                          if ((data as any)?.status === 'active') return 'device-status-widget';
+
+                          const stackWidgets = (message.widget as any)?.data?.widgets;
+                          const stackTypes: string[] = Array.isArray(stackWidgets)
+                            ? stackWidgets.map((w: any) => w?.type).filter(Boolean)
+                            : [];
+                          const hasType = (t: string) => stackTypes.includes(t);
+
+                          const d: any = data;
+
+                          // User info form
+                          if ('firstName' in d || 'lastName' in d || 'phoneNumber' in d) {
+                            return 'user-info-form';
+                          }
+
+                          // Device option (demo vs live)
+                          if ('mode' in d && hasType('device-option-form')) {
+                            return 'device-option-form';
+                          }
+
+                          // OTP
+                          if ('otp' in d) {
+                            return hasType('otp-form') ? 'otp-form' : 'sms-otp-form';
+                          }
+
+                          // Email form (invite etc.)
+                          if ('email' in d && hasType('email-form')) {
+                            return 'email-form';
+                          }
+
+                          // Machine details
+                          if ('machineDetails' in d || hasType('machine-details-form')) {
+                            return 'machine-details-form';
+                          }
+
+                          // Channel config
+                          if ('channelMapping' in d || hasType('channel-configuration-widget')) {
+                            return 'channel-configuration-widget';
+                          }
+
+                          // Status widgets
+                          if (d?.status === 'active' || hasType('device-status-widget')) {
+                            return 'device-status-widget';
+                          }
+
                           return null;
                         };
 
                         const type = rootType === 'widget-stack'
-                          ? resolveTypeFromData() || (message.widget as any)?.data?.widgets?.[0]?.type
+                          ? resolveTypeFromData() || (message.widget as any)?.data?.widgets?.find((w: any) => w?.type && w.type !== 'right-panel-button')?.type
                           : rootType;
 
                         if (type === 'user-info-form') return api.submitUserInfo(data);

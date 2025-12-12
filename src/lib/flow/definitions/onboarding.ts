@@ -59,9 +59,7 @@ Sit tight — this usually takes less than 1 minute.`,
 You can now explore real-time telemetry, AI insights, and interactive dashboards for your demo device.
 
 Would you like to create an account so you can continue interacting with this device and view your dashboards?
-We'll use the information you provided earlier to set up your account and then send you a secure email to create your password.
-
-Just say "yes" or "no".`,
+We'll use the information you provided earlier to set up your account and then send you a secure email to create your password.`,
       waitForUserInput: true,
       on: {
         YES: { target: 'account-created', action: 'create-account' },
@@ -199,9 +197,7 @@ Would you like to configure how your tags are grouped, or use the default config
 You can now explore real-time telemetry, AI insights, and interactive dashboards for your machine.
 
 Would you like to create an account so you can continue interacting with this device and view your dashboards?
-We'll use the information you provided earlier to set up your account and then send you a secure email to create your password.
-
-Just say "yes" or "no".`,
+We'll use the information you provided earlier to set up your account and then send you a secure email to create your password.`,
       waitForUserInput: true,
       on: {
         YES: { target: 'account-created', action: 'create-account' },
