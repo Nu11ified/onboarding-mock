@@ -754,13 +754,14 @@ function DashboardPageContent() {
         localStorage.removeItem("onboarding_complete");
       }
 
+      // DISABLED: SMS consent popup after onboarding/password setup
       // Always show SMS consent popup after onboarding/password setup
       // Default to requiring phone number for new users
       // Small delay to let the dashboard render first
-      setTimeout(() => {
-        setSmsConsentRequiresPhone(true); // New users need to enter phone
-        setShowSMSConsent(true);
-      }, 1000);
+      // setTimeout(() => {
+      //   setSmsConsentRequiresPhone(true); // New users need to enter phone
+      //   setShowSMSConsent(true);
+      // }, 1000);
     }
   }, [onboardedParam]);
 
