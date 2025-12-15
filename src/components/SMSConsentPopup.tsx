@@ -168,15 +168,6 @@ export function SMSConsentPopup({
               <X className="h-5 w-5" />
             </button>
             
-            <div className="mb-4">
-              <h2 className="text-center text-xl font-semibold text-slate-900 mb-2">
-                Verify Your Phone Number
-              </h2>
-              <p className="text-center text-sm text-slate-600">
-                We&apos;ve sent a 6-digit code to your phone to verify it&apos;s you.
-              </p>
-            </div>
-            
             <SmsOtpFormWidget
               phoneNumber={fullPhoneNumber}
               onSubmit={handleOtpVerified}
@@ -184,6 +175,7 @@ export function SMSConsentPopup({
                 console.log('Resending SMS OTP to:', fullPhoneNumber);
                 // In production, trigger SMS resend API
               }}
+              embedded
             />
           </div>
         </div>

@@ -7,9 +7,10 @@ import { Loader2, Eye, EyeOff, Check, X } from 'lucide-react';
 interface PasswordCreationWidgetProps {
   onSubmit: (password: string) => Promise<void>;
   hideHeader?: boolean;
+  embedded?: boolean; // When true, removes border/shadow for use inside popups
 }
 
-export function PasswordCreationWidget({ onSubmit, hideHeader = false }: PasswordCreationWidgetProps) {
+export function PasswordCreationWidget({ onSubmit, hideHeader = false, embedded = false }: PasswordCreationWidgetProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -55,7 +56,7 @@ export function PasswordCreationWidget({ onSubmit, hideHeader = false }: Passwor
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-xl border border-purple-200 bg-white p-4 shadow-sm"
+      className={embedded ? "space-y-4" : "space-y-4 rounded-xl border border-purple-200 bg-white p-4 shadow-sm"}
     >
       {!hideHeader && (
         <div>

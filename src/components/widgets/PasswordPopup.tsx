@@ -103,7 +103,7 @@ export function PasswordPopup({ isOpen, onClose, email }: PasswordPopupProps) {
           </p>
 
           {/* Password Form */}
-          <PasswordCreationWidget onSubmit={handlePasswordSubmit} hideHeader />
+          <PasswordCreationWidget onSubmit={handlePasswordSubmit} hideHeader embedded />
 
           {/* Cancel Button */}
           <div className="mt-4 flex justify-center">

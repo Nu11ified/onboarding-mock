@@ -10,9 +10,11 @@ interface SmsOtpFormWidgetProps {
   phoneNumber?: string;
   onSubmit: (otp: string) => Promise<void>;
   onResend?: () => Promise<void>;
+  hideHeader?: boolean;
+  embedded?: boolean;
 }
 
-export function SmsOtpFormWidget({ phoneNumber, onSubmit, onResend }: SmsOtpFormWidgetProps) {
+export function SmsOtpFormWidget({ phoneNumber, onSubmit, onResend, hideHeader = false, embedded = false }: SmsOtpFormWidgetProps) {
   const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -85,16 +87,18 @@ export function SmsOtpFormWidget({ phoneNumber, onSubmit, onResend }: SmsOtpForm
     : '';
 
   return (
-    <div className="rounded-xl border border-purple-200 bg-white p-4 shadow-sm">
-      <div className="mb-4 flex items-center gap-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100">
-          <Smartphone className="h-5 w-5 text-purple-600" />
+    <div className={embedded ? "" : "rounded-xl border border-purple-200 bg-white p-4 shadow-sm"}>
+      {!hideHeader && (
+        <div className="mb-4 flex items-center gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100">
+            <Smartphone className="h-5 w-5 text-purple-600" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">SMS Verification</h3>
+            <p className="text-xs text-slate-600">Verify your phone number</p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900">SMS Verification</h3>
-          <p className="text-xs text-slate-600">Verify your phone number</p>
-        </div>
-      </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

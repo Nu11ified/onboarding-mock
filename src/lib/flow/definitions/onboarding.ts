@@ -45,7 +45,7 @@ You'll start seeing real-time data very soon.
 
 I'll show you a live progress view of the setup, so you know exactly what's happening and how far along we are.
 Sit tight — this usually takes less than 1 minute.`,
-      widget: { type: 'device-status-widget', data: { deviceId: (ctx: any) => ctx.deviceId || 'demo_device' } },
+      widget: { type: 'device-status-widget' },
       waitForUserInput: true,
       on: {
         START: { target: 'demo-spawn', action: 'spawn-demo-device' },
