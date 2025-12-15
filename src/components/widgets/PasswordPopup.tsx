@@ -73,41 +73,49 @@ export function PasswordPopup({ isOpen, onClose, email }: PasswordPopupProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-xl border border-purple-200 bg-white p-6 shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-slate-900">
-            Set Your Password
-          </h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="h-6 w-6 rounded-full"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* Description */}
-        <p className="mb-6 text-sm text-slate-600">
-          Create a secure password to access your dashboard and manage your machines.
-        </p>
-
-        {/* Password Form */}
-        <PasswordCreationWidget onSubmit={handlePasswordSubmit} />
-
-        {/* Cancel Button */}
-        <div className="mt-4 flex justify-center">
-          <Button
-            variant="ghost"
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+        onClick={!isSubmitting ? onClose : undefined}
+      />
+      
+      {/* Modal */}
+      <div className="relative w-full max-w-md mx-4 rounded-3xl border border-purple-200/80 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-1 shadow-2xl">
+        <div className="rounded-[22px] bg-white p-8">
+          {/* Close Button */}
+          <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="text-slate-500 hover:text-slate-700"
+            className="absolute top-6 right-6 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
           >
-            Cancel
-          </Button>
+            <X className="h-5 w-5" />
+          </button>
+
+          {/* Title */}
+          <h2 className="mb-3 text-center text-2xl font-semibold tracking-tight text-slate-900">
+            Set Your Password
+          </h2>
+
+          {/* Description */}
+          <p className="mb-6 text-center text-sm text-slate-600 leading-relaxed">
+            Create a secure password to access your dashboard and manage your machines.
+          </p>
+
+          {/* Password Form */}
+          <PasswordCreationWidget onSubmit={handlePasswordSubmit} hideHeader />
+
+          {/* Cancel Button */}
+          <div className="mt-4 flex justify-center">
+            <Button
+              variant="ghost"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="text-slate-500 hover:text-slate-700"
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
       </div>
     </div>

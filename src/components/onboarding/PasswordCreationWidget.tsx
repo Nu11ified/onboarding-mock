@@ -6,9 +6,10 @@ import { Loader2, Eye, EyeOff, Check, X } from 'lucide-react';
 
 interface PasswordCreationWidgetProps {
   onSubmit: (password: string) => Promise<void>;
+  hideHeader?: boolean;
 }
 
-export function PasswordCreationWidget({ onSubmit }: PasswordCreationWidgetProps) {
+export function PasswordCreationWidget({ onSubmit, hideHeader = false }: PasswordCreationWidgetProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -56,14 +57,16 @@ export function PasswordCreationWidget({ onSubmit }: PasswordCreationWidgetProps
       onSubmit={handleSubmit}
       className="space-y-4 rounded-xl border border-purple-200 bg-white p-4 shadow-sm"
     >
-      <div>
-        <h3 className="text-sm font-semibold text-slate-900">
-          Create Your Password
-        </h3>
-        <p className="mt-1 text-xs text-slate-600">
-          Secure your account with a strong password
-        </p>
-      </div>
+      {!hideHeader && (
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900">
+            Create Your Password
+          </h3>
+          <p className="mt-1 text-xs text-slate-600">
+            Secure your account with a strong password
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700">
