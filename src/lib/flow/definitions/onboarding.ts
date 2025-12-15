@@ -208,8 +208,8 @@ We'll use the information you provided earlier to set up your account and then s
     // ===== Common end states =====
     'account-created': {
       id: 'account-created',
-      message: `Your account has been created! We've sent you an email with instructions to set your password. Once you log in, you'll have full access to your dashboard and all features.`,
-      widget: { type: 'login-button-widget', data: { url: '/reset', buttonText: 'Resend Email', message: 'Check your email to complete account setup.' } },
+      message: `Your account has been created! Set your password below to access your dashboard and all features.`,
+      widget: { type: 'login-button-widget', data: { url: '/reset', buttonText: 'Set Password', message: 'Create your password to secure your account and continue.' } },
       waitForUserInput: true,
       on: {
         RESTART: { target: 'restart-confirmation' },

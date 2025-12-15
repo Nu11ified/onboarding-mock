@@ -7,22 +7,29 @@ import { cn } from "@/lib/utils";
 
 interface LoginButtonWidgetProps {
   buttonText?: string;
-  url: string;
+  url?: string;
   message?: string;
   onSubmit?: () => void;
+  onShowPopup?: () => void;
 }
 
 export function LoginButtonWidget({
-  buttonText = "Resend Email",
+  buttonText = "Set Password",
   url,
   message = "Please secure your account to continue.",
   onSubmit,
+  onShowPopup,
 }: LoginButtonWidgetProps) {
   const router = useRouter();
 
   const handleClick = () => {
-    if (onSubmit) onSubmit();
-    router.push(url);
+    if (onShowPopup) {
+      onShowPopup();
+    } else if (onSubmit) {
+      onSubmit();
+    } else if (url) {
+      router.push(url);
+    }
   };
 
   return (

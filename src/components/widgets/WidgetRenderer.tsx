@@ -39,9 +39,10 @@ interface WidgetRendererProps {
   widget: Widget | any; // Accept both new and legacy widget formats
   onSubmit?: (data: any) => Promise<void>;
   context?: Record<string, any>; // Context for legacy widgets
+  onShowPasswordPopup?: () => void;
 }
 
-export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendererProps) {
+export function WidgetRenderer({ widget, onSubmit, context = {}, onShowPasswordPopup }: WidgetRendererProps) {
   if (!widget || !widget.type) {
     console.warn('Widget missing type:', widget);
     return null;
@@ -271,6 +272,7 @@ export function WidgetRenderer({ widget, onSubmit, context = {} }: WidgetRendere
             url={data.url || '/login'}
             buttonText={data.buttonText}
             message={data.message}
+            onShowPopup={onShowPasswordPopup}
             onSubmit={async () => {
               if (onSubmit) await onSubmit({ userMessage: 'Navigating to login...' });
             }}

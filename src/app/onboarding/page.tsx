@@ -27,6 +27,7 @@ import {
   useRightSidePanel,
 } from "@/components/widgets/RightSidePanelContext";
 import { RightSidePanel } from "@/components/widgets/RightSidePanel";
+import { PasswordPopup } from "@/components/widgets/PasswordPopup";
 
 type PromptTemplate = {
   id: string;
@@ -113,6 +114,7 @@ function DualPaneOnboardingPageInner() {
   const [showSavePrompt, setShowSavePrompt] = useState(false);
   const [newPromptName, setNewPromptName] = useState("");
   const [newPromptContent, setNewPromptContent] = useState("");
+  const [showPasswordPopup, setShowPasswordPopup] = useState(false);
 
   useEffect(() => {
     const authToken = localStorage.getItem("auth_token");
@@ -374,6 +376,7 @@ function DualPaneOnboardingPageInner() {
                   <div className="ml-11 mt-3">
                     <WidgetRenderer
                       widget={message.widget}
+                      onShowPasswordPopup={() => setShowPasswordPopup(true)}
                       onSubmit={async (data) => {
                         const stateId = machine.state?.id as string;
                         const rootType = (message.widget as any)?.type;
@@ -770,6 +773,12 @@ function DualPaneOnboardingPageInner() {
           />
         )}
       </div>
+
+      {/* Password Popup */}
+      <PasswordPopup
+        isOpen={showPasswordPopup}
+        onClose={() => setShowPasswordPopup(false)}
+      />
     </div>
   );
 }
