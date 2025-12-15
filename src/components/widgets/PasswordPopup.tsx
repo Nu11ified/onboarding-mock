@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { PasswordCreationWidget } from "../onboarding/PasswordCreationWidget";
 
 interface PasswordPopupProps {
@@ -19,7 +18,7 @@ export function PasswordPopup({ isOpen, onClose, email }: PasswordPopupProps) {
 
   if (!isOpen) return null;
 
-  const handlePasswordSubmit = async (password: string) => {
+  const handlePasswordSubmit = async (_password: string) => {
     setIsSubmitting(true);
     try {
       // Get email from localStorage or use the provided email

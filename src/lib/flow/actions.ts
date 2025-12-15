@@ -40,12 +40,42 @@ export const actions: ActionsRegistry = {
     const mockDeviceId = `demo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     ctx.deviceId = mockDeviceId;
     ctx.mode = 'demo';
+    
+    // Call device API to spawn device
+    try {
+      if (typeof window !== 'undefined') {
+        const response = await fetch('/api/device', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'spawn',
+            profileKey: ctx.profileKey,
+            mode: 'demo',
+            sessionId: `session_${Date.now()}`,
+            sessionExpiry: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+          }),
+        });
+        const result = await response.json();
+        if (result.success) {
+          ctx.deviceId = result.deviceId;
+          ctx.topic = result.topic;
+          ctx.brokerEndpoint = result.brokerEndpoint;
+          ctx.brokerPort = result.brokerPort;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to spawn device:', error);
+    }
+    
     withLS(() => localStorage.setItem('onboarding_state', JSON.stringify({
       email: ctx.email,
-      deviceId: mockDeviceId,
+      deviceId: ctx.deviceId || mockDeviceId,
       profileKey: ctx.profileKey,
       mode: 'demo',
       shouldContinue: false,
+      topic: ctx.topic,
+      brokerEndpoint: ctx.brokerEndpoint,
+      brokerPort: ctx.brokerPort,
     })));
   },
   'spawn-live-device': async (ctx, event) => {

@@ -182,10 +182,18 @@ export function WidgetRenderer({ widget, onSubmit, context = {}, onShowPasswordP
 
       case 'device-status-widget':
         {
-          const deviceId = data.deviceId || (context as any).deviceId;
+          let deviceId = data.deviceId || (context as any).deviceId;
+          
+          // Generate fallback deviceId for demo if not provided
           if (!deviceId) {
-            console.error('Device status widget missing deviceId (checked data and context)');
-            return null;
+            const isDemoMode = (context as any).mode === 'demo' || window.location.pathname.includes('/onboarding');
+            if (isDemoMode) {
+              deviceId = `demo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+              console.log('Generated fallback deviceId for demo:', deviceId);
+            } else {
+              console.error('Device status widget missing deviceId (checked data and context)');
+              return null;
+            }
           }
           return (
             <DeviceStatusWidget

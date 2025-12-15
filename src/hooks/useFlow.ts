@@ -345,15 +345,39 @@ export function useFlow() {
     machine.reset({});
     setMessages([]);
     messageId.current = 0;
-    // Clear saved chat messages from localStorage (both onboarding and dashboard keys)
+    
+    // Clear ALL localStorage items related to onboarding
     if (typeof window !== 'undefined') {
       try {
-        localStorage.removeItem('onboarding_chat_messages');
-        localStorage.removeItem('dashboard_chat_messages');
-        localStorage.removeItem('onboarding_state');
-        localStorage.removeItem('onboarding_complete');
-      } catch {}
+        // Clear all onboarding-related items
+        const itemsToRemove = [
+          'onboarding_chat_messages',
+          'dashboard_chat_messages', 
+          'onboarding_state',
+          'onboarding_complete',
+          'onboarding_machine',
+          'training_complete',
+          'pending_user_info',
+          'pending_reset_email',
+          'demo_password_set',
+          'user_session'
+        ];
+        
+        itemsToRemove.forEach(key => localStorage.removeItem(key));
+        
+        // Clear all device status cache
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('device_status_')) {
+            localStorage.removeItem(key);
+          }
+        });
+        
+        console.log('Cleared all onboarding cache and localStorage items');
+      } catch (error) {
+        console.error('Error clearing localStorage:', error);
+      }
     }
+    
     // Show initial message after reset
     const s = machine.state;
     const rendered = typeof s.message === 'function' ? s.message(machine.context) : s.message;

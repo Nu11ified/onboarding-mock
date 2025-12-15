@@ -152,11 +152,11 @@ function DualPaneOnboardingPageInner() {
       return p || {};
     };
 
-    const panelFromWidget = (w: any) => {
+    const panelFromWidget = (w: any): { type: string; title: string; data: any } | null => {
       if (!w) return null;
       if (w.type === 'widget-stack' && Array.isArray(w?.data?.widgets)) {
         for (const child of w.data.widgets) {
-          const candidate = panelFromWidget(child);
+          const candidate: { type: string; title: string; data: any } | null = panelFromWidget(child);
           if (candidate) return candidate;
         }
       }
@@ -313,9 +313,13 @@ function DualPaneOnboardingPageInner() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => reset()}
+              onClick={() => {
+                if (confirm('Are you sure you want to restart the entire onboarding flow? This will clear all progress and data.')) {
+                  reset();
+                }
+              }}
               className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
-              title="This is only for the demo to restart the flow"
+              title="Reset entire onboarding flow and clear all cache"
             >
               Restart
             </button>

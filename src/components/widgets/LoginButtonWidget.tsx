@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { ArrowRight, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 interface LoginButtonWidgetProps {
   buttonText?: string;
@@ -41,7 +40,7 @@ export function LoginButtonWidget({
 
         <div className="flex-1">
           <h3 className="text-sm font-semibold text-slate-900">
-            Check your email
+            Secure Your Account
           </h3>
           <p className="mt-1 text-sm text-slate-600">{message}</p>
 
@@ -59,9 +58,8 @@ export function LoginButtonWidget({
 
       <div className="mt-3 rounded-lg bg-purple-50 p-3">
         <p className="text-xs text-slate-600">
-          💡 <span className="font-semibold">Tip:</span> Check your spam folder
-          if you don&apos;t see the email or click the button above to resend
-          the email.
+          💡 <span className="font-semibold">Tip:</span> Create a strong password
+          with at least 8 characters, including uppercase, lowercase, and numbers.
         </p>
       </div>
     </div>
