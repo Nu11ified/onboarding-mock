@@ -32,6 +32,7 @@ import {
   Loader2,
   Menu,
   MessageSquare,
+  MoreHorizontal,
   Paperclip,
   Plus,
   Save,
@@ -40,6 +41,7 @@ import {
   Shield,
   Sparkles,
   Ticket,
+  Trash2,
   UsersRound,
   X,
   Zap,
@@ -2417,25 +2419,51 @@ const ChatSidebar = forwardRef<
                       filteredThreads.map((thread, index) => {
                         const originalIndex = threads.indexOf(thread);
                         return (
-                          <button
+                          <div
                             key={thread}
-                            onClick={() => {
-                              onSelectThread(originalIndex);
-                              setThreadSearchOpen(false);
-                              setThreadSearch("");
-                            }}
                             className={cn(
-                              "w-full flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                              "group w-full flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors",
                               activeThread === originalIndex
                                 ? "bg-purple-100 text-purple-700 font-semibold"
                                 : "text-slate-700 hover:bg-purple-50",
                             )}
                           >
-                            <span>{thread}</span>
-                            {activeThread === originalIndex && (
-                              <Check className="h-4 w-4 text-purple-600" />
-                            )}
-                          </button>
+                            <button
+                              onClick={() => {
+                                onSelectThread(originalIndex);
+                                setThreadSearchOpen(false);
+                                setThreadSearch("");
+                              }}
+                              className="flex-1 text-left truncate"
+                            >
+                              {thread}
+                            </button>
+                            <div className="flex items-center gap-1">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="opacity-0 group-hover:opacity-100 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40 bg-white border border-slate-200 shadow-lg">
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Delete functionality placeholder
+                                    }}
+                                    className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                    <span>Delete</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
                         );
                       })
                     ) : (
