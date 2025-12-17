@@ -158,6 +158,8 @@ export function WidgetRenderer({ widget, onSubmit, context = {}, onShowPasswordP
             onSubmit={async (password: string) => {
               if (onSubmit) await onSubmit({ password, userMessage: 'Password set' });
             }}
+            email={data.email || context.email}
+            phoneNumber={data.phoneNumber || context.phoneNumber}
           />
         );
 
