@@ -297,36 +297,38 @@ function DualPaneOnboardingPageInner() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-purple-50 via-white to-slate-50">
-      {/* Left Pane - Chat Interface */}
-      <div className="flex flex-1 flex-col border-r border-slate-200 bg-white/80 backdrop-blur-sm min-h-0">
-        {/* Header */}
-        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
-          <div className="flex items-center gap-4">
-            <Image
-              src="/microai-logo-dark.svg"
-              alt="MicroAI"
-              width={100}
-              height={28}
-              className="h-7 w-auto"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                if (confirm('Are you sure you want to restart the entire onboarding flow? This will clear all progress and data.')) {
-                  reset();
-                }
-              }}
-              className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
-              title="Reset entire onboarding flow and clear all cache"
-            >
-              Restart
-            </button>
-          </div>
-        </header>
+    <div className="flex flex-col h-screen overflow-hidden bg-gradient-to-br from-purple-50 via-white to-slate-50">
+      {/* Header - Full Width */}
+      <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6 flex-shrink-0">
+        <div className="flex items-center gap-4">
+          <Image
+            src="/microai-logo-dark.svg"
+            alt="MicroAI"
+            width={100}
+            height={28}
+            className="h-7 w-auto"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              if (confirm('Are you sure you want to restart the entire onboarding flow? This will clear all progress and data.')) {
+                reset();
+              }
+            }}
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+            title="Reset entire onboarding flow and clear all cache"
+          >
+            For Mock Only Ignore: Restart
+          </button>
+        </div>
+      </header>
 
-        {/* Chat Messages Area */}
+      {/* Content Area - Chat + Right Panel */}
+      <div className="flex flex-1 overflow-hidden min-h-0">
+        {/* Left Pane - Chat Interface */}
+        <div className="flex flex-1 flex-col border-r border-slate-200 bg-white/80 backdrop-blur-sm min-h-0">
+          {/* Chat Messages Area */}
         <div className="flex-1 overflow-y-auto px-6 py-6 min-h-0">
           {messages.length === 0 && (
             <div className="flex h-full items-center justify-center">
@@ -776,6 +778,7 @@ function DualPaneOnboardingPageInner() {
             }}
           />
         )}
+      </div>
       </div>
 
       {/* Password Popup */}
