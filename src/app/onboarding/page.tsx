@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Send,
   Plus,
@@ -321,6 +322,18 @@ function DualPaneOnboardingPageInner() {
           >
             For Mock Only Ignore: Restart
           </button>
+          <Link
+            href="/login"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+          >
+            Log in
+          </Link>
+          <Link
+            href="/signup"
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+          >
+            Get started
+          </Link>
         </div>
       </header>
 
