@@ -7,4 +7,5 @@ export { InfoGridWidget } from './InfoGridWidget';
 export { MQTTInstructionsPanel } from './MQTTInstructionsPanel';
 export { TrainingVideoPanel } from './TrainingVideoPanel';
 export { StatusPanel } from './StatusPanel';
+export { VideoPanelButton } from './VideoPanelButton';
 export type { OnboardingPhase, OnboardingMode } from './StatusPanel';

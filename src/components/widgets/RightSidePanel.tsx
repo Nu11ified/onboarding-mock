@@ -8,6 +8,7 @@ import { ChannelConfigHelpPanel, MachineConfigHelpPanel } from './StatusPanel';
 import { HealthMetricsHelpPanel } from './HealthMetricsHelpPanel';
 import { AgenticWorkflowHelpPanel } from './AgenticWorkflowHelpPanel';
 import { WhatCanIDoNextPanel } from './WhatCanIDoNextPanel';
+import { TrainingVideoPanel } from './TrainingVideoPanel';
 
 export function RightSidePanel({
   panel,
@@ -32,7 +33,9 @@ export function RightSidePanel({
             ? 'Agentic Workflow Capabilities'
             : panel.type === 'what-can-i-do-next'
               ? 'What can I do next?'
-              : 'MQTT configuration');
+              : panel.type === 'training-video'
+                ? 'Training Video'
+                : 'MQTT configuration');
 
   return (
     <div
@@ -81,6 +84,19 @@ export function RightSidePanel({
             brokerEndpoint={panel.data?.brokerEndpoint}
             brokerPort={panel.data?.brokerPort}
             topic={panel.data?.topic}
+          />
+        )}
+        {panel.type === 'training-video' && (
+          <TrainingVideoPanel
+            videoUrl={panel.data?.url}
+            title={panel.data?.title || 'What you unlock with onboarding'}
+            description={
+              panel.data?.description ??
+              'See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.'
+            }
+            duration={panel.data?.duration}
+            headingTitle={'Understanding activation of a machine'}
+            headingDescription={''}
           />
         )}
       </div>

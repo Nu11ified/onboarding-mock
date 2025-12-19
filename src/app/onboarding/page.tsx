@@ -230,12 +230,25 @@ function DualPaneOnboardingPageInner() {
   // Determine phase/mode from machine
   const context = machine.context as any;
 
-  // At the mode-selection step, the right pane should show the video/status panel (not any help overlay).
+  // Auto-open the video panel when first entering mode-select
+  const prevStateRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (machine.state?.id === 'mode-select' && rightPanel) {
-      closePanel();
+    const currentStateId = machine.state?.id;
+    // Only open video panel when we first transition INTO mode-select
+    if (currentStateId === 'mode-select' && prevStateRef.current !== 'mode-select') {
+      openPanel({
+        type: 'training-video',
+        title: 'Onboarding Info',
+        data: {
+          url: 'https://youtu.be/YQj_I-Zpx4Q',
+          title: 'What you unlock with onboarding',
+          description: 'See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.',
+          duration: '5:30',
+        },
+      });
     }
-  }, [machine.state?.id, rightPanel, closePanel]);
+    prevStateRef.current = currentStateId;
+  }, [machine.state?.id, openPanel]);
   const currentMode: OnboardingMode = (context.mode as OnboardingMode) || "demo";
   const currentPhase = mapStateToPhase(machine.state?.id as string, context.mode as "demo" | "live" | undefined);
 

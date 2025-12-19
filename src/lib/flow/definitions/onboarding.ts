@@ -29,7 +29,24 @@ Didn't get the code? You can resend it after a few seconds, or check your spam/j
     'mode-select': {
       id: 'mode-select',
       message: (ctx: any) => `Here is your profile key: ${ctx.profileKey || '123445678888'} to activate the machine. How would you like to onboard the machine? Below are 2 options.`,
-      widget: { type: 'device-option-form' },
+      widget: {
+        type: 'widget-stack',
+        data: {
+          widgets: [
+            {
+              type: 'video-panel-button',
+              data: {
+                videoUrl: 'https://youtu.be/YQj_I-Zpx4Q',
+                title: 'What you unlock with onboarding',
+                description: 'See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.',
+                duration: '5:30',
+                buttonText: 'Onboarding Info',
+              },
+            },
+            { type: 'device-option-form' },
+          ],
+        },
+      },
       waitForUserInput: true,
       on: {
         SELECT_DEMO: { target: 'demo-spawn', action: 'select-demo-mode' },

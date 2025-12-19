@@ -211,74 +211,15 @@ export function StatusPanel({
   videoConfig,
   className,
 }: StatusPanelProps) {
-  // Render content based on phase and mode
-  // Show contextual help panels based on the current phase
-  const renderContent = () => {
-    // Machine details phase - show configuration help
-    if (phase === 'machine-details') {
-      return <MachineConfigHelpPanel />;
-    }
-
-    // Channel configuration phase - show channel/group help
-    if (phase === 'channel-config') {
-      return <ChannelConfigHelpPanel />;
-    }
-
-    // MQTT validation phase (live mode only) - show MQTT instructions
-    if (phase === 'mqtt-validation' && mode === 'live') {
-      return (
-        <MQTTInstructionsPanel
-          brokerEndpoint={mqttConfig?.brokerEndpoint}
-          brokerPort={mqttConfig?.brokerPort}
-          topic={mqttConfig?.topic}
-        />
-      );
-    }
-
-    // Demo mode - show video during training and keep it visible after completion
-    if (mode === 'demo' && (phase === 'training' || phase === 'complete' || phase === 'account-creation')) {
-      return (
-        <TrainingVideoPanel
-          videoUrl={videoConfig?.url}
-          title={videoConfig?.title || 'What you unlock with onboarding'}
-          description={
-            videoConfig?.description ??
-            'See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.'
-          }
-          duration={videoConfig?.duration}
-          headingTitle={'Understanding activation of a machine'}
-          headingDescription={''}
-        />
-      );
-    }
-
-    // Device selection phase - show demo video to help decision
-    if (phase === 'device-selection') {
-      return (
-        <TrainingVideoPanel
-          videoUrl={videoConfig?.url}
-          title={videoConfig?.title || 'What you unlock with onboarding'}
-          description={
-            videoConfig?.description ??
-            'See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.'
-          }
-          duration={videoConfig?.duration}
-          headingTitle={'Understanding activation of a machine'}
-          headingDescription={''}
-        />
-      );
-    }
-
-    // Default: show welcome placeholder for all other phases
-    return <WelcomePanel />;
-  };
-
+  // The WelcomePanel is always the base layer that never changes.
+  // All other contextual panels (video, config help, MQTT) are now overlays
+  // that can be opened/closed via buttons in the chat.
   return (
     <div className={cn(
       'flex flex-col rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6',
       className
     )}>
-      {renderContent()}
+      <WelcomePanel />
     </div>
   );
 }

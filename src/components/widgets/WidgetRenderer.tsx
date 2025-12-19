@@ -12,6 +12,7 @@ import { ChannelConfigurationWidget } from './ChannelConfigurationWidget';
 import { VideoWidget } from './VideoWidget';
 import { InfoPopupButton } from './InfoPopupButton';
 import { RightPanelButton } from './RightPanelButton';
+import { VideoPanelButton } from './VideoPanelButton';
 
 // Import existing onboarding widgets
 import {
@@ -313,6 +314,17 @@ export function WidgetRenderer({ widget, onSubmit, context = {}, onShowPasswordP
             url={data.url || ''}
             title={data.title || 'Video'}
             description={data.description}
+          />
+        );
+
+      case 'video-panel-button':
+        return (
+          <VideoPanelButton
+            videoUrl={data.videoUrl || data.url}
+            title={data.title}
+            description={data.description}
+            duration={data.duration}
+            buttonText={data.buttonText}
           />
         );
 
