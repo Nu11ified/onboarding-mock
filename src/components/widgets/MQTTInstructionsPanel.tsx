@@ -103,6 +103,12 @@ export function MQTTInstructionsPanel({
       case 'kepware':
         return (
           <div className="space-y-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+              <p className="text-xs text-amber-800">
+                <strong>Note:</strong> The values below are examples. Use the actual endpoint, port, and topic provided in the chat.
+              </p>
+            </div>
+
             <InstructionStep step={1} title="Open IoT Gateway Configuration">
               <p>
                 In KEPServerEX, right-click on <strong>IoT Gateway</strong> in the tree and select{' '}
@@ -111,7 +117,7 @@ export function MQTTInstructionsPanel({
             </InstructionStep>
 
             <InstructionStep step={2} title="Configure Broker Settings">
-              <p>Enter the following broker details:</p>
+              <p>Enter your broker details (example format shown):</p>
               <div className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-3 text-xs overflow-hidden">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-slate-500">URL:</span>
@@ -130,14 +136,14 @@ export function MQTTInstructionsPanel({
 
             <InstructionStep step={3} title="Add Tag Mapping">
               <p>
-                Select the OPC tags you want to publish under <strong>Tag Browse</strong> and drag 
+                Select the OPC tags you want to publish under <strong>Tag Browse</strong> and drag
                 them to your MQTT client configuration.
               </p>
             </InstructionStep>
 
             <InstructionStep step={4} title="Enable and Test">
               <p>
-                Enable the client and verify messages are being published using the Runtime 
+                Enable the client and verify messages are being published using the Runtime
                 Status panel.
               </p>
             </InstructionStep>
@@ -157,9 +163,15 @@ export function MQTTInstructionsPanel({
       case 'ignition':
         return (
           <div className="space-y-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+              <p className="text-xs text-amber-800">
+                <strong>Note:</strong> The values below are examples. Use the actual endpoint, port, and topic provided in the chat.
+              </p>
+            </div>
+
             <InstructionStep step={1} title="Install MQTT Module">
               <p>
-                Download and install the <strong>MQTT Transmission</strong> module from Cirrus Link 
+                Download and install the <strong>MQTT Transmission</strong> module from Cirrus Link
                 in your Ignition Gateway.
               </p>
             </InstructionStep>
@@ -185,9 +197,15 @@ export function MQTTInstructionsPanel({
               </p>
             </InstructionStep>
 
-            <InstructionStep step={4} title="Verify Connection">
+            <InstructionStep step={4} title="Configure Sparkplug Settings">
               <p>
-                Check the Gateway Status page to confirm the MQTT connection is established and 
+                In the Sparkplug settings, set the <strong>Group ID</strong> to the MQTT topic that was provided in the chat.
+              </p>
+            </InstructionStep>
+
+            <InstructionStep step={5} title="Verify Connection">
+              <p>
+                Check the Gateway Status page to confirm the MQTT connection is established and
                 data is flowing.
               </p>
             </InstructionStep>
@@ -207,6 +225,12 @@ export function MQTTInstructionsPanel({
       case 'generic':
         return (
           <div className="space-y-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+              <p className="text-xs text-amber-800">
+                <strong>Note:</strong> The values below are examples. Use the actual endpoint, port, and topic provided in the chat.
+              </p>
+            </div>
+
             <InstructionStep step={1} title="Connection Details">
               <p>Use any MQTT client library to connect with these settings:</p>
               <div className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-3 text-xs overflow-hidden">
@@ -266,7 +290,7 @@ client.publish("${topic}", json.dumps({
   return (
     <div className={cn('flex flex-col', className)}>
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4">
         <div className="flex items-center gap-2 mb-2 pr-10">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100">
             <HelpCircle className="h-4 w-4 text-purple-600" />
@@ -275,6 +299,13 @@ client.publish("${topic}", json.dumps({
         </div>
         <p className="text-sm text-slate-600">
           Choose your data source platform to see specific setup instructions.
+        </p>
+      </div>
+
+      {/* Important Note */}
+      <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <p className="text-xs text-amber-800">
+          <strong>Important:</strong> The connection details shown below are examples. Please use the actual broker endpoint, port, and topic provided in the chat message for your specific setup.
         </p>
       </div>
 

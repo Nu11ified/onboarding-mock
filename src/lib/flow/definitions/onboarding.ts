@@ -40,7 +40,7 @@ Didn't get the code? You can resend it after a few seconds, or check your spam/j
                 title: 'What you unlock with onboarding',
                 description: 'See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.',
                 duration: '5:30',
-                buttonText: 'Onboarding Info',
+                buttonText: 'What is machine activation?',
               },
             },
             { type: 'device-option-form' },

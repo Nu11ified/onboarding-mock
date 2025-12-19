@@ -238,7 +238,7 @@ function DualPaneOnboardingPageInner() {
     if (currentStateId === 'mode-select' && prevStateRef.current !== 'mode-select') {
       openPanel({
         type: 'training-video',
-        title: 'Onboarding Info',
+        title: 'Training Video',
         data: {
           url: 'https://youtu.be/YQj_I-Zpx4Q',
           title: 'What you unlock with onboarding',
