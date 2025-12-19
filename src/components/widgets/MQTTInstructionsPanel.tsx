@@ -103,12 +103,6 @@ export function MQTTInstructionsPanel({
       case 'kepware':
         return (
           <div className="space-y-4">
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-              <p className="text-xs text-amber-800">
-                <strong>Note:</strong> The values below are examples. Use the actual endpoint, port, and topic provided in the chat.
-              </p>
-            </div>
-
             <InstructionStep step={1} title="Open IoT Gateway Configuration">
               <p>
                 In KEPServerEX, right-click on <strong>IoT Gateway</strong> in the tree and select{' '}
@@ -117,7 +111,7 @@ export function MQTTInstructionsPanel({
             </InstructionStep>
 
             <InstructionStep step={2} title="Configure Broker Settings">
-              <p>Enter your broker details (example format shown):</p>
+              <p>Enter your broker details:</p>
               <div className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-3 text-xs overflow-hidden">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-slate-500">URL:</span>
@@ -131,6 +125,9 @@ export function MQTTInstructionsPanel({
                   <span className="text-slate-500">QoS:</span>
                   <span className="font-mono text-slate-900">1</span>
                 </div>
+                <p className="text-amber-700 mt-2 pt-2 border-t border-slate-200">
+                  <strong>Note:</strong> These are example values. Use the actual endpoint, port, and topic provided in the chat.
+                </p>
               </div>
             </InstructionStep>
 
@@ -163,12 +160,6 @@ export function MQTTInstructionsPanel({
       case 'ignition':
         return (
           <div className="space-y-4">
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-              <p className="text-xs text-amber-800">
-                <strong>Note:</strong> The values below are examples. Use the actual endpoint, port, and topic provided in the chat.
-              </p>
-            </div>
-
             <InstructionStep step={1} title="Install MQTT Module">
               <p>
                 Download and install the <strong>MQTT Transmission</strong> module from Cirrus Link
@@ -187,6 +178,9 @@ export function MQTTInstructionsPanel({
                   <span className="text-slate-500">Topic Namespace:</span>
                   <span className="font-mono text-slate-900 break-all">{topic}</span>
                 </div>
+                <p className="text-amber-700 mt-2 pt-2 border-t border-slate-200">
+                  <strong>Note:</strong> These are example values. Use the actual endpoint, port, and topic provided in the chat.
+                </p>
               </div>
             </InstructionStep>
 
@@ -225,12 +219,6 @@ export function MQTTInstructionsPanel({
       case 'generic':
         return (
           <div className="space-y-4">
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-              <p className="text-xs text-amber-800">
-                <strong>Note:</strong> The values below are examples. Use the actual endpoint, port, and topic provided in the chat.
-              </p>
-            </div>
-
             <InstructionStep step={1} title="Connection Details">
               <p>Use any MQTT client library to connect with these settings:</p>
               <div className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-3 text-xs overflow-hidden">
@@ -246,6 +234,9 @@ export function MQTTInstructionsPanel({
                   <span className="text-slate-500">Topic:</span>
                   <span className="font-mono text-slate-900 break-all">{topic}</span>
                 </div>
+                <p className="text-amber-700 mt-2 pt-2 border-t border-slate-200">
+                  <strong>Note:</strong> These are example values. Use the actual endpoint, port, and topic provided in the chat.
+                </p>
               </div>
             </InstructionStep>
 
@@ -299,13 +290,6 @@ client.publish("${topic}", json.dumps({
         </div>
         <p className="text-sm text-slate-600">
           Choose your data source platform to see specific setup instructions.
-        </p>
-      </div>
-
-      {/* Important Note */}
-      <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-3">
-        <p className="text-xs text-amber-800">
-          <strong>Important:</strong> The connection details shown below are examples. Please use the actual broker endpoint, port, and topic provided in the chat message for your specific setup.
         </p>
       </div>
 
