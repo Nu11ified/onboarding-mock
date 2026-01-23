@@ -21,6 +21,8 @@ import {
   TrendingUp,
   Key,
   X,
+  Phone,
+  ArrowLeft,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -127,6 +129,8 @@ export default function LandingPage() {
   const [showInvitePopup, setShowInvitePopup] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [inviteStep, setInviteStep] = useState<"enter" | "phone" | "verify">("enter");
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   const handleSelect = (scenario: CtaKey) => {
     if (isRouting || selectedScenario) return;
@@ -235,97 +239,276 @@ export default function LandingPage() {
             {/* Backdrop */}
             <div
               className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
-              onClick={() => setShowInvitePopup(false)}
+              onClick={() => {
+                setShowInvitePopup(false);
+                setInviteStep("enter");
+                setPhoneNumber("");
+                setInviteCode("");
+              }}
             />
             {/* Modal */}
             <div className="relative w-full max-w-md mx-4 rounded-3xl border border-purple-200/80 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-1 shadow-2xl animate-fade-in-up">
               <div className="rounded-[22px] bg-white p-8">
                 {/* Close Button */}
                 <button
-                  onClick={() => setShowInvitePopup(false)}
+                  onClick={() => {
+                    setShowInvitePopup(false);
+                    setInviteStep("enter");
+                    setPhoneNumber("");
+                    setInviteCode("");
+                  }}
                   className="absolute top-6 right-6 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                 >
                   <X className="h-5 w-5" />
                 </button>
 
-                {/* Icon */}
-                <div className="mb-6 flex justify-center">
-                  <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
-                    <Key className="h-8 w-8" />
-                  </div>
-                </div>
+                {/* Step 1: Enter Code */}
+                {inviteStep === "enter" && (
+                  <>
+                    {/* Icon */}
+                    <div className="mb-6 flex justify-center">
+                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
+                        <Key className="h-8 w-8" />
+                      </div>
+                    </div>
 
-                {/* Title */}
-                <h2 className="mb-6 text-center text-2xl font-semibold tracking-tight text-slate-900">
-                  Enter Your Invite Code
-                </h2>
+                    {/* Title */}
+                    <h2 className="mb-6 text-center text-2xl font-semibold tracking-tight text-slate-900">
+                      Enter Your Invite Code
+                    </h2>
 
-                {/* Input */}
-                <input
-                  type="text"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                  placeholder="Enter code..."
-                  className="w-full rounded-xl border border-purple-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/20 transition"
-                />
+                    {/* Input */}
+                    <input
+                      type="text"
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                      placeholder="Enter code..."
+                      className="w-full rounded-xl border border-purple-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/20 transition"
+                    />
 
-                {/* Helper Text */}
-                <p className="mt-3 text-sm text-slate-500">
-                  Use the invite code we provided to access the onboarding experience.
-                </p>
+                    {/* Helper Text */}
+                    <p className="mt-3 text-sm text-slate-500">
+                      Use the invite code we provided to access the onboarding experience.
+                    </p>
 
-                {/* Contact Info */}
-                <p className="mt-2 text-sm text-slate-500">
-                  No code? Contact us at{" "}
-                  <a
-                    href="mailto:onboarding@microai.com"
-                    className="font-medium text-purple-600 hover:text-purple-700 transition"
-                  >
-                    onboarding@microai.com
-                  </a>
-                </p>
+                    {/* Terms Checkbox */}
+                    <label className="mt-4 flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                      />
+                      <span className="text-sm text-slate-600">
+                        I agree to the{" "}
+                        <a
+                          href="/terms"
+                          target="_blank"
+                          className="font-medium text-purple-600 hover:text-purple-700 underline"
+                        >
+                          Terms of Use
+                        </a>{" "}
+                        and{" "}
+                        <a
+                          href="/privacy"
+                          target="_blank"
+                          className="font-medium text-purple-600 hover:text-purple-700 underline"
+                        >
+                          Privacy Policy
+                        </a>
+                      </span>
+                    </label>
 
-                {/* Terms Checkbox */}
-                <label className="mt-4 flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={termsAccepted}
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
-                  />
-                  <span className="text-sm text-slate-600">
-                    I agree to the{" "}
-                    <a
-                      href="/terms"
-                      target="_blank"
-                      className="font-medium text-purple-600 hover:text-purple-700 underline"
+                    {/* Submit Button */}
+                    <button
+                      onClick={handleInviteSubmit}
+                      disabled={!termsAccepted}
+                      className={cn(
+                        "mt-6 w-full rounded-xl px-6 py-3 text-base font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
+                        termsAccepted
+                          ? "bg-purple-600 hover:bg-purple-700"
+                          : "bg-slate-300 cursor-not-allowed"
+                      )}
                     >
-                      Terms of Use
-                    </a>{" "}
-                    and{" "}
-                    <a
-                      href="/privacy"
-                      target="_blank"
-                      className="font-medium text-purple-600 hover:text-purple-700 underline"
-                    >
-                      Privacy Policy
-                    </a>
-                  </span>
-                </label>
+                      Continue
+                    </button>
 
-                {/* Submit Button */}
-                <button
-                  onClick={handleInviteSubmit}
-                  disabled={!termsAccepted}
-                  className={cn(
-                    "mt-6 w-full rounded-xl px-6 py-3 text-base font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
-                    termsAccepted
-                      ? "bg-purple-600 hover:bg-purple-700"
-                      : "bg-slate-300 cursor-not-allowed"
-                  )}
-                >
-                  Continue
-                </button>
+                    {/* Divider */}
+                    <div className="mt-6 flex items-center gap-4">
+                      <div className="flex-1 border-t border-slate-200" />
+                      <span className="text-sm text-slate-400">or</span>
+                      <div className="flex-1 border-t border-slate-200" />
+                    </div>
+
+                    {/* Request Code Button */}
+                    <button
+                      onClick={() => setInviteStep("phone")}
+                      className="mt-6 w-full rounded-xl border border-purple-200 bg-white px-6 py-3 text-base font-semibold text-purple-600 transition hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-400/50"
+                    >
+                      Request Code
+                    </button>
+                  </>
+                )}
+
+                {/* Step 2: Enter Phone Number */}
+                {inviteStep === "phone" && (
+                  <>
+                    {/* Back Button */}
+                    <button
+                      onClick={() => setInviteStep("enter")}
+                      className="absolute top-6 left-6 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                    >
+                      <ArrowLeft className="h-5 w-5" />
+                    </button>
+
+                    {/* Icon */}
+                    <div className="mb-6 flex justify-center">
+                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
+                        <Phone className="h-8 w-8" />
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <h2 className="mb-2 text-center text-2xl font-semibold tracking-tight text-slate-900">
+                      Enter Your Phone Number
+                    </h2>
+
+                    {/* Subtitle */}
+                    <p className="mb-6 text-center text-sm text-slate-500">
+                      We&apos;ll send you an invite code via SMS
+                    </p>
+
+                    {/* Phone Input */}
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="+1 (555) 000-0000"
+                      className="w-full rounded-xl border border-purple-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/20 transition"
+                    />
+
+                    {/* Helper Text */}
+                    <p className="mt-3 text-sm text-slate-500">
+                      Standard messaging rates may apply. We&apos;ll only use your number to send the verification code.
+                    </p>
+
+                    {/* Send Code Button */}
+                    <button
+                      onClick={() => setInviteStep("verify")}
+                      disabled={!phoneNumber.trim()}
+                      className={cn(
+                        "mt-6 w-full rounded-xl px-6 py-3 text-base font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
+                        phoneNumber.trim()
+                          ? "bg-purple-600 hover:bg-purple-700"
+                          : "bg-slate-300 cursor-not-allowed"
+                      )}
+                    >
+                      Send Code
+                    </button>
+                  </>
+                )}
+
+                {/* Step 3: Verify Code */}
+                {inviteStep === "verify" && (
+                  <>
+                    {/* Back Button */}
+                    <button
+                      onClick={() => setInviteStep("phone")}
+                      className="absolute top-6 left-6 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                    >
+                      <ArrowLeft className="h-5 w-5" />
+                    </button>
+
+                    {/* Icon */}
+                    <div className="mb-6 flex justify-center">
+                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
+                        <Key className="h-8 w-8" />
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <h2 className="mb-2 text-center text-2xl font-semibold tracking-tight text-slate-900">
+                      Enter Verification Code
+                    </h2>
+
+                    {/* Subtitle */}
+                    <p className="mb-6 text-center text-sm text-slate-500">
+                      We sent a code to {phoneNumber}
+                    </p>
+
+                    {/* Code Input */}
+                    <input
+                      type="text"
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                      placeholder="Enter code..."
+                      className="w-full rounded-xl border border-purple-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/20 transition"
+                    />
+
+                    {/* Resend / Change Number */}
+                    <div className="mt-3 flex items-center justify-between">
+                      <button
+                        onClick={() => {
+                          // Mock resend - in real app would trigger SMS
+                        }}
+                        className="text-sm font-medium text-purple-600 hover:text-purple-700 transition"
+                      >
+                        Resend code
+                      </button>
+                      <button
+                        onClick={() => {
+                          setInviteStep("phone");
+                          setInviteCode("");
+                        }}
+                        className="text-sm font-medium text-slate-500 hover:text-slate-700 transition"
+                      >
+                        Use different number
+                      </button>
+                    </div>
+
+                    {/* Terms Checkbox */}
+                    <label className="mt-4 flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                      />
+                      <span className="text-sm text-slate-600">
+                        I agree to the{" "}
+                        <a
+                          href="/terms"
+                          target="_blank"
+                          className="font-medium text-purple-600 hover:text-purple-700 underline"
+                        >
+                          Terms of Use
+                        </a>{" "}
+                        and{" "}
+                        <a
+                          href="/privacy"
+                          target="_blank"
+                          className="font-medium text-purple-600 hover:text-purple-700 underline"
+                        >
+                          Privacy Policy
+                        </a>
+                      </span>
+                    </label>
+
+                    {/* Verify Button */}
+                    <button
+                      onClick={handleInviteSubmit}
+                      disabled={!termsAccepted}
+                      className={cn(
+                        "mt-6 w-full rounded-xl px-6 py-3 text-base font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
+                        termsAccepted
+                          ? "bg-purple-600 hover:bg-purple-700"
+                          : "bg-slate-300 cursor-not-allowed"
+                      )}
+                    >
+                      Continue
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>,
