@@ -304,8 +304,8 @@ export default function LandingPage() {
               }}
             />
             {/* Modal */}
-            <div className="relative w-full max-w-md mx-4 rounded-3xl border border-purple-200/80 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-1 shadow-2xl animate-fade-in-up">
-              <div className="rounded-[22px] bg-white overflow-hidden">
+            <div className="relative w-[min(90vw,24rem)] max-h-[90dvh] mx-4 rounded-2xl border border-purple-200/80 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-0.5 shadow-2xl animate-fade-in-up">
+              <div className="rounded-[14px] bg-white overflow-y-auto max-h-[calc(90dvh-4px)]">
                 {/* Close Button */}
                 <button
                   onClick={() => {
@@ -315,7 +315,7 @@ export default function LandingPage() {
                     setFormErrors({});
                     setCodeSentBanner(false);
                   }}
-                  className="absolute top-6 right-6 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                  className="absolute top-4 right-4 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -325,37 +325,37 @@ export default function LandingPage() {
                   <div
                     key="form-step"
                     className={cn(
-                      "p-8",
+                      "px-5 py-5",
                       slideDirection === "back" ? "animate-slide-in-left" : ""
                     )}
                   >
                     {/* Success Banner */}
                     {codeSentBanner && (
-                      <div className="mb-5 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700">
+                      <div className="mb-3 flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-700">
                         <CheckCircle className="h-4 w-4 shrink-0" />
                         <span>Code sent! Check your phone.</span>
                       </div>
                     )}
 
                     {/* Icon */}
-                    <div className="mb-6 flex justify-center">
-                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
-                        <Key className="h-8 w-8" />
+                    <div className="mb-3 flex justify-center">
+                      <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
+                        <Key className="h-5 w-5" />
                       </div>
                     </div>
 
                     {/* Title */}
-                    <h2 className="mb-1.5 text-center text-2xl font-semibold tracking-tight text-slate-900">
+                    <h2 className="mb-0.5 text-center text-lg font-semibold tracking-tight text-slate-900">
                       Get Started
                     </h2>
-                    <p className="mb-6 text-center text-sm text-slate-500">
+                    <p className="mb-3 text-center text-sm text-slate-500">
                       Enter your details and invite code to begin
                     </p>
 
                     {/* Name Fields */}
-                    <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="grid grid-cols-2 gap-2 mb-2">
                       <div>
-                        <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                        <label className="mb-1 block text-xs font-medium text-slate-600">
                           First Name
                         </label>
                         <input
@@ -364,7 +364,7 @@ export default function LandingPage() {
                           onChange={(e) => { setFirstName(e.target.value); clearField("firstName"); }}
                           placeholder="John"
                           className={cn(
-                            "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
+                            "w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
                             formErrors.firstName ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
                           )}
                         />
@@ -373,7 +373,7 @@ export default function LandingPage() {
                         )}
                       </div>
                       <div>
-                        <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                        <label className="mb-1 block text-xs font-medium text-slate-600">
                           Last Name
                         </label>
                         <input
@@ -382,7 +382,7 @@ export default function LandingPage() {
                           onChange={(e) => { setLastName(e.target.value); clearField("lastName"); }}
                           placeholder="Doe"
                           className={cn(
-                            "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
+                            "w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
                             formErrors.lastName ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
                           )}
                         />
@@ -393,8 +393,8 @@ export default function LandingPage() {
                     </div>
 
                     {/* Email Field */}
-                    <div className="mb-3">
-                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                    <div className="mb-2">
+                      <label className="mb-1 block text-xs font-medium text-slate-600">
                         Email
                       </label>
                       <input
@@ -403,7 +403,7 @@ export default function LandingPage() {
                         onChange={(e) => { setEmail(e.target.value); clearField("email"); }}
                         placeholder="you@company.com"
                         className={cn(
-                          "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
+                          "w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
                           formErrors.email ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
                         )}
                       />
@@ -413,8 +413,8 @@ export default function LandingPage() {
                     </div>
 
                     {/* Phone Number Field */}
-                    <div className="mb-3">
-                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                    <div className="mb-2">
+                      <label className="mb-1 block text-xs font-medium text-slate-600">
                         Phone Number
                       </label>
                       <input
@@ -423,7 +423,7 @@ export default function LandingPage() {
                         onChange={(e) => { setFormPhoneNumber(e.target.value); clearField("formPhoneNumber"); }}
                         placeholder="+1 (555) 123-4567"
                         className={cn(
-                          "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
+                          "w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
                           formErrors.formPhoneNumber ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
                         )}
                       />
@@ -433,8 +433,8 @@ export default function LandingPage() {
                     </div>
 
                     {/* Invite Code Field */}
-                    <div className="mb-4">
-                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                    <div className="mb-2.5">
+                      <label className="mb-1 block text-xs font-medium text-slate-600">
                         Invite Code
                       </label>
                       <input
@@ -443,7 +443,7 @@ export default function LandingPage() {
                         onChange={(e) => { setInviteCode(e.target.value); clearField("inviteCode"); }}
                         placeholder="Enter your invite code"
                         className={cn(
-                          "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
+                          "w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
                           formErrors.inviteCode ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
                         )}
                       />
@@ -453,7 +453,7 @@ export default function LandingPage() {
                     </div>
 
                     {/* Terms Checkbox */}
-                    <label className="mb-5 flex items-start gap-3 cursor-pointer">
+                    <label className="mb-3 flex items-start gap-2.5 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={termsAccepted}
@@ -477,7 +477,7 @@ export default function LandingPage() {
                       onClick={handleInviteSubmit}
                       disabled={!termsAccepted || isSubmitting}
                       className={cn(
-                        "w-full rounded-xl px-6 py-3 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
+                        "w-full rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
                         termsAccepted && !isSubmitting
                           ? "bg-purple-600 hover:bg-purple-700 hover:shadow-md"
                           : "bg-slate-300 cursor-not-allowed"
@@ -494,7 +494,7 @@ export default function LandingPage() {
                     </button>
 
                     {/* Divider */}
-                    <div className="mt-6 flex items-center gap-4">
+                    <div className="mt-3 flex items-center gap-3">
                       <div className="flex-1 border-t border-slate-200" />
                       <span className="text-sm text-slate-400">or</span>
                       <div className="flex-1 border-t border-slate-200" />
@@ -503,7 +503,7 @@ export default function LandingPage() {
                     {/* Request Code Button */}
                     <button
                       onClick={handleGoToRequest}
-                      className="mt-6 w-full rounded-xl border border-purple-200 bg-white px-6 py-3 text-base font-semibold text-purple-600 transition hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-400/50"
+                      className="mt-3 w-full rounded-lg border border-purple-200 bg-white px-5 py-2.5 text-sm font-semibold text-purple-600 transition hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-400/50"
                     >
                       Request Code
                     </button>
@@ -515,36 +515,36 @@ export default function LandingPage() {
                   <div
                     key="request-step"
                     className={cn(
-                      "p-8",
+                      "px-5 py-5",
                       slideDirection === "forward" ? "animate-slide-in-right" : ""
                     )}
                   >
                     {/* Back Button */}
                     <button
                       onClick={handleBackToForm}
-                      className="absolute top-6 left-6 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                      className="absolute top-4 left-4 inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                     >
-                      <ArrowLeft className="h-5 w-5" />
+                      <ArrowLeft className="h-4 w-4" />
                     </button>
 
                     {/* Icon */}
-                    <div className="mb-5 flex justify-center">
-                      <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-100 to-purple-200/60 text-purple-600">
-                        <Phone className="h-7 w-7" />
+                    <div className="mb-3 flex justify-center">
+                      <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-100 to-purple-200/60 text-purple-600">
+                        <Phone className="h-5 w-5" />
                       </div>
                     </div>
 
                     {/* Title */}
-                    <h2 className="mb-1.5 text-center text-2xl font-semibold tracking-tight text-slate-900">
+                    <h2 className="mb-0.5 text-center text-lg font-semibold tracking-tight text-slate-900">
                       Request an Invite Code
                     </h2>
-                    <p className="mb-6 text-center text-sm text-slate-500">
+                    <p className="mb-3 text-center text-sm text-slate-500">
                       Enter your phone number and we&apos;ll text you a code
                     </p>
 
                     {/* Phone Input */}
-                    <div className="mb-4">
-                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                    <div className="mb-3">
+                      <label className="mb-1 block text-xs font-medium text-slate-600">
                         Phone Number
                       </label>
                       <input
@@ -552,9 +552,9 @@ export default function LandingPage() {
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value)}
                         placeholder="+1 (555) 000-0000"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/20 transition"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/20 transition"
                       />
-                      <p className="mt-2 text-xs text-slate-400">
+                      <p className="mt-1.5 text-xs text-slate-400">
                         Standard messaging rates may apply
                       </p>
                     </div>
@@ -564,7 +564,7 @@ export default function LandingPage() {
                       onClick={handleSendCode}
                       disabled={!phoneNumber.trim()}
                       className={cn(
-                        "w-full rounded-xl px-6 py-3 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
+                        "w-full rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
                         phoneNumber.trim()
                           ? "bg-purple-600 hover:bg-purple-700 hover:shadow-md"
                           : "bg-slate-300 cursor-not-allowed"
