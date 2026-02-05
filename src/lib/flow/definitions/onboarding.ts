@@ -2,24 +2,18 @@ import type { FlowDefinition } from '../types';
 
 // Mirrors NON_LOGIN_FLOW messages and branching
 export const ONBOARDING_FLOW: FlowDefinition = {
-  initial: 'user-info',
+  initial: 'otp',
   states: {
-    'user-info': {
-      id: 'user-info',
-      message: `You're about to set up a new machine, where you can explore it's real-time telemetry, AI insights, with interactive dashboards.`,
-      widget: { type: 'user-info-form' },
-      waitForUserInput: true,
-      on: {
-        SUBMIT: { target: 'otp', action: 'register-user-info' },
-      },
-    },
     otp: {
       id: 'otp',
-      message: `Great!
-We've sent a 6-digit verification code (OTP) to the email you provided.
+      message: (ctx: any) => {
+        const userEmail = ctx.email || 'your email';
+        const name = ctx.firstName ? `${ctx.firstName}` : '';
+        return `${name ? `Welcome, ${name}! ` : ''}We've sent a 6-digit verification code to ${userEmail}.
 Please check your inbox and enter the code below to verify your email and continue with the setup.
 
-Didn't get the code? You can resend it after a few seconds, or check your spam/junk folder.`,
+Didn't get the code? You can resend it after a few seconds, or check your spam/junk folder.`;
+      },
       widget: { type: 'otp-form', data: { allowResend: true } },
       waitForUserInput: true,
       on: {

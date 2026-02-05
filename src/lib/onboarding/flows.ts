@@ -93,36 +93,18 @@ export interface FlowContext {
  * Flow: Welcome → User Info → OTP → Mode Selection (Demo/Live) → Device Setup → Account Creation
  */
 export const NON_LOGIN_FLOW: FlowStep[] = [
-  // Step 1: User info prompt (collect info before mode selection)
-  {
-    id: "user-info-prompt",
-    actor: "assistant",
-    message: `You’re about to set up a new machine, where you can explore it’s real-time telemetry, AI insights, with interactive dashboards.`,
-    widget: {
-      type: "user-info-form",
-    },
-    waitForUserInput: true,
-    nextStepId: "user-info-processing",
-  },
-
-  // Step 3: Process user info
-  {
-    id: "user-info-processing",
-    actor: "assistant",
-    message: "",
-    action: "register-user-info",
-    nextStepId: "otp-prompt",
-  },
-
-  // Step 4: OTP prompt
+  // Step 1: OTP prompt
   {
     id: "otp-prompt",
     actor: "assistant",
-    message: `Great!
-We've sent a 6-digit verification code (OTP) to the email you provided.
+    message: (context: FlowContext) => {
+      const userEmail = context.email || 'your email';
+      const name = context.firstName ? `${context.firstName}` : '';
+      return `${name ? `Welcome, ${name}! ` : ''}We've sent a 6-digit verification code to ${userEmail}.
 Please check your inbox and enter the code below to verify your email and continue with the setup.
 
-Didn't get the code? You can resend it after a few seconds, or check your spam/junk folder.`,
+Didn't get the code? You can resend it after a few seconds, or check your spam/junk folder.`;
+    },
     widget: {
       type: "otp-form",
       data: { allowResend: true },

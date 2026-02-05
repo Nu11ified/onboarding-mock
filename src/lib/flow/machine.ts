@@ -8,6 +8,7 @@ export class StateMachine<TCtx extends Record<string, any> = any> {
   stateId: FlowStateId;
   context: TCtx;
   history: FlowStateId[] = [];
+  wasRestored = false;
 
   constructor(def: FlowDefinition, actions: ActionsRegistry = {}, initialContext: TCtx = {} as TCtx, persist?: PersistAdapter) {
     this.def = def;
@@ -15,14 +16,16 @@ export class StateMachine<TCtx extends Record<string, any> = any> {
     this.persist = persist;
 
     const restored = persist?.load?.();
-    if (restored?.stateId) {
+    if (restored?.stateId && def.states[restored.stateId]) {
       this.stateId = restored.stateId;
       this.context = restored.context || ({} as TCtx);
       this.history = restored.history || [];
+      this.wasRestored = true;
     } else {
       this.stateId = def.initial;
       this.context = initialContext;
       this.history = [this.stateId];
+      this.wasRestored = false;
       this.save();
     }
   }

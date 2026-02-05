@@ -23,12 +23,15 @@ import {
   X,
   Phone,
   ArrowLeft,
+  Loader2,
+  CheckCircle,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { isValidEmail } from '@/lib/onboarding/utils';
 
 const CTA_OPTIONS = [
   {
@@ -127,10 +130,18 @@ export default function LandingPage() {
   const [buttonRect, setButtonRect] = useState<DOMRect | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [showInvitePopup, setShowInvitePopup] = useState(false);
+  const [inviteStep, setInviteStep] = useState<"form" | "request">("form");
+  const [slideDirection, setSlideDirection] = useState<"forward" | "back">("forward");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [inviteStep, setInviteStep] = useState<"enter" | "phone" | "verify">("enter");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [formPhoneNumber, setFormPhoneNumber] = useState("");
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [codeSentBanner, setCodeSentBanner] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSelect = (scenario: CtaKey) => {
     if (isRouting || selectedScenario) return;
@@ -155,11 +166,56 @@ export default function LandingPage() {
     setShowInvitePopup(true);
   };
 
+  const validateInviteForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!firstName.trim()) errors.firstName = "First name is required";
+    if (!lastName.trim()) errors.lastName = "Last name is required";
+    if (!email.trim()) errors.email = "Email is required";
+    else if (!isValidEmail(email)) errors.email = "Please enter a valid email";
+    if (!formPhoneNumber.trim()) errors.formPhoneNumber = "Phone number is required";
+    else if (!/^[\d\s\-+()]+$/.test(formPhoneNumber)) errors.formPhoneNumber = "Please enter a valid phone number";
+    if (!inviteCode.trim()) errors.inviteCode = "Invite code is required";
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleInviteSubmit = () => {
-    // Accept any code - just proceed to the onboarding page
+    if (!validateInviteForm() || !termsAccepted) return;
+    setIsSubmitting(true);
+    localStorage.setItem("invite_user_info", JSON.stringify({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim(),
+      phoneNumber: formPhoneNumber.trim(),
+      inviteCode: inviteCode.trim(),
+    }));
     setShowInvitePopup(false);
     setIsRouting(true);
     router.push("/onboarding");
+  };
+
+  const handleGoToRequest = () => {
+    setSlideDirection("forward");
+    setInviteStep("request");
+  };
+
+  const handleBackToForm = () => {
+    setSlideDirection("back");
+    setInviteStep("form");
+  };
+
+  const handleSendCode = () => {
+    if (!phoneNumber.trim()) return;
+    setSlideDirection("back");
+    setInviteStep("form");
+    setCodeSentBanner(true);
+    setTimeout(() => setCodeSentBanner(false), 5000);
+  };
+
+  const clearField = (field: string) => {
+    if (formErrors[field]) {
+      setFormErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
+    }
   };
 
   const handleSavePrompt = () => {
@@ -241,30 +297,46 @@ export default function LandingPage() {
               className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
               onClick={() => {
                 setShowInvitePopup(false);
-                setInviteStep("enter");
-                setPhoneNumber("");
-                setInviteCode("");
+                setInviteStep("form");
+                setSlideDirection("forward");
+                setFormErrors({});
+                setCodeSentBanner(false);
               }}
             />
             {/* Modal */}
             <div className="relative w-full max-w-md mx-4 rounded-3xl border border-purple-200/80 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-1 shadow-2xl animate-fade-in-up">
-              <div className="rounded-[22px] bg-white p-8">
+              <div className="rounded-[22px] bg-white overflow-hidden">
                 {/* Close Button */}
                 <button
                   onClick={() => {
                     setShowInvitePopup(false);
-                    setInviteStep("enter");
-                    setPhoneNumber("");
-                    setInviteCode("");
+                    setInviteStep("form");
+                    setSlideDirection("forward");
+                    setFormErrors({});
+                    setCodeSentBanner(false);
                   }}
-                  className="absolute top-6 right-6 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                  className="absolute top-6 right-6 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                 >
                   <X className="h-5 w-5" />
                 </button>
 
-                {/* Step 1: Enter Code */}
-                {inviteStep === "enter" && (
-                  <>
+                {/* Step 1: Invite Form */}
+                {inviteStep === "form" && (
+                  <div
+                    key="form-step"
+                    className={cn(
+                      "p-8",
+                      slideDirection === "back" ? "animate-slide-in-left" : ""
+                    )}
+                  >
+                    {/* Success Banner */}
+                    {codeSentBanner && (
+                      <div className="mb-5 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700">
+                        <CheckCircle className="h-4 w-4 shrink-0" />
+                        <span>Code sent! Check your phone.</span>
+                      </div>
+                    )}
+
                     {/* Icon */}
                     <div className="mb-6 flex justify-center">
                       <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
@@ -273,47 +345,128 @@ export default function LandingPage() {
                     </div>
 
                     {/* Title */}
-                    <h2 className="mb-6 text-center text-2xl font-semibold tracking-tight text-slate-900">
-                      Enter Your Invite Code
+                    <h2 className="mb-1.5 text-center text-2xl font-semibold tracking-tight text-slate-900">
+                      Get Started
                     </h2>
-
-                    {/* Input */}
-                    <input
-                      type="text"
-                      value={inviteCode}
-                      onChange={(e) => setInviteCode(e.target.value)}
-                      placeholder="Enter code..."
-                      className="w-full rounded-xl border border-purple-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/20 transition"
-                    />
-
-                    {/* Helper Text */}
-                    <p className="mt-3 text-sm text-slate-500">
-                      Use the invite code we provided to access the onboarding experience.
+                    <p className="mb-6 text-center text-sm text-slate-500">
+                      Enter your details and invite code to begin
                     </p>
 
+                    {/* Name Fields */}
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                          First Name
+                        </label>
+                        <input
+                          type="text"
+                          value={firstName}
+                          onChange={(e) => { setFirstName(e.target.value); clearField("firstName"); }}
+                          placeholder="John"
+                          className={cn(
+                            "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
+                            formErrors.firstName ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
+                          )}
+                        />
+                        {formErrors.firstName && (
+                          <p className="mt-1 text-xs text-rose-500">{formErrors.firstName}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                          Last Name
+                        </label>
+                        <input
+                          type="text"
+                          value={lastName}
+                          onChange={(e) => { setLastName(e.target.value); clearField("lastName"); }}
+                          placeholder="Doe"
+                          className={cn(
+                            "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
+                            formErrors.lastName ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
+                          )}
+                        />
+                        {formErrors.lastName && (
+                          <p className="mt-1 text-xs text-rose-500">{formErrors.lastName}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Email Field */}
+                    <div className="mb-3">
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => { setEmail(e.target.value); clearField("email"); }}
+                        placeholder="you@company.com"
+                        className={cn(
+                          "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
+                          formErrors.email ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
+                        )}
+                      />
+                      {formErrors.email && (
+                        <p className="mt-1 text-xs text-rose-500">{formErrors.email}</p>
+                      )}
+                    </div>
+
+                    {/* Phone Number Field */}
+                    <div className="mb-3">
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                        Phone Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={formPhoneNumber}
+                        onChange={(e) => { setFormPhoneNumber(e.target.value); clearField("formPhoneNumber"); }}
+                        placeholder="+1 (555) 123-4567"
+                        className={cn(
+                          "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
+                          formErrors.formPhoneNumber ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
+                        )}
+                      />
+                      {formErrors.formPhoneNumber && (
+                        <p className="mt-1 text-xs text-rose-500">{formErrors.formPhoneNumber}</p>
+                      )}
+                    </div>
+
+                    {/* Invite Code Field */}
+                    <div className="mb-4">
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                        Invite Code
+                      </label>
+                      <input
+                        type="text"
+                        value={inviteCode}
+                        onChange={(e) => { setInviteCode(e.target.value); clearField("inviteCode"); }}
+                        placeholder="Enter your invite code"
+                        className={cn(
+                          "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
+                          formErrors.inviteCode ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
+                        )}
+                      />
+                      {formErrors.inviteCode && (
+                        <p className="mt-1 text-xs text-rose-500">{formErrors.inviteCode}</p>
+                      )}
+                    </div>
+
                     {/* Terms Checkbox */}
-                    <label className="mt-4 flex items-start gap-3 cursor-pointer">
+                    <label className="mb-5 flex items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={termsAccepted}
                         onChange={(e) => setTermsAccepted(e.target.checked)}
                         className="mt-0.5 h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
                       />
-                      <span className="text-sm text-slate-600">
+                      <span className="text-sm text-slate-500">
                         I agree to the{" "}
-                        <a
-                          href="/terms"
-                          target="_blank"
-                          className="font-medium text-purple-600 hover:text-purple-700 underline"
-                        >
+                        <a href="/terms" target="_blank" className="font-medium text-purple-600 hover:text-purple-700 underline">
                           Terms of Use
                         </a>{" "}
                         and{" "}
-                        <a
-                          href="/privacy"
-                          target="_blank"
-                          className="font-medium text-purple-600 hover:text-purple-700 underline"
-                        >
+                        <a href="/privacy" target="_blank" className="font-medium text-purple-600 hover:text-purple-700 underline">
                           Privacy Policy
                         </a>
                       </span>
@@ -322,15 +475,22 @@ export default function LandingPage() {
                     {/* Submit Button */}
                     <button
                       onClick={handleInviteSubmit}
-                      disabled={!termsAccepted}
+                      disabled={!termsAccepted || isSubmitting}
                       className={cn(
-                        "mt-6 w-full rounded-xl px-6 py-3 text-base font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
-                        termsAccepted
-                          ? "bg-purple-600 hover:bg-purple-700"
+                        "w-full rounded-xl px-6 py-3 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
+                        termsAccepted && !isSubmitting
+                          ? "bg-purple-600 hover:bg-purple-700 hover:shadow-md"
                           : "bg-slate-300 cursor-not-allowed"
                       )}
                     >
-                      Continue
+                      {isSubmitting ? (
+                        <span className="inline-flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Getting started...
+                        </span>
+                      ) : (
+                        "Continue"
+                      )}
                     </button>
 
                     {/* Divider */}
@@ -342,172 +502,77 @@ export default function LandingPage() {
 
                     {/* Request Code Button */}
                     <button
-                      onClick={() => setInviteStep("phone")}
+                      onClick={handleGoToRequest}
                       className="mt-6 w-full rounded-xl border border-purple-200 bg-white px-6 py-3 text-base font-semibold text-purple-600 transition hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-400/50"
                     >
                       Request Code
                     </button>
-                  </>
+                  </div>
                 )}
 
-                {/* Step 2: Enter Phone Number */}
-                {inviteStep === "phone" && (
-                  <>
+                {/* Step 2: Request Code */}
+                {inviteStep === "request" && (
+                  <div
+                    key="request-step"
+                    className={cn(
+                      "p-8",
+                      slideDirection === "forward" ? "animate-slide-in-right" : ""
+                    )}
+                  >
                     {/* Back Button */}
                     <button
-                      onClick={() => setInviteStep("enter")}
+                      onClick={handleBackToForm}
                       className="absolute top-6 left-6 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                     >
                       <ArrowLeft className="h-5 w-5" />
                     </button>
 
                     {/* Icon */}
-                    <div className="mb-6 flex justify-center">
-                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
-                        <Phone className="h-8 w-8" />
+                    <div className="mb-5 flex justify-center">
+                      <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-100 to-purple-200/60 text-purple-600">
+                        <Phone className="h-7 w-7" />
                       </div>
                     </div>
 
                     {/* Title */}
-                    <h2 className="mb-2 text-center text-2xl font-semibold tracking-tight text-slate-900">
-                      Enter Your Phone Number
+                    <h2 className="mb-1.5 text-center text-2xl font-semibold tracking-tight text-slate-900">
+                      Request an Invite Code
                     </h2>
-
-                    {/* Subtitle */}
                     <p className="mb-6 text-center text-sm text-slate-500">
-                      We&apos;ll send you an invite code via SMS
+                      Enter your phone number and we&apos;ll text you a code
                     </p>
 
                     {/* Phone Input */}
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+1 (555) 000-0000"
-                      className="w-full rounded-xl border border-purple-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/20 transition"
-                    />
-
-                    {/* Helper Text */}
-                    <p className="mt-3 text-sm text-slate-500">
-                      Standard messaging rates may apply. We&apos;ll only use your number to send the verification code.
-                    </p>
+                    <div className="mb-4">
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                        Phone Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        placeholder="+1 (555) 000-0000"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/20 transition"
+                      />
+                      <p className="mt-2 text-xs text-slate-400">
+                        Standard messaging rates may apply
+                      </p>
+                    </div>
 
                     {/* Send Code Button */}
                     <button
-                      onClick={() => setInviteStep("verify")}
+                      onClick={handleSendCode}
                       disabled={!phoneNumber.trim()}
                       className={cn(
-                        "mt-6 w-full rounded-xl px-6 py-3 text-base font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
+                        "w-full rounded-xl px-6 py-3 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
                         phoneNumber.trim()
-                          ? "bg-purple-600 hover:bg-purple-700"
+                          ? "bg-purple-600 hover:bg-purple-700 hover:shadow-md"
                           : "bg-slate-300 cursor-not-allowed"
                       )}
                     >
                       Send Code
                     </button>
-                  </>
-                )}
-
-                {/* Step 3: Verify Code */}
-                {inviteStep === "verify" && (
-                  <>
-                    {/* Back Button */}
-                    <button
-                      onClick={() => setInviteStep("phone")}
-                      className="absolute top-6 left-6 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                    >
-                      <ArrowLeft className="h-5 w-5" />
-                    </button>
-
-                    {/* Icon */}
-                    <div className="mb-6 flex justify-center">
-                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
-                        <Key className="h-8 w-8" />
-                      </div>
-                    </div>
-
-                    {/* Title */}
-                    <h2 className="mb-2 text-center text-2xl font-semibold tracking-tight text-slate-900">
-                      Enter Verification Code
-                    </h2>
-
-                    {/* Subtitle */}
-                    <p className="mb-6 text-center text-sm text-slate-500">
-                      We sent a code to {phoneNumber}
-                    </p>
-
-                    {/* Code Input */}
-                    <input
-                      type="text"
-                      value={inviteCode}
-                      onChange={(e) => setInviteCode(e.target.value)}
-                      placeholder="Enter code..."
-                      className="w-full rounded-xl border border-purple-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/20 transition"
-                    />
-
-                    {/* Resend / Change Number */}
-                    <div className="mt-3 flex items-center justify-between">
-                      <button
-                        onClick={() => {
-                          // Mock resend - in real app would trigger SMS
-                        }}
-                        className="text-sm font-medium text-purple-600 hover:text-purple-700 transition"
-                      >
-                        Resend code
-                      </button>
-                      <button
-                        onClick={() => {
-                          setInviteStep("phone");
-                          setInviteCode("");
-                        }}
-                        className="text-sm font-medium text-slate-500 hover:text-slate-700 transition"
-                      >
-                        Use different number
-                      </button>
-                    </div>
-
-                    {/* Terms Checkbox */}
-                    <label className="mt-4 flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={termsAccepted}
-                        onChange={(e) => setTermsAccepted(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
-                      />
-                      <span className="text-sm text-slate-600">
-                        I agree to the{" "}
-                        <a
-                          href="/terms"
-                          target="_blank"
-                          className="font-medium text-purple-600 hover:text-purple-700 underline"
-                        >
-                          Terms of Use
-                        </a>{" "}
-                        and{" "}
-                        <a
-                          href="/privacy"
-                          target="_blank"
-                          className="font-medium text-purple-600 hover:text-purple-700 underline"
-                        >
-                          Privacy Policy
-                        </a>
-                      </span>
-                    </label>
-
-                    {/* Verify Button */}
-                    <button
-                      onClick={handleInviteSubmit}
-                      disabled={!termsAccepted}
-                      className={cn(
-                        "mt-6 w-full rounded-xl px-6 py-3 text-base font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
-                        termsAccepted
-                          ? "bg-purple-600 hover:bg-purple-700"
-                          : "bg-slate-300 cursor-not-allowed"
-                      )}
-                    >
-                      Continue
-                    </button>
-                  </>
+                  </div>
                 )}
               </div>
             </div>

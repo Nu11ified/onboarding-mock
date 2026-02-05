@@ -19,7 +19,18 @@ export function useFlow() {
   const initializedRef = useRef(false);
 
   const persist = useMemo(() => typeof window !== 'undefined' ? localStoragePersist('onboarding_machine') : undefined, []);
-  const machine = useMemo(() => new StateMachine(ONBOARDING_FLOW, actions, {}, persist), [persist]);
+  const initialContext = useMemo(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const saved = localStorage.getItem('invite_user_info');
+      if (saved) {
+        const { firstName, lastName, email, phoneNumber, inviteCode } = JSON.parse(saved);
+        return { firstName, lastName, email, phoneNumber, inviteCode };
+      }
+    } catch {}
+    return {};
+  }, []);
+  const machine = useMemo(() => new StateMachine(ONBOARDING_FLOW, actions, initialContext, persist), [initialContext, persist]);
 
   // Save messages to localStorage whenever they change
   useEffect(() => {
@@ -34,6 +45,15 @@ export function useFlow() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
+        // Only restore cached messages when the machine was restored from a
+        // valid persisted state. If the persisted state was invalid (e.g. a
+        // removed state like 'user-info'), the machine starts fresh and stale
+        // cached messages (with old widgets) must be discarded.
+        if (!machine.wasRestored) {
+          localStorage.removeItem('onboarding_chat_messages');
+          return;
+        }
+
         const saved = localStorage.getItem('onboarding_chat_messages');
         if (saved) {
           const parsed = JSON.parse(saved);
@@ -360,7 +380,8 @@ export function useFlow() {
           'pending_user_info',
           'pending_reset_email',
           'demo_password_set',
-          'user_session'
+          'user_session',
+          'invite_user_info'
         ];
         
         itemsToRemove.forEach(key => localStorage.removeItem(key));
