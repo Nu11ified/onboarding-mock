@@ -93,7 +93,28 @@ export interface FlowContext {
  * Flow: Welcome → User Info → OTP → Mode Selection (Demo/Live) → Device Setup → Account Creation
  */
 export const NON_LOGIN_FLOW: FlowStep[] = [
-  // Step 1: OTP prompt
+  // Step 1: User info prompt (collect info before mode selection)
+  {
+    id: "user-info-prompt",
+    actor: "assistant",
+    message: `You're about to set up a new machine, where you can explore it's real-time telemetry, AI insights, with interactive dashboards.`,
+    widget: {
+      type: "user-info-form",
+    },
+    waitForUserInput: true,
+    nextStepId: "user-info-processing",
+  },
+
+  // Step 2: Process user info
+  {
+    id: "user-info-processing",
+    actor: "assistant",
+    message: "",
+    action: "register-user-info",
+    nextStepId: "otp-prompt",
+  },
+
+  // Step 3: OTP prompt
   {
     id: "otp-prompt",
     actor: "assistant",

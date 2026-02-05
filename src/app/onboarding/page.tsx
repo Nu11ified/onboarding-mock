@@ -62,7 +62,7 @@ function mapStateToPhase(
   stateId: string | undefined,
   mode: "demo" | "live" | undefined,
 ): OnboardingPhase {
-  if (!stateId) return "otp";
+  if (!stateId) return "welcome";
 
   // Completion
   if (stateId.includes("complete") || stateId === "session-saved") return "complete";

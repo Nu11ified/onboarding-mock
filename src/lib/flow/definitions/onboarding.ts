@@ -2,8 +2,17 @@ import type { FlowDefinition } from '../types';
 
 // Mirrors NON_LOGIN_FLOW messages and branching
 export const ONBOARDING_FLOW: FlowDefinition = {
-  initial: 'otp',
+  initial: 'user-info',
   states: {
+    'user-info': {
+      id: 'user-info',
+      message: `You're about to set up a new machine, where you can explore it's real-time telemetry, AI insights, with interactive dashboards.`,
+      widget: { type: 'user-info-form' },
+      waitForUserInput: true,
+      on: {
+        SUBMIT: { target: 'otp', action: 'register-user-info' },
+      },
+    },
     otp: {
       id: 'otp',
       message: (ctx: any) => {
