@@ -433,20 +433,29 @@ export default function LandingPage() {
                     </div>
 
                     {/* Invite Code Field */}
-                    <div className="mb-2.5">
+                    <div className="mb-3">
                       <label className="mb-1 block text-xs font-medium text-slate-600">
                         Invite Code
                       </label>
-                      <input
-                        type="text"
-                        value={inviteCode}
-                        onChange={(e) => { setInviteCode(e.target.value); clearField("inviteCode"); }}
-                        placeholder="Enter your invite code"
-                        className={cn(
-                          "w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
-                          formErrors.inviteCode ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
-                        )}
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={inviteCode}
+                          onChange={(e) => { setInviteCode(e.target.value); clearField("inviteCode"); }}
+                          placeholder="Enter your invite code"
+                          className={cn(
+                            "flex-1 min-w-0 rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
+                            formErrors.inviteCode ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
+                          )}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleGoToRequest}
+                          className="shrink-0 rounded-lg border border-purple-300 bg-purple-50 px-3.5 py-2 text-xs font-semibold text-purple-700 transition hover:bg-purple-100 hover:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/30"
+                        >
+                          Request Code
+                        </button>
+                      </div>
                       {formErrors.inviteCode && (
                         <p className="mt-1 text-xs text-rose-500">{formErrors.inviteCode}</p>
                       )}
@@ -493,20 +502,6 @@ export default function LandingPage() {
                       )}
                     </button>
 
-                    {/* Divider */}
-                    <div className="mt-3 flex items-center gap-3">
-                      <div className="flex-1 border-t border-slate-200" />
-                      <span className="text-sm text-slate-400">or</span>
-                      <div className="flex-1 border-t border-slate-200" />
-                    </div>
-
-                    {/* Request Code Button */}
-                    <button
-                      onClick={handleGoToRequest}
-                      className="mt-3 w-full rounded-lg border border-purple-200 bg-white px-5 py-2.5 text-sm font-semibold text-purple-600 transition hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-400/50"
-                    >
-                      Request Code
-                    </button>
                   </div>
                 )}
 
