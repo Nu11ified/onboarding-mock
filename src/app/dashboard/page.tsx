@@ -400,6 +400,10 @@ function OnboardingChatInput({
             Send
           </button>
         </div>
+        {/* LLM Disclaimer */}
+        <p className="text-[11px] text-slate-400 text-center mt-1">
+          LLM based systems can hallucinate! Try again if you don&apos;t get the desired response.
+        </p>
       </div>
     </div>
   );
@@ -2891,6 +2895,10 @@ const ChatSidebar = forwardRef<
                 </button>
               </div>
             )}
+            {/* LLM Disclaimer */}
+            <p className="text-[11px] text-slate-400 text-center mt-1">
+              LLM based systems can hallucinate! Try again if you don&apos;t get the desired response.
+            </p>
           </div>
         </div>
         {/* Video Popup */}

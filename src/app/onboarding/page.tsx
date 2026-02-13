@@ -763,6 +763,11 @@ function DualPaneOnboardingPageInner() {
               </div>
             )}
 
+            {/* LLM Disclaimer */}
+            <p className="text-[11px] text-slate-400 text-center mt-1">
+              LLM based systems can hallucinate! Try again if you don&apos;t get the desired response.
+            </p>
+
             {/* Status Indicator */}
             {!machine.state?.waitForUserInput && (
               <div className="flex items-center gap-2 text-xs text-slate-500">
