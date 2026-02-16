@@ -119,8 +119,8 @@ function ResetPasswordContent() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 via-white to-purple-100">
-      <div className="w-full max-w-md rounded-2xl border border-purple-200 bg-white p-6 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center p-4 md:p-8 bg-gradient-to-br from-purple-50 via-white to-purple-100">
+      <div className="w-full max-w-md rounded-2xl border border-purple-200 bg-white p-4 md:p-6 shadow-sm">
         <h1 className="mb-1 text-xl font-semibold text-slate-900">
           Set your password
         </h1>
@@ -166,7 +166,7 @@ function ResetPasswordContent() {
 
 function ResetPasswordFallback() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 via-white to-purple-100">
+    <div className="flex min-h-screen items-center justify-center p-4 md:p-8 bg-gradient-to-br from-purple-50 via-white to-purple-100">
       <div className="rounded-xl border border-purple-200 bg-white px-6 py-4 text-sm text-slate-600 shadow-sm">
         Preparing your reset experience...
       </div>

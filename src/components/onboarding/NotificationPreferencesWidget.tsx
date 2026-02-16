@@ -23,7 +23,7 @@ export function NotificationPreferencesWidget({
   };
 
   return (
-    <div className="max-w-[320px] space-y-4 rounded-xl border border-purple-200 bg-white p-4 shadow-sm">
+    <div className="w-full max-w-sm space-y-4 rounded-xl border border-purple-200 bg-white p-4 shadow-sm">
       <div>
         <h3 className="text-sm font-semibold text-slate-900">
           Email Notifications

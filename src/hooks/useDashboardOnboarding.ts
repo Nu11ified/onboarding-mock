@@ -1849,17 +1849,27 @@ export function useDashboardOnboarding(): DashboardOnboardingState {
           message:
             "Welcome to your Device Dashboard!\n\nOn the right, you're seeing the live view of your machine, where you can:\n• Monitor its Health Score\n• Track planned vs predicted days to maintenance\n• Watch real-time telemetry data\n• Receive alerts and notifications\n• View and manage maintenance tickets\n\nThis dashboard updates automatically as new data comes in. Feel free to explore it — click on any chart, alert, or ticket to dive deeper.\n\nBefore we continue, would you like to move on and see how the agentic workflow is already working behind the scenes for this machine?",
           widget: {
-            type: "right-panel-button",
+            type: "widget-stack",
             data: {
-              panelType: "health-metrics",
-              title: "Dashboard Metrics Explained",
-              buttonText: "What are the metrics?",
-              content: {
-                healthScore: 94,
-                dutyRate: "78%",
-                plannedDays: 30,
-                predictedDays: 6,
-              },
+              widgets: [
+                {
+                  type: "view-dashboard-button",
+                },
+                {
+                  type: "right-panel-button",
+                  data: {
+                    panelType: "health-metrics",
+                    title: "Dashboard Metrics Explained",
+                    buttonText: "What are the metrics?",
+                    content: {
+                      healthScore: 94,
+                      dutyRate: "78%",
+                      plannedDays: 30,
+                      predictedDays: 6,
+                    },
+                  },
+                },
+              ],
             },
           },
           timestamp: new Date(),

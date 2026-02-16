@@ -353,7 +353,7 @@ export default function LandingPage() {
                     </p>
 
                     {/* Name Fields */}
-                    <div className="grid grid-cols-2 gap-2 mb-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                       <div>
                         <label className="mb-1 block text-xs font-medium text-slate-600">
                           First Name
@@ -577,7 +577,7 @@ export default function LandingPage() {
 
       {/* Lovable-style Top Bar */}
       <header className="relative z-20 border-b border-purple-100/50 bg-white/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-8">
             <Image
               src="/microai-logo-dark.svg"
@@ -605,7 +605,7 @@ export default function LandingPage() {
       </header>
 
       {/* Main Content */}
-      <div className="relative z-10 flex flex-1 items-center justify-center px-6 py-12">
+      <div className="relative z-10 flex flex-1 items-center justify-center px-4 md:px-6 py-12">
         {/* Main Chat Container */}
         <div className="mx-auto w-full max-w-3xl">
           {/* Title */}
@@ -621,7 +621,7 @@ export default function LandingPage() {
 
           {/* Chat Box */}
           <div className="relative mb-8 rounded-3xl border border-purple-200/80 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-1 shadow-2xl">
-            <div className="rounded-[22px] bg-white p-6">
+            <div className="rounded-[22px] bg-white p-4 md:p-6">
               {/* Chat Messages */}
               {messages.length > 0 && (
                 <div className="mb-4 max-h-[300px] space-y-4 overflow-y-auto">
@@ -949,7 +949,7 @@ export default function LandingPage() {
         id="features"
         className="relative z-10 border-t border-purple-100/50 bg-white/80"
       >
-        <div className="mx-auto max-w-7xl px-6 py-16">
+        <div className="mx-auto max-w-7xl px-4 md:px-6 py-16">
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
               Features at a glance
@@ -1035,7 +1035,7 @@ export default function LandingPage() {
         id="how-it-works"
         className="relative z-10 border-t border-purple-100/50 bg-gradient-to-b from-white to-purple-50/40"
       >
-        <div className="mx-auto max-w-7xl px-6 py-16">
+        <div className="mx-auto max-w-7xl px-4 md:px-6 py-16">
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
               How it works
@@ -1084,7 +1084,7 @@ export default function LandingPage() {
         id="integrations"
         className="relative z-10 border-t border-purple-100/50 bg-white"
       >
-        <div className="mx-auto max-w-7xl px-6 py-16">
+        <div className="mx-auto max-w-7xl px-4 md:px-6 py-16">
           <div className="mb-6 text-center">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
               Integrations & compatibility
@@ -1118,7 +1118,7 @@ export default function LandingPage() {
         id="outcomes"
         className="relative z-10 border-t border-purple-100/50 bg-gradient-to-b from-purple-50/40 to-white"
       >
-        <div className="mx-auto max-w-7xl px-6 py-16">
+        <div className="mx-auto max-w-7xl px-4 md:px-6 py-16">
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
               Outcomes you can measure
@@ -1157,7 +1157,7 @@ export default function LandingPage() {
         id="footer"
         className="relative z-10 border-t border-purple-100/50 bg-white"
       >
-        <div className="mx-auto max-w-7xl px-6 py-12">
+        <div className="mx-auto max-w-7xl px-4 md:px-6 py-12">
           <div className="grid gap-8 md:grid-cols-4">
             <div>
               <Image

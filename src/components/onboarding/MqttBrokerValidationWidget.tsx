@@ -242,7 +242,7 @@ export function MqttBrokerValidationWidget({
       {/* Help Modal */}
       {showHelpModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="w-full max-w-[calc(100vw-32px)] sm:max-w-lg rounded-xl bg-white shadow-2xl max-h-[85vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <h3 className="text-lg font-semibold text-slate-900">How to Send Data to MQTT</h3>
               <button

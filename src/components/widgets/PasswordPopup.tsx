@@ -127,13 +127,13 @@ export function PasswordPopup({ isOpen, onClose, email: propEmail, phoneNumber: 
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 rounded-3xl border border-purple-200/80 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-1 shadow-2xl">
-        <div className="rounded-[22px] bg-white p-8">
+      <div className="relative w-full max-w-[calc(100vw-32px)] sm:max-w-md mx-4 max-h-[85vh] overflow-y-auto rounded-3xl border border-purple-200/80 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-1 shadow-2xl">
+        <div className="rounded-[22px] bg-white p-6 sm:p-8">
           {/* Close Button */}
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="absolute top-6 right-6 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
           >
             <X className="h-5 w-5" />
           </button>

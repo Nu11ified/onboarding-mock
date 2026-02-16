@@ -60,6 +60,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { useDashboardOnboarding } from "@/hooks/useDashboardOnboarding";
 import {
   EmailFormWidget,
@@ -478,6 +479,8 @@ function OnboardingContentArea() {
 
 function DashboardPageContent() {
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { panel: rightPanel, isOpen: rightPanelOpen, openPanel, closePanel } =
     useRightSidePanel();
 
@@ -1479,6 +1482,21 @@ function DashboardPageContent() {
             />
           );
 
+        case "view-dashboard-button":
+          return (
+            <button
+              onClick={() => {
+                chatScrollTopRef.current = getChatScrollTop();
+                setChatCollapsed(true);
+                setChatMaximized(false);
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-semibold text-purple-700 transition hover:bg-purple-100"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              View Dashboard
+            </button>
+          );
+
         case "right-panel-button": {
           const extractPayload = (input: any) => {
             let p = input;
@@ -1655,12 +1673,21 @@ function DashboardPageContent() {
             setActiveNav(key);
           }}
           collapsed={sidebarCollapsed}
+          isMobile={isMobile}
+          mobileOpen={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
         />
         <div className="relative flex flex-1 flex-col overflow-hidden">
           <TopBar
             onToggleChat={handleToggleChat}
             chatCollapsed={chatCollapsed}
-            onToggleSidebar={() => setSidebarCollapsed((prev) => !prev)}
+            onToggleSidebar={() => {
+              if (isMobile) {
+                setMobileSidebarOpen((prev) => !prev);
+              } else {
+                setSidebarCollapsed((prev) => !prev);
+              }
+            }}
             sidebarCollapsed={sidebarCollapsed}
             onOpenShare={() => setShareOpen(true)}
             notifications={notifications}
@@ -1668,8 +1695,137 @@ function DashboardPageContent() {
             onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
           />
           <div className="relative flex-1 overflow-hidden">
-            {/* Docked layout (chat consumes its own space) */}
-            {!chatCollapsed && !chatOverlay ? (
+            {/* Mobile: Fullscreen right panel overlay (Task 4) */}
+            {isMobile && rightPanel && (
+              <div className="fixed inset-x-0 top-16 bottom-0 z-50 bg-white flex flex-col">
+                <div className="flex items-center justify-between border-b border-purple-100 px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-800">Details</p>
+                  <button
+                    onClick={closePanel}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-purple-50 text-slate-500"
+                    aria-label="Close panel"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                  <RightSidePanel
+                    panel={rightPanel}
+                    className="h-full"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Mobile: Fullscreen chat overlay (Task 3) */}
+            {isMobile && !chatCollapsed && (
+              <div className="fixed inset-x-0 top-16 bottom-0 z-40 bg-white flex flex-col">
+                <ChatSidebar
+                  ref={chatSidebarRef}
+                  messages={onboardingMessages}
+                  threads={THREADS}
+                  activeThread={activeThread}
+                  onSelectThread={handleThreadChange}
+                  onSendCustom={async (text: string) => {
+                    await handleOnboardingInput(text);
+                  }}
+                  onVideoSubmit={handleVideoSubmit}
+                  isDashboard
+                  isOnboarding={true}
+                  onboardingProcessing={onboardingProcessing}
+                  renderWidget={renderOnboardingWidget}
+                  fullWidth
+                  isMaximized={false}
+                  rightPanelOpen={rightPanelOpen}
+                  onToggleRightPanel={() => closePanel()}
+                  onToggleMaximize={() => {}}
+                  onClose={() => {
+                    chatScrollTopRef.current = getChatScrollTop();
+                    setChatCollapsed(true);
+                    setChatMaximized(false);
+                  }}
+                  restoredScrollTop={chatScrollTopRef.current}
+                />
+              </div>
+            )}
+
+            {/* Mobile: show only dashboard content when chat is collapsed */}
+            {isMobile && chatCollapsed && (
+              <main className="h-full overflow-hidden relative">
+                {/* Close button to go back to chat */}
+                <button
+                  onClick={() => setChatCollapsed(false)}
+                  className="absolute top-3 right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-200 shadow-sm text-slate-600 hover:bg-slate-100 transition"
+                  aria-label="Back to chat"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <DashboardMain
+                  activeNav={activeNav}
+                  collaborators={collaborators}
+                  assetProfiles={assetProfiles}
+                  machines={machines}
+                  selectedProfileId={selectedProfileId}
+                  selectedMachineId={selectedMachineId}
+                  onProfileChange={(profileId) => {
+                    setSelectedProfileId(profileId);
+                    const profileMachines = machines.filter(
+                      (m) => m.profileId === profileId,
+                    );
+                    if (profileMachines.length > 0) {
+                      setSelectedMachineId(profileMachines[0].id);
+                    }
+                  }}
+                  onMachineChange={setSelectedMachineId}
+                  onSelect={(key) => {
+                    setActiveNav(key);
+                  }}
+                  notifications={DASHBOARD_NOTIFICATIONS}
+                  kpis={DASHBOARD_KPIS}
+                  charts={DASHBOARD_CHARTS}
+                  tickets={paginatedTickets}
+                  allTickets={sortedTickets}
+                  sortState={sortState}
+                  onSort={handleSort}
+                  selectedTicket={selectedTicket}
+                  onSelectTicket={setSelectedTicketId}
+                  onStatusFilterChange={setStatusFilter}
+                  onSeverityFilterChange={setSeverityFilter}
+                  onMachineFilterChange={setMachineFilter}
+                  statusFilter={statusFilter}
+                  severityFilter={severityFilter}
+                  machineFilter={machineFilter}
+                  ticketView={ticketView}
+                  onTicketViewChange={setTicketView}
+                  ticketModalOpen={ticketModalOpen}
+                  onTicketModalChange={setTicketModalOpen}
+                  onStatusChange={handleTicketStatusChange}
+                  onAssign={handleTicketAssign}
+                  onSeverityChange={handleTicketSeverityChange}
+                  onAddNote={handleTicketAddNote}
+                  chatCollapsed={chatCollapsed}
+                  sidebarCollapsed={sidebarCollapsed}
+                  onNewTicketOpenChange={setNewTicketOpen}
+                  onDeleteTicket={handleDeleteTicket}
+                  onUpdateFields={handleUpdateTicketFields}
+                  page={page}
+                  pageSize={pageSize}
+                  total={filteredTickets.length}
+                  onPageChange={setPage}
+                  onPageSizeChange={(n) => {
+                    setPageSize(n);
+                    setPage(1);
+                  }}
+                  onboardingMessages={onboardingMessages}
+                  onboardingProcessing={onboardingProcessing}
+                  onHandleOnboardingInput={handleOnboardingInput}
+                  renderOnboardingWidget={renderOnboardingWidget}
+                />
+              </main>
+            )}
+
+            {/* Desktop: Docked layout (chat consumes its own space) */}
+            {!isMobile && !chatCollapsed && !chatOverlay ? (
               <div className="h-full min-h-0 flex relative">
                 <div className="relative" style={{ width: `${chatWidth}px` }}>
                   <ChatSidebar
@@ -1716,10 +1872,10 @@ function DashboardPageContent() {
                     className="absolute top-0 bottom-0 z-30 w-[440px] max-w-[calc(100vw-16px)] p-4"
                     style={{ left: `${chatWidth}px` }}
                   >
-                    <RightSidePanel 
-                      panel={rightPanel} 
-                      onClose={closePanel} 
-                      className="h-full" 
+                    <RightSidePanel
+                      panel={rightPanel}
+                      onClose={closePanel}
+                      className="h-full"
                     />
                   </div>
                 )}
@@ -1788,7 +1944,7 @@ function DashboardPageContent() {
                   />
                 </main>
               </div>
-            ) : (
+            ) : !isMobile ? (
               <main className="h-full overflow-hidden">
                 <DashboardMain
                   activeNav={activeNav}
@@ -1852,10 +2008,10 @@ function DashboardPageContent() {
                   renderOnboardingWidget={renderOnboardingWidget}
                 />
               </main>
-            )}
+            ) : null}
 
-            {/* Overlay layout (chat floats over content) */}
-            {!chatCollapsed && chatOverlay && (
+            {/* Desktop: Overlay layout (chat floats over content) */}
+            {!isMobile && !chatCollapsed && chatOverlay && (
               <div
                 className={cn(
                   "absolute top-16 left-0 bottom-0 z-40 shadow-2xl",
@@ -1899,22 +2055,22 @@ function DashboardPageContent() {
               </div>
             )}
 
-            {/* Right-side help panel (overlay): only show when a specific panel is open */}
-            {!chatCollapsed && chatOverlay && !chatMaximized && rightPanel && (
+            {/* Desktop: Right-side help panel (overlay): only show when a specific panel is open */}
+            {!isMobile && !chatCollapsed && chatOverlay && !chatMaximized && rightPanel && (
               <div
                 className="absolute top-16 bottom-0 z-40 w-[440px] max-w-[calc(100vw-16px)] p-4"
                 style={{ left: `${chatWidth}px` }}
               >
-                <RightSidePanel 
-                  panel={rightPanel} 
-                  onClose={closePanel} 
-                  className="h-full" 
+                <RightSidePanel
+                  panel={rightPanel}
+                  onClose={closePanel}
+                  className="h-full"
                 />
               </div>
             )}
 
-            {/* Maximized chat overlay (full page) */}
-            {!chatCollapsed && chatMaximized && (
+            {/* Desktop: Maximized chat overlay (full page) */}
+            {!isMobile && !chatCollapsed && chatMaximized && (
               <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm">
                 <div className="flex h-full min-h-0">
                   <div className="flex-1 min-w-0">
@@ -1952,10 +2108,10 @@ function DashboardPageContent() {
 
                   <div className="w-[440px] shrink-0 border-l border-purple-100 bg-white p-4">
                     {rightPanel ? (
-                      <RightSidePanel 
-                        panel={rightPanel} 
-                        onClose={closePanel} 
-                        className="h-full" 
+                      <RightSidePanel
+                        panel={rightPanel}
+                        onClose={closePanel}
+                        className="h-full"
                       />
                     ) : (
                       <StatusPanel
@@ -2025,11 +2181,96 @@ function Sidebar({
   active,
   onSelect,
   collapsed,
+  isMobile,
+  mobileOpen,
+  onClose,
 }: {
   active: NavKey;
   onSelect: (key: NavKey) => void;
   collapsed: boolean;
+  isMobile?: boolean;
+  mobileOpen?: boolean;
+  onClose?: () => void;
 }) {
+  // Mobile: hidden when closed, overlay when open
+  if (isMobile) {
+    if (!mobileOpen) return null;
+    return (
+      <div className="fixed inset-0 z-50" aria-label="Mobile navigation overlay">
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+        {/* Sidebar content */}
+        <nav
+          className="relative w-64 h-full bg-white flex flex-col px-3 py-4 shadow-xl"
+          aria-label="Primary navigation"
+        >
+          {/* Logo Section */}
+          <div className="flex items-center justify-between px-3 mb-8">
+            <Image
+              src="/microai-logo-dark.svg"
+              alt="MicroAI"
+              width={100}
+              height={28}
+              className="h-7 w-auto"
+            />
+            <button
+              onClick={onClose}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-purple-50 text-slate-500"
+              aria-label="Close sidebar"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Navigation Items */}
+          <div className="flex-1 space-y-1">
+            {SIDENAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const activeStyle = active === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => {
+                    onSelect(item.key);
+                    onClose?.();
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                    activeStyle
+                      ? "bg-purple-600 text-white shadow-sm"
+                      : "text-slate-700 hover:bg-purple-50 hover:text-purple-700",
+                  )}
+                  aria-current={activeStyle ? "page" : undefined}
+                >
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Bottom Section - User Profile Area */}
+          <div className="mt-auto pt-4 border-t border-purple-100">
+            <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-purple-50 transition-colors cursor-pointer">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-purple-600 text-xs font-semibold">
+                D
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-900 truncate">
+                  Demo User
+                </p>
+                <p className="text-xs text-slate-500 truncate">
+                  demo@microai.com
+                </p>
+              </div>
+            </div>
+          </div>
+        </nav>
+      </div>
+    );
+  }
+
+  // Desktop: existing behavior unchanged
   return (
     <nav
       className={cn(
@@ -2131,7 +2372,7 @@ function TopBar({
 }) {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   return (
-    <header className="flex h-16 items-center justify-between border-b border-purple-100 bg-white/70 px-6 backdrop-blur">
+    <header className="flex h-16 items-center justify-between border-b border-purple-100 bg-white/70 px-3 md:px-6 backdrop-blur">
       <div className="flex items-center gap-3">
         <button
           className={cn(
@@ -3029,7 +3270,7 @@ function DashboardMain({
     return (
       <div className="flex h-full flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-6xl space-y-8 px-6 py-10">
+          <div className="mx-auto w-full max-w-6xl space-y-8 px-4 md:px-6 py-6 md:py-10">
             <OverviewPage machines={machines} />
           </div>
         </div>
@@ -3042,7 +3283,7 @@ function DashboardMain({
     return (
       <div className="flex h-full flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-3xl space-y-8 px-6 py-10">
+          <div className="mx-auto w-full max-w-3xl space-y-8 px-4 md:px-6 py-6 md:py-10">
             <div className="text-center mb-8">
               <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-purple-100">
                 <Sparkles className="h-10 w-10 text-purple-600" />
@@ -3165,7 +3406,7 @@ function DashboardMain({
     return (
       <div className="flex h-full flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-6xl space-y-8 px-6 py-10">
+          <div className="mx-auto w-full max-w-6xl space-y-8 px-4 md:px-6 py-6 md:py-10">
             <MachineDetailView
               machine={selectedMachine}
               tickets={tickets.filter(
@@ -3360,7 +3601,7 @@ function DashboardMain({
     return (
       <div className="flex h-full flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-6xl space-y-8 px-6 py-10">
+          <div className="mx-auto w-full max-w-6xl space-y-8 px-4 md:px-6 py-6 md:py-10">
             <AppsView />
           </div>
         </div>
@@ -3372,7 +3613,7 @@ function DashboardMain({
     return (
       <div className="flex h-full flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-6xl space-y-8 px-6 py-10">
+          <div className="mx-auto w-full max-w-6xl space-y-8 px-4 md:px-6 py-6 md:py-10">
             <SettingsView />
           </div>
         </div>
@@ -3866,7 +4107,7 @@ function MachineDetailView({
         </div>
       )}
 
-      <section className="grid gap-4 md:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {/* Live health score KPI */}
         <div className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -4299,7 +4540,7 @@ function TicketModal({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-2xl max-h-[85vh] overflow-y-auto -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-purple-100 bg-white p-6 shadow-2xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-[calc(100vw-32px)] sm:max-w-2xl max-h-[85vh] overflow-y-auto -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-purple-100 bg-white p-4 sm:p-6 shadow-2xl">
           <div className="flex items-start justify-between">
             <div>
               <Dialog.Title className="text-lg font-semibold text-slate-900">
@@ -4706,7 +4947,7 @@ function NewTicketModal({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w/full max-w-lg max-h-[85vh] overflow-y-auto -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-purple-100 bg-white p-6 shadow-2xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-[calc(100vw-32px)] sm:max-w-lg max-h-[85vh] overflow-y-auto -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-purple-100 bg-white p-4 sm:p-6 shadow-2xl">
           <div className="flex items-start justify-between">
             <div>
               <Dialog.Title className="text-lg font-semibold text-slate-900">
@@ -5431,24 +5672,24 @@ function TicketWorkspace({
                 : "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]",
           )}
         >
-          <div className="overflow-hidden rounded-2xl border border-purple-100 min-w-0">
+          <div className="overflow-x-auto overflow-hidden rounded-2xl border border-purple-100 min-w-0">
             <table className="min-w-full divide-y divide-purple-100 text-left text-sm">
               <thead className="bg-purple-50/60 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   {(
                     [
-                      { key: "timestamp", label: "Timestamp" },
-                      { key: "workorder", label: "Workorder ID" },
-                      { key: "summary", label: "Summary" },
-                      { key: "related", label: "Ticket" },
-                      { key: "status", label: "Status" },
-                      { key: "severity", label: "Severity" },
-                      { key: "owner", label: "Owner" },
-                    ] as { key: keyof TicketRow; label: string }[]
+                      { key: "timestamp", label: "Timestamp", hideOnMobile: true },
+                      { key: "workorder", label: "Workorder ID", hideOnMobile: true },
+                      { key: "summary", label: "Summary", hideOnMobile: false },
+                      { key: "related", label: "Ticket", hideOnMobile: false },
+                      { key: "status", label: "Status", hideOnMobile: false },
+                      { key: "severity", label: "Severity", hideOnMobile: false },
+                      { key: "owner", label: "Owner", hideOnMobile: true },
+                    ] as { key: keyof TicketRow; label: string; hideOnMobile: boolean }[]
                   ).map((column) => (
                     <th
                       key={column.key}
-                      className="cursor-pointer px-4 py-3"
+                      className={cn("cursor-pointer px-4 py-3", column.hideOnMobile && "hidden md:table-cell")}
                       onClick={() => onSort(column.key)}
                     >
                       <div className="flex items-center gap-2">
@@ -5480,10 +5721,10 @@ function TicketWorkspace({
                     )}
                     onClick={() => onSelectTicket(ticket.related)}
                   >
-                    <td className="px-4 py-3 text-xs text-slate-500">
+                    <td className="hidden md:table-cell px-4 py-3 text-xs text-slate-500">
                       {ticket.timestamp}
                     </td>
-                    <td className="px-4 py-3 font-semibold text-slate-800">
+                    <td className="hidden md:table-cell px-4 py-3 font-semibold text-slate-800">
                       {ticket.workorder}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
@@ -5509,7 +5750,7 @@ function TicketWorkspace({
                         {ticket.severity}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{ticket.owner}</td>
+                    <td className="hidden md:table-cell px-4 py-3 text-slate-600">{ticket.owner}</td>
                   </tr>
                 ))}
                 {tickets.length === 0 && (
@@ -5685,7 +5926,7 @@ function ShareModal({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-purple-100 bg-white/95 p-6 shadow-2xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-[calc(100vw-32px)] sm:max-w-2xl max-h-[85vh] overflow-y-auto -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-purple-100 bg-white/95 p-4 sm:p-6 shadow-2xl">
           <div className="flex items-start justify-between">
             <div>
               <Dialog.Title className="flex items-center gap-2 text-lg font-semibold text-slate-900">

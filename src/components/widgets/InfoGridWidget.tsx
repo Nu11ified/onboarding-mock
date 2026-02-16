@@ -93,7 +93,7 @@ export function InfoGridWidget({ title, description, fields }: InfoGridWidgetPro
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-5xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-purple-200 bg-white p-4 shadow-2xl">
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[calc(100vw-32px)] max-w-5xl max-h-[85vh] overflow-y-auto -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-purple-200 bg-white p-4 shadow-2xl">
             <div className="flex items-center justify-between mb-3">
               <Dialog.Title className="text-sm font-semibold text-slate-900">
                 {title || 'APM Ticket Overview'}

@@ -13,9 +13,11 @@ import {
   Activity,
   FileText,
   Save,
+  X,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { useFlow } from "@/hooks/useFlow";
 import { WidgetRenderer } from "@/components/widgets";
 import {
@@ -103,6 +105,7 @@ export default function DualPaneOnboardingPage() {
 }
 
 function DualPaneOnboardingPageInner() {
+  const isMobile = useIsMobile();
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [customInput, setCustomInput] = useState("");
@@ -300,8 +303,8 @@ function DualPaneOnboardingPageInner() {
         api.mqttReady();
       }
     } else if (stateId === 'live-data-received') {
-      if (lower.includes('configure')) api.configureChannels();
-      else if (lower.includes('skip') || lower.includes('default')) api.skipChannels();
+      if (lower.includes('configure') || lower === 'yes' || lower === 'y' || lower === 'sure' || lower === 'yeah') api.configureChannels();
+      else if (lower.includes('skip') || lower.includes('default') || lower === 'no' || lower === 'n' || lower === 'nah') api.skipChannels();
     } else if (stateId === 'demo-complete' || stateId === 'live-complete') {
       if (lower.includes('yes') || lower.includes('create')) api.sayYesCreate();
       else if (lower.includes('no') || lower.includes('later')) api.sayNoSkip();
@@ -313,37 +316,37 @@ function DualPaneOnboardingPageInner() {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-gradient-to-br from-purple-50 via-white to-slate-50">
       {/* Header - Full Width */}
-      <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6 flex-shrink-0">
+      <header className="flex h-14 md:h-16 items-center justify-between border-b border-slate-200 bg-white px-3 md:px-6 flex-shrink-0">
         <div className="flex items-center gap-4">
           <Image
             src="/microai-logo-dark.svg"
             alt="MicroAI"
             width={100}
             height={28}
-            className="h-7 w-auto"
+            className="h-7 w-auto shrink-0"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <button
             onClick={() => {
               if (confirm('Are you sure you want to restart the entire onboarding flow? This will clear all progress and data.')) {
                 reset();
               }
             }}
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+            className="hidden md:inline-flex rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
             title="Reset entire onboarding flow and clear all cache"
           >
             For Mock Only Ignore: Restart
           </button>
           <Link
             href="/login"
-            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            className="rounded-lg px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-medium text-slate-700 transition hover:bg-slate-100"
           >
             Log in
           </Link>
           <Link
             href="/signup"
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+            className="rounded-lg bg-slate-900 px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-medium text-white transition hover:bg-slate-800"
           >
             Get started
           </Link>
@@ -355,7 +358,7 @@ function DualPaneOnboardingPageInner() {
         {/* Left Pane - Chat Interface */}
         <div className="flex flex-1 flex-col border-r border-slate-200 bg-white/80 backdrop-blur-sm min-h-0">
           {/* Chat Messages Area */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 min-h-0">
+        <div className="flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-6 min-h-0">
           {messages.length === 0 && (
             <div className="flex h-full items-center justify-center">
               <div className="text-center max-w-md">
@@ -786,31 +789,52 @@ function DualPaneOnboardingPageInner() {
         </div>
       </div>
 
-      {/* Right Pane */}
-      <div className="w-[440px] flex-shrink-0 overflow-y-auto bg-gradient-to-br from-slate-50 to-purple-50/30 p-6">
-        {rightPanel ? (
-          <RightSidePanel panel={rightPanel} onClose={closePanel} />
-        ) : (
-          <StatusPanel
-            phase={currentPhase}
-            mode={currentMode}
-            mqttConfig={{
-              brokerEndpoint:
-                context.mqttConnection?.brokerEndpoint || "mqtt.industrialiq.ai",
-              brokerPort: context.mqttConnection?.brokerPort || 8883,
-              topic: context.mqttConnection?.topic || "telemetry",
-            }}
-            videoConfig={{
-              url: "https://youtu.be/YQj_I-Zpx4Q",
-              title: "What you unlock with onboarding",
-              description:
-                "See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.",
-              duration: "5:30",
-            }}
-          />
-        )}
+      {/* Right Pane - hidden on mobile, shown as overlay instead */}
+      {!isMobile && (
+        <div className="w-[440px] flex-shrink-0 overflow-y-auto bg-gradient-to-br from-slate-50 to-purple-50/30 p-6">
+          {rightPanel ? (
+            <RightSidePanel panel={rightPanel} onClose={closePanel} />
+          ) : (
+            <StatusPanel
+              phase={currentPhase}
+              mode={currentMode}
+              mqttConfig={{
+                brokerEndpoint:
+                  context.mqttConnection?.brokerEndpoint || "mqtt.industrialiq.ai",
+                brokerPort: context.mqttConnection?.brokerPort || 8883,
+                topic: context.mqttConnection?.topic || "telemetry",
+              }}
+              videoConfig={{
+                url: "https://youtu.be/YQj_I-Zpx4Q",
+                title: "What you unlock with onboarding",
+                description:
+                  "See what a fully activated machine looks like in the product—live telemetry views, model insights, health scores, alerts, and ticket workflows.",
+                duration: "5:30",
+              }}
+            />
+          )}
+        </div>
+      )}
       </div>
-      </div>
+
+      {/* Mobile: Right panel overlay */}
+      {isMobile && rightPanel && (
+        <div className="fixed inset-x-0 top-14 bottom-0 z-50 bg-white flex flex-col">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <p className="text-sm font-semibold text-slate-800">Details</p>
+            <button
+              onClick={closePanel}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600"
+              aria-label="Close panel"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <RightSidePanel panel={rightPanel} />
+          </div>
+        </div>
+      )}
 
       {/* Password Popup */}
       <PasswordPopup

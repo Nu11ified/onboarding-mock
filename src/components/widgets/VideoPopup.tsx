@@ -68,9 +68,9 @@ export function VideoPopup({ isOpen, onClose, onSubmit }: VideoPopupProps) {
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg mx-4 animate-fade-in-up">
-        <div className="rounded-3xl border border-purple-200/80 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-1 shadow-2xl">
-          <div className="rounded-[22px] bg-white p-6">
+      <div className="relative w-full max-w-[calc(100vw-32px)] sm:max-w-lg mx-4 max-h-[85vh] animate-fade-in-up">
+        <div className="rounded-3xl border border-purple-200/80 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-1 shadow-2xl max-h-[85vh] overflow-y-auto">
+          <div className="rounded-[22px] bg-white p-4 sm:p-6">
             {/* Close Button */}
             <button
               onClick={handleClose}

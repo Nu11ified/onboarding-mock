@@ -121,7 +121,7 @@ export function PaymentWidget({ onSubmit }: PaymentWidgetProps) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label htmlFor="expiry" className="mb-1 block text-xs font-medium text-slate-700">
               Expiry Date

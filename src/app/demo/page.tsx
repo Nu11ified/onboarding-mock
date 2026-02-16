@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { useScriptedOnboarding } from "@/hooks/useScriptedOnboarding";
 import { WidgetRenderer } from "@/components/widgets";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -56,6 +57,7 @@ const DEFAULT_PROMPTS: PromptTemplate[] = [
 ];
 
 export default function DemoPage() {
+  const isMobile = useIsMobile();
   // Check if user is logged in
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [customInput, setCustomInput] = useState("");
@@ -123,7 +125,7 @@ export default function DemoPage() {
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100 text-slate-900">
       {/* Minimal Sidebar (Ask AI only) */}
-      <nav className="flex w-60 flex-col border-r border-purple-100 bg-white/70 backdrop-blur">
+      <nav className="hidden md:flex w-60 flex-col border-r border-purple-100 bg-white/70 backdrop-blur">
         <div className="flex items-center px-3 py-4 border-b border-purple-100">
           <span className="text-sm font-semibold text-slate-900">LaunchPad</span>
         </div>
@@ -138,7 +140,7 @@ export default function DemoPage() {
 
       {/* Right: Top bar (empty) + Chat */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="h-16 border-b border-purple-100 bg-white/70" />
+        {!isMobile && <div className="h-16 border-b border-purple-100 bg-white/70" />}
         {/* Chat Container */}
         <aside className="flex flex-1 flex-col border-l border-purple-100 bg-white/80 backdrop-blur min-w-0">
         {/* Thread Header */}
@@ -182,7 +184,7 @@ export default function DemoPage() {
         {/* Chat Messages */}
         <div
           className="flex-1 space-y-3 overflow-y-auto px-3 py-3"
-          style={{ maxHeight: "calc(100vh - 180px)" }}
+          style={{ maxHeight: isMobile ? "calc(100dvh - 120px)" : "calc(100dvh - 180px)" }}
         >
           {messages.length === 0 && (
             <div className="flex h-full items-center justify-center">

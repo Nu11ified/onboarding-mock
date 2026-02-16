@@ -234,7 +234,7 @@ export function DeviceStatusWidget({
           </div>
           <div className="h-24 overflow-auto rounded bg-white p-2 text-[11px] font-mono text-slate-700 border border-slate-200">
             {rawData.map((s) => (
-              <div key={s.ts} className="whitespace-pre">
+              <div key={s.ts} className="break-all">
                 {JSON.stringify({ ts: s.ts, deviceId, temperature: s.temperature, pressure: s.pressure, vibration: s.vibration })}
               </div>
             ))}
