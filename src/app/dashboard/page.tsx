@@ -1418,6 +1418,58 @@ function DashboardPageContent() {
     [collaborators],
   );
 
+  // ── Project management handlers ──
+  const handleCreateProject = useCallback((name: string, color: string) => {
+    const id = `proj-${Date.now()}`;
+    setProjects((prev) => [
+      ...prev,
+      { id, name, color, isDefault: false, ticketIds: [] },
+    ]);
+  }, []);
+
+  const handleRenameProject = useCallback((id: string, name: string) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, name } : p)),
+    );
+  }, []);
+
+  const handleDeleteProject = useCallback((id: string) => {
+    setProjects((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (!target || target.isDefault) return prev;
+      // Move orphaned tickets to General
+      const general = prev.find((p) => p.id === "proj-general");
+      return prev
+        .filter((p) => p.id !== id)
+        .map((p) =>
+          p.id === "proj-general" && general
+            ? { ...p, ticketIds: [...p.ticketIds, ...target.ticketIds] }
+            : p,
+        );
+    });
+    if (selectedProjectId === id) setSelectedProjectId(null);
+  }, [selectedProjectId]);
+
+  const handleChangeProjectColor = useCallback((id: string, color: string) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, color } : p)),
+    );
+  }, []);
+
+  const handleMoveTicket = useCallback((workorder: string, targetProjectId: string) => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.ticketIds.includes(workorder) && p.id !== targetProjectId) {
+          return { ...p, ticketIds: p.ticketIds.filter((id) => id !== workorder) };
+        }
+        if (p.id === targetProjectId && !p.ticketIds.includes(workorder)) {
+          return { ...p, ticketIds: [...p.ticketIds, workorder] };
+        }
+        return p;
+      }),
+    );
+  }, []);
+
   const handleUpdateTicketFields = useCallback(
     (related: string, updates: Partial<TicketRow>) => {
       setTickets((prev) => {
