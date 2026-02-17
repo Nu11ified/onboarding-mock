@@ -168,25 +168,15 @@ export default function LandingPage() {
 
   const validateInviteForm = (): boolean => {
     const errors: Record<string, string> = {};
-    if (!firstName.trim()) errors.firstName = "First name is required";
-    if (!lastName.trim()) errors.lastName = "Last name is required";
-    if (!email.trim()) errors.email = "Email is required";
-    else if (!isValidEmail(email)) errors.email = "Please enter a valid email";
-    if (!formPhoneNumber.trim()) errors.formPhoneNumber = "Phone number is required";
-    else if (!/^[\d\s\-+()]+$/.test(formPhoneNumber)) errors.formPhoneNumber = "Please enter a valid phone number";
     if (!inviteCode.trim()) errors.inviteCode = "Invite code is required";
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleInviteSubmit = () => {
-    if (!validateInviteForm() || !termsAccepted) return;
+    if (!validateInviteForm()) return;
     setIsSubmitting(true);
     localStorage.setItem("invite_user_info", JSON.stringify({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      email: email.trim(),
-      phoneNumber: formPhoneNumber.trim(),
       inviteCode: inviteCode.trim(),
     }));
     setShowInvitePopup(false);
@@ -346,97 +336,14 @@ export default function LandingPage() {
 
                     {/* Title */}
                     <h2 className="mb-0.5 text-center text-lg font-semibold tracking-tight text-slate-900">
-                      Get Started
+                      Enter Invite Code
                     </h2>
-                    <p className="mb-3 text-center text-sm text-slate-500">
-                      Enter your details and invite code to begin
+                    <p className="mb-4 text-center text-sm text-slate-500">
+                      Enter your invite code to get started
                     </p>
 
-                    {/* Name Fields */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
-                          First Name
-                        </label>
-                        <input
-                          type="text"
-                          value={firstName}
-                          onChange={(e) => { setFirstName(e.target.value); clearField("firstName"); }}
-                          placeholder="John"
-                          className={cn(
-                            "w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
-                            formErrors.firstName ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
-                          )}
-                        />
-                        {formErrors.firstName && (
-                          <p className="mt-1 text-xs text-rose-500">{formErrors.firstName}</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
-                          Last Name
-                        </label>
-                        <input
-                          type="text"
-                          value={lastName}
-                          onChange={(e) => { setLastName(e.target.value); clearField("lastName"); }}
-                          placeholder="Doe"
-                          className={cn(
-                            "w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
-                            formErrors.lastName ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
-                          )}
-                        />
-                        {formErrors.lastName && (
-                          <p className="mt-1 text-xs text-rose-500">{formErrors.lastName}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Email Field */}
-                    <div className="mb-2">
-                      <label className="mb-1 block text-xs font-medium text-slate-600">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => { setEmail(e.target.value); clearField("email"); }}
-                        placeholder="you@company.com"
-                        className={cn(
-                          "w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
-                          formErrors.email ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
-                        )}
-                      />
-                      {formErrors.email && (
-                        <p className="mt-1 text-xs text-rose-500">{formErrors.email}</p>
-                      )}
-                    </div>
-
-                    {/* Phone Number Field */}
-                    <div className="mb-2">
-                      <label className="mb-1 block text-xs font-medium text-slate-600">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        value={formPhoneNumber}
-                        onChange={(e) => { setFormPhoneNumber(e.target.value); clearField("formPhoneNumber"); }}
-                        placeholder="+1 (555) 123-4567"
-                        className={cn(
-                          "w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
-                          formErrors.formPhoneNumber ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
-                        )}
-                      />
-                      {formErrors.formPhoneNumber && (
-                        <p className="mt-1 text-xs text-rose-500">{formErrors.formPhoneNumber}</p>
-                      )}
-                    </div>
-
                     {/* Invite Code Field */}
-                    <div className="mb-3">
-                      <label className="mb-1 block text-xs font-medium text-slate-600">
-                        Invite Code
-                      </label>
+                    <div className="mb-4">
                       <div className="flex gap-2">
                         <input
                           type="text"
@@ -444,14 +351,14 @@ export default function LandingPage() {
                           onChange={(e) => { setInviteCode(e.target.value); clearField("inviteCode"); }}
                           placeholder="Enter your invite code"
                           className={cn(
-                            "flex-1 min-w-0 rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
+                            "flex-1 min-w-0 rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
                             formErrors.inviteCode ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
                           )}
                         />
                         <button
                           type="button"
                           onClick={handleGoToRequest}
-                          className="shrink-0 rounded-lg border border-purple-300 bg-purple-50 px-3.5 py-2 text-xs font-semibold text-purple-700 transition hover:bg-purple-100 hover:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/30"
+                          className="shrink-0 rounded-lg border border-purple-300 bg-purple-50 px-3.5 py-2.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100 hover:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/30"
                         >
                           Request Code
                         </button>
@@ -461,33 +368,13 @@ export default function LandingPage() {
                       )}
                     </div>
 
-                    {/* Terms Checkbox */}
-                    <label className="mb-3 flex items-start gap-2.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={termsAccepted}
-                        onChange={(e) => setTermsAccepted(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
-                      />
-                      <span className="text-sm text-slate-500">
-                        I agree to the{" "}
-                        <a href="/terms" target="_blank" className="font-medium text-purple-600 hover:text-purple-700 underline">
-                          Terms of Use
-                        </a>{" "}
-                        and{" "}
-                        <a href="/privacy" target="_blank" className="font-medium text-purple-600 hover:text-purple-700 underline">
-                          Privacy Policy
-                        </a>
-                      </span>
-                    </label>
-
                     {/* Submit Button */}
                     <button
                       onClick={handleInviteSubmit}
-                      disabled={!termsAccepted || isSubmitting}
+                      disabled={isSubmitting}
                       className={cn(
                         "w-full rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
-                        termsAccepted && !isSubmitting
+                        !isSubmitting
                           ? "bg-purple-600 hover:bg-purple-700 hover:shadow-md"
                           : "bg-slate-300 cursor-not-allowed"
                       )}

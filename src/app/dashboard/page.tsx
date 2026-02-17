@@ -29,6 +29,7 @@ import {
   FileText,
   FolderKanban,
   Gauge,
+  HelpCircle,
   LayoutDashboard,
   Loader2,
   Menu,
@@ -3912,9 +3913,12 @@ function DashboardMain({
               <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">
                 Tickets Management
               </p>
-              <h1 className="text-3xl font-semibold text-slate-900">
-                All Tickets
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-semibold text-slate-900">
+                  All Tickets
+                </h1>
+                <TicketHierarchyTooltip />
+              </div>
               <p className="text-sm text-slate-500">
                 Track and manage maintenance tickets across all machines
               </p>
@@ -5848,6 +5852,78 @@ function SummaryCard({ data }: { data: CollectedData }) {
           <dd className="flex-1 text-slate-700">{data.dtmn} days</dd>
         </div>
       </dl>
+    </div>
+  );
+}
+
+function TicketHierarchyTooltip() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-purple-50 hover:text-purple-600"
+        title="Learn about ticket hierarchy"
+      >
+        <HelpCircle className="h-4.5 w-4.5" />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-9 z-50 w-80 rounded-xl border border-purple-100 bg-white p-4 shadow-xl animate-fade-in-up">
+          <h3 className="text-sm font-semibold text-slate-900 mb-3">How Tickets Are Organized</h3>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="flex items-start gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 shrink-0">
+                  <Ticket className="h-4 w-4 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-xs font-semibold text-slate-900 mb-0.5">Parent Tickets</h4>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Created automatically when the first alert is detected on a machine. Each parent ticket represents the primary issue and serves as the anchor for related follow-ups.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="flex items-start gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 shrink-0">
+                  <FileText className="h-4 w-4 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-xs font-semibold text-slate-900 mb-0.5">Child Tickets</h4>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Subsequent alerts from the same machine are grouped as child tickets under the original parent. This keeps related issues together for easier tracking.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="flex items-start gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 shrink-0">
+                  <Settings className="h-4 w-4 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-xs font-semibold text-slate-900 mb-0.5">Full Control</h4>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Both parent and child tickets can be independently assigned, updated, or closed. Resolving a parent does not automatically close its children.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
