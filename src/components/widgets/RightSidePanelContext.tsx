@@ -9,7 +9,8 @@ export type RightSidePanelType =
   | 'health-metrics'
   | 'agentic-workflow'
   | 'what-can-i-do-next'
-  | 'training-video';
+  | 'training-video'
+  | 'chat-groups';
 
 export type RightSidePanelState = {
   type: RightSidePanelType;

@@ -114,7 +114,6 @@ type Machine = {
 const SIDENAV_ITEMS: Array<{ key: NavKey; label: string; icon: LucideIcon }> = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
   { key: "view-machine", label: "Assets", icon: Gauge },
-  { key: "projects", label: "Projects", icon: FolderKanban },
   { key: "tickets", label: "Tickets", icon: Ticket },
   { key: "settings", label: "Settings", icon: Settings },
 ];
@@ -248,7 +247,6 @@ type NavKey =
   | "security"
   | "apm"
   | "tickets"
-  | "projects"
   | "apps"
   | "settings";
 
@@ -313,15 +311,12 @@ type TicketRow = {
   alertDescription?: string;
 };
 
-type Project = {
+type ChatGroup = {
   id: string;
   name: string;
   color: string; // Tailwind color name: "red", "blue", "green", "amber", "purple", "pink"
   isDefault: boolean;
-  autoFilter?: {
-    alertCategory?: ("Error" | "Warning")[];
-  };
-  ticketIds: string[];
+  threadNames: string[];
 };
 
 type SortState = {
@@ -491,21 +486,20 @@ function OnboardingContentArea() {
   );
 }
 
-const DEFAULT_PROJECTS: Project[] = [
+const DEFAULT_CHAT_GROUPS: ChatGroup[] = [
   {
-    id: "proj-alerts",
+    id: "grp-alerts",
     name: "Alerts",
     color: "red",
     isDefault: true,
-    autoFilter: { alertCategory: ["Error", "Warning"] },
-    ticketIds: [],
+    threadNames: [],
   },
   {
-    id: "proj-general",
+    id: "grp-general",
     name: "General",
     color: "blue",
     isDefault: true,
-    ticketIds: [],
+    threadNames: [],
   },
 ];
 
@@ -600,8 +594,7 @@ function DashboardPageContent() {
   const [shareOpen, setShareOpen] = useState(false);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [newTicketOpen, setNewTicketOpen] = useState(false);
-  const [projects, setProjects] = useState<Project[]>(DEFAULT_PROJECTS);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [chatGroups, setChatGroups] = useState<ChatGroup[]>(DEFAULT_CHAT_GROUPS);
   const [notifications, setNotifications] = useState<
     NotificationItemWithRead[]
   >(DASHBOARD_NOTIFICATIONS.map((n) => ({ ...n, isRead: false })));
@@ -1003,15 +996,6 @@ function DashboardPageContent() {
     return filteredTickets.slice(start, start + pageSize);
   }, [filteredTickets, page, pageSize]);
 
-  // Filter tickets by selected project
-  const projectFilteredTickets = useMemo(() => {
-    if (!selectedProjectId) return sortedTickets; // "All Tickets"
-    const project = projects.find((p) => p.id === selectedProjectId);
-    if (!project) return sortedTickets;
-    const idSet = new Set(project.ticketIds);
-    return sortedTickets.filter((t) => idSet.has(t.workorder));
-  }, [sortedTickets, selectedProjectId, projects]);
-
   // When filters or total change, ensure we are on a valid page
   useEffect(() => {
     const totalPages = Math.max(
@@ -1023,34 +1007,21 @@ function DashboardPageContent() {
     }
   }, [filteredTickets.length, pageSize]);
 
-  // Auto-assign tickets to projects when tickets load
+  // Auto-assign threads to chat groups on mount
   useEffect(() => {
-    if (tickets.length === 0) return;
-
-    setProjects((prev) => {
-      // Only auto-assign tickets that aren't already in any project
-      const assignedIds = new Set(prev.flatMap((p) => p.ticketIds));
-      const unassigned = tickets.filter((t) => !assignedIds.has(t.workorder));
+    if (THREADS.length === 0) return;
+    setChatGroups((prev) => {
+      const assigned = new Set(prev.flatMap((g) => g.threadNames));
+      const unassigned = THREADS.filter((t) => !assigned.has(t));
       if (unassigned.length === 0) return prev;
-
-      const updated = prev.map((p) => ({ ...p, ticketIds: [...p.ticketIds] }));
-      for (const ticket of unassigned) {
-        const alertProject = updated.find(
-          (p) =>
-            p.autoFilter?.alertCategory &&
-            ticket.alertCategory &&
-            p.autoFilter.alertCategory.includes(ticket.alertCategory),
-        );
-        if (alertProject) {
-          alertProject.ticketIds.push(ticket.workorder);
-        } else {
-          const general = updated.find((p) => p.id === "proj-general");
-          if (general) general.ticketIds.push(ticket.workorder);
-        }
-      }
-      return updated;
+      // All unassigned threads go to General by default
+      return prev.map((g) =>
+        g.id === "grp-general"
+          ? { ...g, threadNames: [...g.threadNames, ...unassigned] }
+          : g,
+      );
     });
-  }, [tickets]);
+  }, []);
 
   useEffect(() => {
     if (
@@ -1418,54 +1389,51 @@ function DashboardPageContent() {
     [collaborators],
   );
 
-  // ── Project management handlers ──
-  const handleCreateProject = useCallback((name: string, color: string) => {
-    const id = `proj-${Date.now()}`;
-    setProjects((prev) => [
+  // ── Chat group management handlers ──
+  const handleCreateGroup = useCallback((name: string, color: string) => {
+    const id = `grp-${Date.now()}`;
+    setChatGroups((prev) => [
       ...prev,
-      { id, name, color, isDefault: false, ticketIds: [] },
+      { id, name, color, isDefault: false, threadNames: [] },
     ]);
   }, []);
 
-  const handleRenameProject = useCallback((id: string, name: string) => {
-    setProjects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, name } : p)),
+  const handleRenameGroup = useCallback((id: string, name: string) => {
+    setChatGroups((prev) =>
+      prev.map((g) => (g.id === id ? { ...g, name } : g)),
     );
   }, []);
 
-  const handleDeleteProject = useCallback((id: string) => {
-    setProjects((prev) => {
-      const target = prev.find((p) => p.id === id);
+  const handleDeleteGroup = useCallback((id: string) => {
+    setChatGroups((prev) => {
+      const target = prev.find((g) => g.id === id);
       if (!target || target.isDefault) return prev;
-      // Move orphaned tickets to General
-      const general = prev.find((p) => p.id === "proj-general");
       return prev
-        .filter((p) => p.id !== id)
-        .map((p) =>
-          p.id === "proj-general" && general
-            ? { ...p, ticketIds: [...p.ticketIds, ...target.ticketIds] }
-            : p,
+        .filter((g) => g.id !== id)
+        .map((g) =>
+          g.id === "grp-general"
+            ? { ...g, threadNames: [...g.threadNames, ...target.threadNames] }
+            : g,
         );
     });
-    if (selectedProjectId === id) setSelectedProjectId(null);
-  }, [selectedProjectId]);
+  }, []);
 
-  const handleChangeProjectColor = useCallback((id: string, color: string) => {
-    setProjects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, color } : p)),
+  const handleChangeGroupColor = useCallback((id: string, color: string) => {
+    setChatGroups((prev) =>
+      prev.map((g) => (g.id === id ? { ...g, color } : g)),
     );
   }, []);
 
-  const handleMoveTicket = useCallback((workorder: string, targetProjectId: string) => {
-    setProjects((prev) =>
-      prev.map((p) => {
-        if (p.ticketIds.includes(workorder) && p.id !== targetProjectId) {
-          return { ...p, ticketIds: p.ticketIds.filter((id) => id !== workorder) };
+  const handleMoveThread = useCallback((threadName: string, targetGroupId: string) => {
+    setChatGroups((prev) =>
+      prev.map((g) => {
+        if (g.threadNames.includes(threadName) && g.id !== targetGroupId) {
+          return { ...g, threadNames: g.threadNames.filter((n) => n !== threadName) };
         }
-        if (p.id === targetProjectId && !p.ticketIds.includes(workorder)) {
-          return { ...p, ticketIds: [...p.ticketIds, workorder] };
+        if (g.id === targetGroupId && !g.threadNames.includes(threadName)) {
+          return { ...g, threadNames: [...g.threadNames, threadName] };
         }
-        return p;
+        return g;
       }),
     );
   }, []);
@@ -1833,10 +1801,23 @@ function DashboardPageContent() {
                   </button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4">
-                  <RightSidePanel
-                    panel={rightPanel}
-                    className="h-full"
-                  />
+                  {rightPanel.type === 'chat-groups' ? (
+                    <ChatGroupsPanel
+                      groups={chatGroups}
+                      onSelectThread={handleThreadChange}
+                      onMoveThread={handleMoveThread}
+                      onCreateGroup={handleCreateGroup}
+                      onRenameGroup={handleRenameGroup}
+                      onDeleteGroup={handleDeleteGroup}
+                      onChangeGroupColor={handleChangeGroupColor}
+                      onClose={closePanel}
+                    />
+                  ) : (
+                    <RightSidePanel
+                      panel={rightPanel}
+                      className="h-full"
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -1862,6 +1843,7 @@ function DashboardPageContent() {
                   isMaximized={false}
                   rightPanelOpen={rightPanelOpen}
                   onToggleRightPanel={() => closePanel()}
+                  onOpenGroups={() => openPanel({ type: 'chat-groups' })}
                   onToggleMaximize={() => {}}
                   onClose={() => {
                     chatScrollTopRef.current = getChatScrollTop();
@@ -1907,7 +1889,7 @@ function DashboardPageContent() {
                   notifications={DASHBOARD_NOTIFICATIONS}
                   kpis={DASHBOARD_KPIS}
                   charts={DASHBOARD_CHARTS}
-                  tickets={activeNav === "projects" ? projectFilteredTickets : paginatedTickets}
+                  tickets={paginatedTickets}
                   allTickets={sortedTickets}
                   sortState={sortState}
                   onSort={handleSort}
@@ -1934,7 +1916,7 @@ function DashboardPageContent() {
                   onUpdateFields={handleUpdateTicketFields}
                   page={page}
                   pageSize={pageSize}
-                  total={activeNav === "projects" ? projectFilteredTickets.length : filteredTickets.length}
+                  total={filteredTickets.length}
                   onPageChange={setPage}
                   onPageSizeChange={(n) => {
                     setPageSize(n);
@@ -1944,14 +1926,6 @@ function DashboardPageContent() {
                   onboardingProcessing={onboardingProcessing}
                   onHandleOnboardingInput={handleOnboardingInput}
                   renderOnboardingWidget={renderOnboardingWidget}
-                  projects={projects}
-                  selectedProjectId={selectedProjectId}
-                  onSelectProject={setSelectedProjectId}
-                  onMoveTicket={handleMoveTicket}
-                  onCreateProject={handleCreateProject}
-                  onRenameProject={handleRenameProject}
-                  onDeleteProject={handleDeleteProject}
-                  onChangeProjectColor={handleChangeProjectColor}
                 />
               </main>
             )}
@@ -1978,6 +1952,7 @@ function DashboardPageContent() {
                     isMaximized={false}
                     rightPanelOpen={rightPanelOpen}
                     onToggleRightPanel={() => closePanel()}
+                    onOpenGroups={() => openPanel({ type: 'chat-groups' })}
                     onToggleMaximize={() => {
                       // capture scroll, then maximize
                       chatScrollTopRef.current = getChatScrollTop();
@@ -2004,11 +1979,26 @@ function DashboardPageContent() {
                     className="absolute top-0 bottom-0 z-30 w-[440px] max-w-[calc(100vw-16px)] p-4"
                     style={{ left: `${chatWidth}px` }}
                   >
-                    <RightSidePanel
-                      panel={rightPanel}
-                      onClose={closePanel}
-                      className="h-full"
-                    />
+                    {rightPanel.type === 'chat-groups' ? (
+                      <div className="h-full w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                        <ChatGroupsPanel
+                          groups={chatGroups}
+                          onSelectThread={handleThreadChange}
+                          onMoveThread={handleMoveThread}
+                          onCreateGroup={handleCreateGroup}
+                          onRenameGroup={handleRenameGroup}
+                          onDeleteGroup={handleDeleteGroup}
+                          onChangeGroupColor={handleChangeGroupColor}
+                          onClose={closePanel}
+                        />
+                      </div>
+                    ) : (
+                      <RightSidePanel
+                        panel={rightPanel}
+                        onClose={closePanel}
+                        className="h-full"
+                      />
+                    )}
                   </div>
                 )}
 
@@ -2036,7 +2026,7 @@ function DashboardPageContent() {
                     notifications={DASHBOARD_NOTIFICATIONS}
                     kpis={DASHBOARD_KPIS}
                     charts={DASHBOARD_CHARTS}
-                    tickets={activeNav === "projects" ? projectFilteredTickets : paginatedTickets}
+                    tickets={paginatedTickets}
                     allTickets={sortedTickets}
                     sortState={sortState}
                     onSort={handleSort}
@@ -2063,7 +2053,7 @@ function DashboardPageContent() {
                     onUpdateFields={handleUpdateTicketFields}
                     page={page}
                     pageSize={pageSize}
-                    total={activeNav === "projects" ? projectFilteredTickets.length : filteredTickets.length}
+                    total={filteredTickets.length}
                     onPageChange={setPage}
                     onPageSizeChange={(n) => {
                       setPageSize(n);
@@ -2073,14 +2063,6 @@ function DashboardPageContent() {
                     onboardingProcessing={onboardingProcessing}
                     onHandleOnboardingInput={handleOnboardingInput}
                     renderOnboardingWidget={renderOnboardingWidget}
-                    projects={projects}
-                    selectedProjectId={selectedProjectId}
-                    onSelectProject={setSelectedProjectId}
-                    onMoveTicket={handleMoveTicket}
-                    onCreateProject={handleCreateProject}
-                    onRenameProject={handleRenameProject}
-                    onDeleteProject={handleDeleteProject}
-                    onChangeProjectColor={handleChangeProjectColor}
                   />
                 </main>
               </div>
@@ -2109,7 +2091,7 @@ function DashboardPageContent() {
                   notifications={DASHBOARD_NOTIFICATIONS}
                   kpis={DASHBOARD_KPIS}
                   charts={DASHBOARD_CHARTS}
-                  tickets={activeNav === "projects" ? projectFilteredTickets : paginatedTickets}
+                  tickets={paginatedTickets}
                   allTickets={sortedTickets}
                   sortState={sortState}
                   onSort={handleSort}
@@ -2136,7 +2118,7 @@ function DashboardPageContent() {
                   onUpdateFields={handleUpdateTicketFields}
                   page={page}
                   pageSize={pageSize}
-                  total={activeNav === "projects" ? projectFilteredTickets.length : filteredTickets.length}
+                  total={filteredTickets.length}
                   onPageChange={setPage}
                   onPageSizeChange={(n) => {
                     setPageSize(n);
@@ -2146,14 +2128,6 @@ function DashboardPageContent() {
                   onboardingProcessing={onboardingProcessing}
                   onHandleOnboardingInput={handleOnboardingInput}
                   renderOnboardingWidget={renderOnboardingWidget}
-                  projects={projects}
-                  selectedProjectId={selectedProjectId}
-                  onSelectProject={setSelectedProjectId}
-                  onMoveTicket={handleMoveTicket}
-                  onCreateProject={handleCreateProject}
-                  onRenameProject={handleRenameProject}
-                  onDeleteProject={handleDeleteProject}
-                  onChangeProjectColor={handleChangeProjectColor}
                 />
               </main>
             ) : null}
@@ -2184,6 +2158,7 @@ function DashboardPageContent() {
                   isMaximized={false}
                   rightPanelOpen={rightPanelOpen}
                   onToggleRightPanel={() => closePanel()}
+                  onOpenGroups={() => openPanel({ type: 'chat-groups' })}
                   onToggleMaximize={() => {
                     chatScrollTopRef.current = getChatScrollTop();
                     setChatMaximized(true);
@@ -2209,11 +2184,26 @@ function DashboardPageContent() {
                 className="absolute top-16 bottom-0 z-40 w-[440px] max-w-[calc(100vw-16px)] p-4"
                 style={{ left: `${chatWidth}px` }}
               >
-                <RightSidePanel
-                  panel={rightPanel}
-                  onClose={closePanel}
-                  className="h-full"
-                />
+                {rightPanel.type === 'chat-groups' ? (
+                  <div className="h-full w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <ChatGroupsPanel
+                      groups={chatGroups}
+                      onSelectThread={handleThreadChange}
+                      onMoveThread={handleMoveThread}
+                      onCreateGroup={handleCreateGroup}
+                      onRenameGroup={handleRenameGroup}
+                      onDeleteGroup={handleDeleteGroup}
+                      onChangeGroupColor={handleChangeGroupColor}
+                      onClose={closePanel}
+                    />
+                  </div>
+                ) : (
+                  <RightSidePanel
+                    panel={rightPanel}
+                    onClose={closePanel}
+                    className="h-full"
+                  />
+                )}
               </div>
             )}
 
@@ -2240,6 +2230,7 @@ function DashboardPageContent() {
                       isMaximized
                       rightPanelOpen={rightPanelOpen}
                       onToggleRightPanel={() => closePanel()}
+                      onOpenGroups={() => openPanel({ type: 'chat-groups' })}
                       onToggleMaximize={() => {
                         // restore to minimized overlay or docked based on width
                         chatScrollTopRef.current = getChatScrollTop();
@@ -2256,11 +2247,24 @@ function DashboardPageContent() {
 
                   <div className="w-[440px] shrink-0 border-l border-purple-100 bg-white p-4">
                     {rightPanel ? (
-                      <RightSidePanel
-                        panel={rightPanel}
-                        onClose={closePanel}
-                        className="h-full"
-                      />
+                      rightPanel.type === 'chat-groups' ? (
+                        <ChatGroupsPanel
+                          groups={chatGroups}
+                          onSelectThread={handleThreadChange}
+                          onMoveThread={handleMoveThread}
+                          onCreateGroup={handleCreateGroup}
+                          onRenameGroup={handleRenameGroup}
+                          onDeleteGroup={handleDeleteGroup}
+                          onChangeGroupColor={handleChangeGroupColor}
+                          onClose={closePanel}
+                        />
+                      ) : (
+                        <RightSidePanel
+                          panel={rightPanel}
+                          onClose={closePanel}
+                          className="h-full"
+                        />
+                      )
                     ) : (
                       <StatusPanel
                         phase="welcome"
@@ -2672,6 +2676,7 @@ const ChatSidebar = forwardRef<
     restoredScrollTop?: number | null;
     rightPanelOpen?: boolean;
     onToggleRightPanel?: () => void;
+    onOpenGroups?: () => void;
   }
 >(
   (
@@ -2693,6 +2698,7 @@ const ChatSidebar = forwardRef<
       restoredScrollTop,
       rightPanelOpen,
       onToggleRightPanel,
+      onOpenGroups,
     },
     ref,
   ) => {
@@ -2878,6 +2884,15 @@ const ChatSidebar = forwardRef<
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
+            {onOpenGroups && (
+              <button
+                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 flex-shrink-0"
+                onClick={onOpenGroups}
+                title="Chat groups"
+              >
+                <FolderKanban className="h-3.5 w-3.5" />
+              </button>
+            )}
             <div className="flex items-center gap-2">
               {/* Remove close panel button - panel space is always reserved */}
               <button
@@ -3312,7 +3327,7 @@ ChatSidebar.displayName = 'ChatSidebar';
 
 const INITIAL_TICKETS: TicketRow[] = [];
 
-const PROJECT_COLORS: { name: string; dot: string; bg: string }[] = [
+const GROUP_COLORS: { name: string; dot: string; bg: string }[] = [
   { name: "red", dot: "bg-red-500", bg: "bg-red-50" },
   { name: "blue", dot: "bg-blue-500", bg: "bg-blue-50" },
   { name: "green", dot: "bg-green-500", bg: "bg-green-50" },
@@ -3321,44 +3336,40 @@ const PROJECT_COLORS: { name: string; dot: string; bg: string }[] = [
   { name: "pink", dot: "bg-pink-500", bg: "bg-pink-50" },
 ];
 
-function getProjectColor(color: string) {
-  return PROJECT_COLORS.find((c) => c.name === color) ?? PROJECT_COLORS[1];
+function getGroupColor(color: string) {
+  return GROUP_COLORS.find((c) => c.name === color) ?? GROUP_COLORS[1];
 }
 
-function ProjectsPanel({
-  projects,
-  selectedProjectId,
-  onSelectProject,
-  tickets,
-  onSelectTicket,
-  onMoveTicket,
-  onCreateProject,
-  onRenameProject,
-  onDeleteProject,
-  onChangeProjectColor,
+function ChatGroupsPanel({
+  groups,
+  onSelectThread,
+  onMoveThread,
+  onCreateGroup,
+  onRenameGroup,
+  onDeleteGroup,
+  onChangeGroupColor,
+  onClose,
 }: {
-  projects: Project[];
-  selectedProjectId: string | null;
-  onSelectProject: (id: string | null) => void;
-  tickets: TicketRow[];
-  onSelectTicket: (related: string) => void;
-  onMoveTicket: (workorder: string, projectId: string) => void;
-  onCreateProject: (name: string, color: string) => void;
-  onRenameProject: (id: string, name: string) => void;
-  onDeleteProject: (id: string) => void;
-  onChangeProjectColor: (id: string, color: string) => void;
+  groups: ChatGroup[];
+  onSelectThread: (index: number) => void;
+  onMoveThread: (threadName: string, groupId: string) => void;
+  onCreateGroup: (name: string, color: string) => void;
+  onRenameGroup: (id: string, name: string) => void;
+  onDeleteGroup: (id: string) => void;
+  onChangeGroupColor: (id: string, color: string) => void;
+  onClose: () => void;
 }) {
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
-    new Set(projects.map((p) => p.id)),
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(groups.map((g) => g.id)),
   );
-  const [creatingProject, setCreatingProject] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [newProjectColor, setNewProjectColor] = useState("green");
-  const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupColor, setNewGroupColor] = useState("green");
+  const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
   const toggleExpand = (id: string) => {
-    setExpandedProjects((prev) => {
+    setExpandedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -3366,240 +3377,191 @@ function ProjectsPanel({
     });
   };
 
-  const totalTickets = tickets.length;
-
   const handleCreateSubmit = () => {
-    const trimmed = newProjectName.trim();
+    const trimmed = newGroupName.trim();
     if (!trimmed) return;
-    onCreateProject(trimmed, newProjectColor);
-    setNewProjectName("");
-    setNewProjectColor("green");
-    setCreatingProject(false);
+    onCreateGroup(trimmed, newGroupColor);
+    setNewGroupName("");
+    setNewGroupColor("green");
+    setCreatingGroup(false);
   };
 
   const handleRenameSubmit = (id: string) => {
     const trimmed = renameValue.trim();
     if (!trimmed) {
-      setRenamingProjectId(null);
+      setRenamingGroupId(null);
       return;
     }
-    onRenameProject(id, trimmed);
-    setRenamingProjectId(null);
+    onRenameGroup(id, trimmed);
+    setRenamingGroupId(null);
   };
 
   return (
-    <div className="flex h-full w-60 flex-col border-r border-purple-100 bg-white/90 backdrop-blur">
+    <div className="h-full w-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-purple-100 px-4 py-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Projects
-        </p>
-        <button
-          onClick={() => setCreatingProject(true)}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-purple-50 hover:text-purple-600 transition"
-          title="New project"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+        <p className="text-sm font-semibold text-slate-800">Chat Groups</p>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setCreatingGroup(true)}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-purple-50 hover:text-purple-600 transition"
+            title="New group"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onClose}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+            title="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Scrollable project list */}
-      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
-        {/* All Tickets */}
-        <button
-          onClick={() => onSelectProject(null)}
-          className={cn(
-            "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition",
-            selectedProjectId === null
-              ? "bg-purple-50 text-purple-700 font-semibold"
-              : "text-slate-700 hover:bg-slate-50",
-          )}
-        >
-          <Ticket className="h-4 w-4 flex-shrink-0" />
-          <span className="flex-1 text-left truncate">All Tickets</span>
-          <span className="text-xs text-slate-400">{totalTickets}</span>
-        </button>
-
-        {/* Project folders */}
-        {projects.map((project) => {
-          const color = getProjectColor(project.color);
-          const isExpanded = expandedProjects.has(project.id);
-          const isSelected = selectedProjectId === project.id;
-          const projectTickets = tickets.filter((t) =>
-            project.ticketIds.includes(t.workorder),
-          );
-          const count = projectTickets.length;
-          const displayTickets = projectTickets.slice(0, 5);
-          const overflow = count - 5;
+      {/* Group list */}
+      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+        {groups.map((group) => {
+          const color = getGroupColor(group.color);
+          const isExpanded = expandedGroups.has(group.id);
+          const count = group.threadNames.length;
 
           return (
-            <div key={project.id}>
-              {/* Project row */}
-              <DropdownMenu>
-                <div className="flex items-center">
-                  <div
-                    onClick={() => {
-                      if (renamingProjectId !== project.id) {
-                        onSelectProject(project.id);
-                      }
-                    }}
+            <div key={group.id}>
+              {/* Group row */}
+              <div className="flex items-center group">
+                <button
+                  onClick={() => toggleExpand(group.id)}
+                  className="flex flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition min-w-0 text-slate-700 hover:bg-slate-50"
+                >
+                  <ChevronRight
                     className={cn(
-                      "flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-sm transition min-w-0 cursor-pointer",
-                      isSelected
-                        ? "bg-purple-50 text-purple-700 font-semibold"
-                        : "text-slate-700 hover:bg-slate-50",
+                      "h-3 w-3 text-slate-400 transition-transform flex-shrink-0",
+                      isExpanded && "rotate-90",
                     )}
-                  >
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleExpand(project.id);
+                  />
+                  <span className={cn("h-2.5 w-2.5 rounded-full flex-shrink-0", color.dot)} />
+                  {renamingGroupId === group.id ? (
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onBlur={() => handleRenameSubmit(group.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleRenameSubmit(group.id);
+                        if (e.key === "Escape") setRenamingGroupId(null);
                       }}
-                      className="flex-shrink-0 cursor-pointer"
-                    >
-                      <ChevronRight
-                        className={cn(
-                          "h-3 w-3 text-slate-400 transition-transform",
-                          isExpanded && "rotate-90",
-                        )}
-                      />
-                    </span>
-                    <span className={cn("h-2.5 w-2.5 rounded-full flex-shrink-0", color.dot)} />
-                    {renamingProjectId === project.id ? (
-                      <input
-                        autoFocus
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onBlur={() => handleRenameSubmit(project.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleRenameSubmit(project.id);
-                          if (e.key === "Escape") setRenamingProjectId(null);
-                        }}
-                        className="flex-1 min-w-0 bg-transparent text-sm border-b border-purple-300 outline-none px-0 py-0"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    ) : (
-                      <span className="flex-1 text-left truncate">{project.name}</span>
-                    )}
-                    <span className="text-xs text-slate-400">{count}</span>
-                  </div>
+                      className="flex-1 min-w-0 bg-transparent text-sm border-b border-purple-300 outline-none px-0 py-0"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <span className="flex-1 text-left truncate">{group.name}</span>
+                  )}
+                  <span className="text-xs text-slate-400">{count}</span>
+                </button>
 
-                  {/* Context menu trigger */}
+                {/* Group context menu */}
+                <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       className="flex-shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition opacity-0 group-hover:opacity-100"
-                      style={{ opacity: isSelected ? 1 : undefined }}
                     >
                       <MoreHorizontal className="h-3.5 w-3.5" />
                     </button>
                   </DropdownMenuTrigger>
-                </div>
-                <DropdownMenuContent align="start" className="w-48">
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setRenamingProjectId(project.id);
-                      setRenameValue(project.name);
-                    }}
-                  >
-                    Rename
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs text-slate-400">Color</DropdownMenuLabel>
-                  <div className="flex gap-1.5 px-2 py-1.5">
-                    {PROJECT_COLORS.map((c) => (
-                      <button
-                        key={c.name}
-                        onClick={() => onChangeProjectColor(project.id, c.name)}
-                        className={cn(
-                          "h-5 w-5 rounded-full border-2 transition",
-                          c.dot,
-                          project.color === c.name
-                            ? "border-slate-800 scale-110"
-                            : "border-transparent hover:border-slate-300",
-                        )}
-                      />
-                    ))}
-                  </div>
-                  {!project.isDefault && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-red-600 focus:text-red-600"
-                        onClick={() => onDeleteProject(project.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-2" />
-                        Delete project
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Expanded ticket list */}
-              {isExpanded && (
-                <div className="ml-5 space-y-0.5 py-0.5">
-                  {displayTickets.map((ticket) => (
-                    <DropdownMenu key={ticket.workorder}>
-                      <DropdownMenuTrigger asChild>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setRenamingGroupId(group.id);
+                        setRenameValue(group.name);
+                      }}
+                    >
+                      Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs text-slate-400">Color</DropdownMenuLabel>
+                    <div className="flex gap-1.5 px-2 py-1.5">
+                      {GROUP_COLORS.map((c) => (
                         <button
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition text-left"
-                          onDoubleClick={() => onSelectTicket(ticket.related)}
-                        >
-                          <FileText className="h-3 w-3 flex-shrink-0 text-slate-400" />
-                          <span className="truncate">
-                            <span className="font-medium text-slate-700">
-                              {ticket.workorder}
-                            </span>{" "}
-                            {ticket.summary}
-                          </span>
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-48">
-                        <DropdownMenuItem onClick={() => onSelectTicket(ticket.related)}>
-                          Open ticket
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuLabel className="text-xs text-slate-400">
-                          Move to project
-                        </DropdownMenuLabel>
-                        {projects
-                          .filter((p) => p.id !== project.id)
-                          .map((p) => {
-                            const c = getProjectColor(p.color);
-                            return (
-                              <DropdownMenuItem
-                                key={p.id}
-                                onClick={() =>
-                                  onMoveTicket(ticket.workorder, p.id)
-                                }
-                              >
-                                <span className={cn("h-2 w-2 rounded-full mr-2", c.dot)} />
-                                {p.name}
-                              </DropdownMenuItem>
-                            );
-                          })}
+                          key={c.name}
+                          onClick={() => onChangeGroupColor(group.id, c.name)}
+                          className={cn(
+                            "h-5 w-5 rounded-full border-2 transition",
+                            c.dot,
+                            group.color === c.name
+                              ? "border-slate-800 scale-110"
+                              : "border-transparent hover:border-slate-300",
+                          )}
+                        />
+                      ))}
+                    </div>
+                    {!group.isDefault && (
+                      <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-red-600 focus:text-red-600"
-                          onClick={() => onSelectTicket(ticket.related)}
+                          onClick={() => onDeleteGroup(group.id)}
                         >
                           <Trash2 className="h-3.5 w-3.5 mr-2" />
-                          Delete ticket
+                          Delete group
                         </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ))}
-                  {overflow > 0 && (
-                    <button
-                      onClick={() => onSelectProject(project.id)}
-                      className="px-2 py-1 text-xs text-purple-600 hover:text-purple-700 hover:underline"
-                    >
-                      + {overflow} more
-                    </button>
-                  )}
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Expanded thread list */}
+              {isExpanded && (
+                <div className="ml-5 space-y-0.5 py-0.5">
+                  {group.threadNames.map((threadName) => {
+                    const threadIndex = THREADS.indexOf(threadName);
+                    return (
+                      <DropdownMenu key={threadName}>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition text-left"
+                            onDoubleClick={() => {
+                              if (threadIndex >= 0) onSelectThread(threadIndex);
+                            }}
+                          >
+                            <MessageSquare className="h-3 w-3 flex-shrink-0 text-slate-400" />
+                            <span className="truncate">{threadName}</span>
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-44">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              if (threadIndex >= 0) onSelectThread(threadIndex);
+                            }}
+                          >
+                            Open chat
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuLabel className="text-xs text-slate-400">
+                            Move to group
+                          </DropdownMenuLabel>
+                          {groups
+                            .filter((g) => g.id !== group.id)
+                            .map((g) => {
+                              const c = getGroupColor(g.color);
+                              return (
+                                <DropdownMenuItem
+                                  key={g.id}
+                                  onClick={() => onMoveThread(threadName, g.id)}
+                                >
+                                  <span className={cn("h-2 w-2 rounded-full mr-2", c.dot)} />
+                                  {g.name}
+                                </DropdownMenuItem>
+                              );
+                            })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    );
+                  })}
                   {count === 0 && (
                     <p className="px-2 py-1.5 text-xs text-slate-400 italic">
-                      No tickets
+                      No chats
                     </p>
                   )}
                 </div>
@@ -3608,29 +3570,29 @@ function ProjectsPanel({
           );
         })}
 
-        {/* New project inline form */}
-        {creatingProject && (
+        {/* New group inline form */}
+        {creatingGroup && (
           <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-3 space-y-2">
             <input
               autoFocus
-              placeholder="Project name"
-              value={newProjectName}
-              onChange={(e) => setNewProjectName(e.target.value)}
+              placeholder="Group name"
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleCreateSubmit();
-                if (e.key === "Escape") setCreatingProject(false);
+                if (e.key === "Escape") setCreatingGroup(false);
               }}
               className="w-full rounded-md border border-purple-200 bg-white px-2 py-1.5 text-sm focus:border-purple-400 focus:outline-none"
             />
             <div className="flex items-center gap-1.5">
-              {PROJECT_COLORS.map((c) => (
+              {GROUP_COLORS.map((c) => (
                 <button
                   key={c.name}
-                  onClick={() => setNewProjectColor(c.name)}
+                  onClick={() => setNewGroupColor(c.name)}
                   className={cn(
                     "h-5 w-5 rounded-full border-2 transition",
                     c.dot,
-                    newProjectColor === c.name
+                    newGroupColor === c.name
                       ? "border-slate-800 scale-110"
                       : "border-transparent hover:border-slate-300",
                   )}
@@ -3645,7 +3607,7 @@ function ProjectsPanel({
                 Create
               </button>
               <button
-                onClick={() => setCreatingProject(false)}
+                onClick={() => setCreatingGroup(false)}
                 className="rounded-md px-3 py-1 text-xs text-slate-500 hover:bg-slate-100 transition"
               >
                 Cancel
@@ -3705,14 +3667,6 @@ function DashboardMain({
   onboardingProcessing,
   onHandleOnboardingInput,
   renderOnboardingWidget,
-  projects,
-  selectedProjectId,
-  onSelectProject,
-  onMoveTicket,
-  onCreateProject,
-  onRenameProject,
-  onDeleteProject,
-  onChangeProjectColor,
 }: {
   activeNav: NavKey;
   collaborators: Collaborator[];
@@ -3762,14 +3716,6 @@ function DashboardMain({
   onboardingProcessing: boolean;
   onHandleOnboardingInput: (input: string | any) => Promise<void>;
   renderOnboardingWidget?: (widgetDef: any) => React.ReactNode;
-  projects: Project[];
-  selectedProjectId: string | null;
-  onSelectProject: (id: string | null) => void;
-  onMoveTicket: (workorder: string, projectId: string) => void;
-  onCreateProject: (name: string, color: string) => void;
-  onRenameProject: (id: string, name: string) => void;
-  onDeleteProject: (id: string) => void;
-  onChangeProjectColor: (id: string, color: string) => void;
 }) {
   const selectedMachine = machines.find((m) => m.id === selectedMachineId);
 
@@ -3934,149 +3880,6 @@ function DashboardMain({
             />
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // Projects view with sidebar panel and filtered tickets
-  if (activeNav === "projects") {
-    return (
-      <div className="flex h-full overflow-hidden">
-        {/* Projects sidebar panel */}
-        <ProjectsPanel
-          projects={projects}
-          selectedProjectId={selectedProjectId}
-          onSelectProject={onSelectProject}
-          tickets={allTickets}
-          onSelectTicket={(id) => {
-            onSelectTicket(id);
-            onTicketModalChange(true);
-          }}
-          onMoveTicket={onMoveTicket}
-          onCreateProject={onCreateProject}
-          onRenameProject={onRenameProject}
-          onDeleteProject={onDeleteProject}
-          onChangeProjectColor={onChangeProjectColor}
-        />
-
-        {/* Main content: filtered tickets */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-10">
-            <header className="rounded-3xl border border-purple-100 bg-white/80 p-6 shadow-lg backdrop-blur">
-              <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">
-                {selectedProjectId
-                  ? projects.find((p) => p.id === selectedProjectId)?.name ?? "Project"
-                  : "All Projects"}
-              </p>
-              <h1 className="text-3xl font-semibold text-slate-900">
-                {selectedProjectId
-                  ? projects.find((p) => p.id === selectedProjectId)?.name ?? "Tickets"
-                  : "All Tickets"}
-              </h1>
-              <p className="text-sm text-slate-500">
-                {selectedProjectId
-                  ? "Tickets in this project"
-                  : "All tickets across all projects"}
-              </p>
-            </header>
-
-            <div className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">
-                    Ticket Board
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Drag tickets between columns to update status
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-3 py-1">
-                    <span className="text-slate-400">Severity</span>
-                    <select
-                      value={severityFilter}
-                      onChange={(event) =>
-                        onSeverityFilterChange(
-                          event.target.value as
-                            | "All"
-                            | "Error"
-                            | "Warning"
-                            | "Resolved",
-                        )
-                      }
-                      className="rounded-full border border-purple-100 bg-white px-2 py-1 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
-                    >
-                      {["All", "Error", "Warning", "Resolved"].map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-3 py-1">
-                    <span className="text-slate-400">Machine</span>
-                    <select
-                      value={machineFilter}
-                      onChange={(event) =>
-                        onMachineFilterChange(event.target.value)
-                      }
-                      className="rounded-full border border-purple-100 bg-white px-2 py-1 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
-                    >
-                      {[
-                        "All",
-                        ...Array.from(
-                          new Set(
-                            allTickets.map((t) => t.machine).filter(Boolean),
-                          ),
-                        ),
-                      ].map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-3 py-1 text-xs text-slate-500">
-                    <span>Total</span>
-                    <span className="font-semibold text-slate-800">
-                      {tickets.length}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => onNewTicketOpenChange(true)}
-                    className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-purple-700"
-                  >
-                    <Plus className="h-4 w-4" /> New Ticket
-                  </button>
-                </div>
-              </div>
-
-              <KanbanBoard
-                tickets={tickets}
-                onSelectTicket={(id) => {
-                  onSelectTicket(id);
-                  onTicketModalChange(true);
-                }}
-                onStatusChange={onStatusChange}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Ticket Detail Modal */}
-        <TicketModal
-          ticket={selectedTicket}
-          open={ticketModalOpen}
-          onOpenChange={onTicketModalChange}
-          onStatusChange={onStatusChange}
-          onAssign={onAssign}
-          onSeverityChange={onSeverityChange}
-          onAddNote={onAddNote}
-          onDelete={onDeleteTicket}
-          collaborators={collaborators}
-          machines={machines}
-          onUpdateFields={onUpdateFields}
-        />
       </div>
     );
   }
