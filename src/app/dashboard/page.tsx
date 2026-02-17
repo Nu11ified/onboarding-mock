@@ -3236,6 +3236,350 @@ ChatSidebar.displayName = 'ChatSidebar';
 
 const INITIAL_TICKETS: TicketRow[] = [];
 
+const PROJECT_COLORS: { name: string; dot: string; bg: string }[] = [
+  { name: "red", dot: "bg-red-500", bg: "bg-red-50" },
+  { name: "blue", dot: "bg-blue-500", bg: "bg-blue-50" },
+  { name: "green", dot: "bg-green-500", bg: "bg-green-50" },
+  { name: "amber", dot: "bg-amber-500", bg: "bg-amber-50" },
+  { name: "purple", dot: "bg-purple-500", bg: "bg-purple-50" },
+  { name: "pink", dot: "bg-pink-500", bg: "bg-pink-50" },
+];
+
+function getProjectColor(color: string) {
+  return PROJECT_COLORS.find((c) => c.name === color) ?? PROJECT_COLORS[1];
+}
+
+function ProjectsPanel({
+  projects,
+  selectedProjectId,
+  onSelectProject,
+  tickets,
+  onSelectTicket,
+  onMoveTicket,
+  onCreateProject,
+  onRenameProject,
+  onDeleteProject,
+  onChangeProjectColor,
+}: {
+  projects: Project[];
+  selectedProjectId: string | null;
+  onSelectProject: (id: string | null) => void;
+  tickets: TicketRow[];
+  onSelectTicket: (related: string) => void;
+  onMoveTicket: (workorder: string, projectId: string) => void;
+  onCreateProject: (name: string, color: string) => void;
+  onRenameProject: (id: string, name: string) => void;
+  onDeleteProject: (id: string) => void;
+  onChangeProjectColor: (id: string, color: string) => void;
+}) {
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
+    new Set(projects.map((p) => p.id)),
+  );
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectColor, setNewProjectColor] = useState("green");
+  const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  const toggleExpand = (id: string) => {
+    setExpandedProjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const totalTickets = tickets.length;
+
+  const handleCreateSubmit = () => {
+    const trimmed = newProjectName.trim();
+    if (!trimmed) return;
+    onCreateProject(trimmed, newProjectColor);
+    setNewProjectName("");
+    setNewProjectColor("green");
+    setCreatingProject(false);
+  };
+
+  const handleRenameSubmit = (id: string) => {
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      setRenamingProjectId(null);
+      return;
+    }
+    onRenameProject(id, trimmed);
+    setRenamingProjectId(null);
+  };
+
+  return (
+    <div className="flex h-full w-60 flex-col border-r border-purple-100 bg-white/90 backdrop-blur">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-purple-100 px-4 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          Projects
+        </p>
+        <button
+          onClick={() => setCreatingProject(true)}
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-purple-50 hover:text-purple-600 transition"
+          title="New project"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Scrollable project list */}
+      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
+        {/* All Tickets */}
+        <button
+          onClick={() => onSelectProject(null)}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition",
+            selectedProjectId === null
+              ? "bg-purple-50 text-purple-700 font-semibold"
+              : "text-slate-700 hover:bg-slate-50",
+          )}
+        >
+          <Ticket className="h-4 w-4 flex-shrink-0" />
+          <span className="flex-1 text-left truncate">All Tickets</span>
+          <span className="text-xs text-slate-400">{totalTickets}</span>
+        </button>
+
+        {/* Project folders */}
+        {projects.map((project) => {
+          const color = getProjectColor(project.color);
+          const isExpanded = expandedProjects.has(project.id);
+          const isSelected = selectedProjectId === project.id;
+          const projectTickets = tickets.filter((t) =>
+            project.ticketIds.includes(t.workorder),
+          );
+          const count = projectTickets.length;
+          const displayTickets = projectTickets.slice(0, 5);
+          const overflow = count - 5;
+
+          return (
+            <div key={project.id}>
+              {/* Project row */}
+              <DropdownMenu>
+                <div className="flex items-center">
+                  <button
+                    onClick={() => {
+                      onSelectProject(project.id);
+                    }}
+                    className={cn(
+                      "flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-sm transition min-w-0",
+                      isSelected
+                        ? "bg-purple-50 text-purple-700 font-semibold"
+                        : "text-slate-700 hover:bg-slate-50",
+                    )}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleExpand(project.id);
+                      }}
+                      className="flex-shrink-0"
+                    >
+                      <ChevronRight
+                        className={cn(
+                          "h-3 w-3 text-slate-400 transition-transform",
+                          isExpanded && "rotate-90",
+                        )}
+                      />
+                    </button>
+                    <span className={cn("h-2.5 w-2.5 rounded-full flex-shrink-0", color.dot)} />
+                    {renamingProjectId === project.id ? (
+                      <input
+                        autoFocus
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={() => handleRenameSubmit(project.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleRenameSubmit(project.id);
+                          if (e.key === "Escape") setRenamingProjectId(null);
+                        }}
+                        className="flex-1 min-w-0 bg-transparent text-sm border-b border-purple-300 outline-none px-0 py-0"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span className="flex-1 text-left truncate">{project.name}</span>
+                    )}
+                    <span className="text-xs text-slate-400">{count}</span>
+                  </button>
+
+                  {/* Context menu trigger */}
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="flex-shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition opacity-0 group-hover:opacity-100"
+                      style={{ opacity: isSelected ? 1 : undefined }}
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                </div>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setRenamingProjectId(project.id);
+                      setRenameValue(project.name);
+                    }}
+                  >
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs text-slate-400">Color</DropdownMenuLabel>
+                  <div className="flex gap-1.5 px-2 py-1.5">
+                    {PROJECT_COLORS.map((c) => (
+                      <button
+                        key={c.name}
+                        onClick={() => onChangeProjectColor(project.id, c.name)}
+                        className={cn(
+                          "h-5 w-5 rounded-full border-2 transition",
+                          c.dot,
+                          project.color === c.name
+                            ? "border-slate-800 scale-110"
+                            : "border-transparent hover:border-slate-300",
+                        )}
+                      />
+                    ))}
+                  </div>
+                  {!project.isDefault && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-red-600 focus:text-red-600"
+                        onClick={() => onDeleteProject(project.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        Delete project
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Expanded ticket list */}
+              {isExpanded && (
+                <div className="ml-5 space-y-0.5 py-0.5">
+                  {displayTickets.map((ticket) => (
+                    <DropdownMenu key={ticket.workorder}>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition text-left"
+                          onDoubleClick={() => onSelectTicket(ticket.related)}
+                        >
+                          <FileText className="h-3 w-3 flex-shrink-0 text-slate-400" />
+                          <span className="truncate">
+                            <span className="font-medium text-slate-700">
+                              {ticket.workorder}
+                            </span>{" "}
+                            {ticket.summary}
+                          </span>
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-48">
+                        <DropdownMenuItem onClick={() => onSelectTicket(ticket.related)}>
+                          Open ticket
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="text-xs text-slate-400">
+                          Move to project
+                        </DropdownMenuLabel>
+                        {projects
+                          .filter((p) => p.id !== project.id)
+                          .map((p) => {
+                            const c = getProjectColor(p.color);
+                            return (
+                              <DropdownMenuItem
+                                key={p.id}
+                                onClick={() =>
+                                  onMoveTicket(ticket.workorder, p.id)
+                                }
+                              >
+                                <span className={cn("h-2 w-2 rounded-full mr-2", c.dot)} />
+                                {p.name}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-red-600 focus:text-red-600"
+                          onClick={() => onSelectTicket(ticket.related)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-2" />
+                          Delete ticket
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ))}
+                  {overflow > 0 && (
+                    <button
+                      onClick={() => onSelectProject(project.id)}
+                      className="px-2 py-1 text-xs text-purple-600 hover:text-purple-700 hover:underline"
+                    >
+                      + {overflow} more
+                    </button>
+                  )}
+                  {count === 0 && (
+                    <p className="px-2 py-1.5 text-xs text-slate-400 italic">
+                      No tickets
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* New project inline form */}
+        {creatingProject && (
+          <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-3 space-y-2">
+            <input
+              autoFocus
+              placeholder="Project name"
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateSubmit();
+                if (e.key === "Escape") setCreatingProject(false);
+              }}
+              className="w-full rounded-md border border-purple-200 bg-white px-2 py-1.5 text-sm focus:border-purple-400 focus:outline-none"
+            />
+            <div className="flex items-center gap-1.5">
+              {PROJECT_COLORS.map((c) => (
+                <button
+                  key={c.name}
+                  onClick={() => setNewProjectColor(c.name)}
+                  className={cn(
+                    "h-5 w-5 rounded-full border-2 transition",
+                    c.dot,
+                    newProjectColor === c.name
+                      ? "border-slate-800 scale-110"
+                      : "border-transparent hover:border-slate-300",
+                  )}
+                />
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleCreateSubmit}
+                className="rounded-md bg-purple-600 px-3 py-1 text-xs font-semibold text-white hover:bg-purple-700 transition"
+              >
+                Create
+              </button>
+              <button
+                onClick={() => setCreatingProject(false)}
+                className="rounded-md px-3 py-1 text-xs text-slate-500 hover:bg-slate-100 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DashboardMain({
   activeNav,
   collaborators,
