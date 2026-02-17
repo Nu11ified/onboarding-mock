@@ -3469,7 +3469,7 @@ function ChatGroupsPanel({
                       <MoreHorizontal className="h-3.5 w-3.5" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuContent align="end" className="w-44 bg-white">
                     <DropdownMenuItem
                       onClick={() => {
                         setRenamingGroupId(group.id);
@@ -3529,7 +3529,7 @@ function ChatGroupsPanel({
                             <span className="truncate">{threadName}</span>
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-44">
+                        <DropdownMenuContent align="start" className="w-44 bg-white">
                           <DropdownMenuItem
                             onClick={() => {
                               if (threadIndex >= 0) onSelectThread(threadIndex);
