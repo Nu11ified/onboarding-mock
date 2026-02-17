@@ -491,6 +491,24 @@ function OnboardingContentArea() {
   );
 }
 
+const DEFAULT_PROJECTS: Project[] = [
+  {
+    id: "proj-alerts",
+    name: "Alerts",
+    color: "red",
+    isDefault: true,
+    autoFilter: { alertCategory: ["Error", "Warning"] },
+    ticketIds: [],
+  },
+  {
+    id: "proj-general",
+    name: "General",
+    color: "blue",
+    isDefault: true,
+    ticketIds: [],
+  },
+];
+
 function DashboardPageContent() {
   const searchParams = useSearchParams();
   const isMobile = useIsMobile();
@@ -582,6 +600,8 @@ function DashboardPageContent() {
   const [shareOpen, setShareOpen] = useState(false);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [newTicketOpen, setNewTicketOpen] = useState(false);
+  const [projects, setProjects] = useState<Project[]>(DEFAULT_PROJECTS);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<
     NotificationItemWithRead[]
   >(DASHBOARD_NOTIFICATIONS.map((n) => ({ ...n, isRead: false })));
@@ -983,6 +1003,15 @@ function DashboardPageContent() {
     return filteredTickets.slice(start, start + pageSize);
   }, [filteredTickets, page, pageSize]);
 
+  // Filter tickets by selected project
+  const projectFilteredTickets = useMemo(() => {
+    if (!selectedProjectId) return sortedTickets; // "All Tickets"
+    const project = projects.find((p) => p.id === selectedProjectId);
+    if (!project) return sortedTickets;
+    const idSet = new Set(project.ticketIds);
+    return sortedTickets.filter((t) => idSet.has(t.workorder));
+  }, [sortedTickets, selectedProjectId, projects]);
+
   // When filters or total change, ensure we are on a valid page
   useEffect(() => {
     const totalPages = Math.max(
@@ -993,6 +1022,35 @@ function DashboardPageContent() {
       setPage(1);
     }
   }, [filteredTickets.length, pageSize]);
+
+  // Auto-assign tickets to projects when tickets load
+  useEffect(() => {
+    if (tickets.length === 0) return;
+
+    setProjects((prev) => {
+      // Only auto-assign tickets that aren't already in any project
+      const assignedIds = new Set(prev.flatMap((p) => p.ticketIds));
+      const unassigned = tickets.filter((t) => !assignedIds.has(t.workorder));
+      if (unassigned.length === 0) return prev;
+
+      const updated = prev.map((p) => ({ ...p, ticketIds: [...p.ticketIds] }));
+      for (const ticket of unassigned) {
+        const alertProject = updated.find(
+          (p) =>
+            p.autoFilter?.alertCategory &&
+            ticket.alertCategory &&
+            p.autoFilter.alertCategory.includes(ticket.alertCategory),
+        );
+        if (alertProject) {
+          alertProject.ticketIds.push(ticket.workorder);
+        } else {
+          const general = updated.find((p) => p.id === "proj-general");
+          if (general) general.ticketIds.push(ticket.workorder);
+        }
+      }
+      return updated;
+    });
+  }, [tickets]);
 
   useEffect(() => {
     if (
