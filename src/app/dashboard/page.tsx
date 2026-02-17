@@ -3437,23 +3437,25 @@ function ProjectsPanel({
               {/* Project row */}
               <DropdownMenu>
                 <div className="flex items-center">
-                  <button
+                  <div
                     onClick={() => {
-                      onSelectProject(project.id);
+                      if (renamingProjectId !== project.id) {
+                        onSelectProject(project.id);
+                      }
                     }}
                     className={cn(
-                      "flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-sm transition min-w-0",
+                      "flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-sm transition min-w-0 cursor-pointer",
                       isSelected
                         ? "bg-purple-50 text-purple-700 font-semibold"
                         : "text-slate-700 hover:bg-slate-50",
                     )}
                   >
-                    <button
+                    <span
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleExpand(project.id);
                       }}
-                      className="flex-shrink-0"
+                      className="flex-shrink-0 cursor-pointer"
                     >
                       <ChevronRight
                         className={cn(
@@ -3461,7 +3463,7 @@ function ProjectsPanel({
                           isExpanded && "rotate-90",
                         )}
                       />
-                    </button>
+                    </span>
                     <span className={cn("h-2.5 w-2.5 rounded-full flex-shrink-0", color.dot)} />
                     {renamingProjectId === project.id ? (
                       <input
@@ -3480,7 +3482,7 @@ function ProjectsPanel({
                       <span className="flex-1 text-left truncate">{project.name}</span>
                     )}
                     <span className="text-xs text-slate-400">{count}</span>
-                  </button>
+                  </div>
 
                   {/* Context menu trigger */}
                   <DropdownMenuTrigger asChild>
