@@ -1907,7 +1907,7 @@ function DashboardPageContent() {
                   notifications={DASHBOARD_NOTIFICATIONS}
                   kpis={DASHBOARD_KPIS}
                   charts={DASHBOARD_CHARTS}
-                  tickets={paginatedTickets}
+                  tickets={activeNav === "projects" ? projectFilteredTickets : paginatedTickets}
                   allTickets={sortedTickets}
                   sortState={sortState}
                   onSort={handleSort}
@@ -1934,7 +1934,7 @@ function DashboardPageContent() {
                   onUpdateFields={handleUpdateTicketFields}
                   page={page}
                   pageSize={pageSize}
-                  total={filteredTickets.length}
+                  total={activeNav === "projects" ? projectFilteredTickets.length : filteredTickets.length}
                   onPageChange={setPage}
                   onPageSizeChange={(n) => {
                     setPageSize(n);
@@ -1944,6 +1944,14 @@ function DashboardPageContent() {
                   onboardingProcessing={onboardingProcessing}
                   onHandleOnboardingInput={handleOnboardingInput}
                   renderOnboardingWidget={renderOnboardingWidget}
+                  projects={projects}
+                  selectedProjectId={selectedProjectId}
+                  onSelectProject={setSelectedProjectId}
+                  onMoveTicket={handleMoveTicket}
+                  onCreateProject={handleCreateProject}
+                  onRenameProject={handleRenameProject}
+                  onDeleteProject={handleDeleteProject}
+                  onChangeProjectColor={handleChangeProjectColor}
                 />
               </main>
             )}
@@ -2028,7 +2036,7 @@ function DashboardPageContent() {
                     notifications={DASHBOARD_NOTIFICATIONS}
                     kpis={DASHBOARD_KPIS}
                     charts={DASHBOARD_CHARTS}
-                    tickets={paginatedTickets}
+                    tickets={activeNav === "projects" ? projectFilteredTickets : paginatedTickets}
                     allTickets={sortedTickets}
                     sortState={sortState}
                     onSort={handleSort}
@@ -2055,7 +2063,7 @@ function DashboardPageContent() {
                     onUpdateFields={handleUpdateTicketFields}
                     page={page}
                     pageSize={pageSize}
-                    total={filteredTickets.length}
+                    total={activeNav === "projects" ? projectFilteredTickets.length : filteredTickets.length}
                     onPageChange={setPage}
                     onPageSizeChange={(n) => {
                       setPageSize(n);
@@ -2065,6 +2073,14 @@ function DashboardPageContent() {
                     onboardingProcessing={onboardingProcessing}
                     onHandleOnboardingInput={handleOnboardingInput}
                     renderOnboardingWidget={renderOnboardingWidget}
+                    projects={projects}
+                    selectedProjectId={selectedProjectId}
+                    onSelectProject={setSelectedProjectId}
+                    onMoveTicket={handleMoveTicket}
+                    onCreateProject={handleCreateProject}
+                    onRenameProject={handleRenameProject}
+                    onDeleteProject={handleDeleteProject}
+                    onChangeProjectColor={handleChangeProjectColor}
                   />
                 </main>
               </div>
@@ -2093,7 +2109,7 @@ function DashboardPageContent() {
                   notifications={DASHBOARD_NOTIFICATIONS}
                   kpis={DASHBOARD_KPIS}
                   charts={DASHBOARD_CHARTS}
-                  tickets={paginatedTickets}
+                  tickets={activeNav === "projects" ? projectFilteredTickets : paginatedTickets}
                   allTickets={sortedTickets}
                   sortState={sortState}
                   onSort={handleSort}
@@ -2120,7 +2136,7 @@ function DashboardPageContent() {
                   onUpdateFields={handleUpdateTicketFields}
                   page={page}
                   pageSize={pageSize}
-                  total={filteredTickets.length}
+                  total={activeNav === "projects" ? projectFilteredTickets.length : filteredTickets.length}
                   onPageChange={setPage}
                   onPageSizeChange={(n) => {
                     setPageSize(n);
@@ -2130,6 +2146,14 @@ function DashboardPageContent() {
                   onboardingProcessing={onboardingProcessing}
                   onHandleOnboardingInput={handleOnboardingInput}
                   renderOnboardingWidget={renderOnboardingWidget}
+                  projects={projects}
+                  selectedProjectId={selectedProjectId}
+                  onSelectProject={setSelectedProjectId}
+                  onMoveTicket={handleMoveTicket}
+                  onCreateProject={handleCreateProject}
+                  onRenameProject={handleRenameProject}
+                  onDeleteProject={handleDeleteProject}
+                  onChangeProjectColor={handleChangeProjectColor}
                 />
               </main>
             ) : null}
@@ -3679,6 +3703,14 @@ function DashboardMain({
   onboardingProcessing,
   onHandleOnboardingInput,
   renderOnboardingWidget,
+  projects,
+  selectedProjectId,
+  onSelectProject,
+  onMoveTicket,
+  onCreateProject,
+  onRenameProject,
+  onDeleteProject,
+  onChangeProjectColor,
 }: {
   activeNav: NavKey;
   collaborators: Collaborator[];
@@ -3728,6 +3760,14 @@ function DashboardMain({
   onboardingProcessing: boolean;
   onHandleOnboardingInput: (input: string | any) => Promise<void>;
   renderOnboardingWidget?: (widgetDef: any) => React.ReactNode;
+  projects: Project[];
+  selectedProjectId: string | null;
+  onSelectProject: (id: string | null) => void;
+  onMoveTicket: (workorder: string, projectId: string) => void;
+  onCreateProject: (name: string, color: string) => void;
+  onRenameProject: (id: string, name: string) => void;
+  onDeleteProject: (id: string) => void;
+  onChangeProjectColor: (id: string, color: string) => void;
 }) {
   const selectedMachine = machines.find((m) => m.id === selectedMachineId);
 
@@ -3892,6 +3932,149 @@ function DashboardMain({
             />
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Projects view with sidebar panel and filtered tickets
+  if (activeNav === "projects") {
+    return (
+      <div className="flex h-full overflow-hidden">
+        {/* Projects sidebar panel */}
+        <ProjectsPanel
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={onSelectProject}
+          tickets={allTickets}
+          onSelectTicket={(id) => {
+            onSelectTicket(id);
+            onTicketModalChange(true);
+          }}
+          onMoveTicket={onMoveTicket}
+          onCreateProject={onCreateProject}
+          onRenameProject={onRenameProject}
+          onDeleteProject={onDeleteProject}
+          onChangeProjectColor={onChangeProjectColor}
+        />
+
+        {/* Main content: filtered tickets */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-10">
+            <header className="rounded-3xl border border-purple-100 bg-white/80 p-6 shadow-lg backdrop-blur">
+              <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">
+                {selectedProjectId
+                  ? projects.find((p) => p.id === selectedProjectId)?.name ?? "Project"
+                  : "All Projects"}
+              </p>
+              <h1 className="text-3xl font-semibold text-slate-900">
+                {selectedProjectId
+                  ? projects.find((p) => p.id === selectedProjectId)?.name ?? "Tickets"
+                  : "All Tickets"}
+              </h1>
+              <p className="text-sm text-slate-500">
+                {selectedProjectId
+                  ? "Tickets in this project"
+                  : "All tickets across all projects"}
+              </p>
+            </header>
+
+            <div className="rounded-3xl border border-purple-100 bg-white/80 p-5 shadow-md">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">
+                    Ticket Board
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Drag tickets between columns to update status
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-3 py-1">
+                    <span className="text-slate-400">Severity</span>
+                    <select
+                      value={severityFilter}
+                      onChange={(event) =>
+                        onSeverityFilterChange(
+                          event.target.value as
+                            | "All"
+                            | "Error"
+                            | "Warning"
+                            | "Resolved",
+                        )
+                      }
+                      className="rounded-full border border-purple-100 bg-white px-2 py-1 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
+                    >
+                      {["All", "Error", "Warning", "Resolved"].map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-3 py-1">
+                    <span className="text-slate-400">Machine</span>
+                    <select
+                      value={machineFilter}
+                      onChange={(event) =>
+                        onMachineFilterChange(event.target.value)
+                      }
+                      className="rounded-full border border-purple-100 bg-white px-2 py-1 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
+                    >
+                      {[
+                        "All",
+                        ...Array.from(
+                          new Set(
+                            allTickets.map((t) => t.machine).filter(Boolean),
+                          ),
+                        ),
+                      ].map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-3 py-1 text-xs text-slate-500">
+                    <span>Total</span>
+                    <span className="font-semibold text-slate-800">
+                      {tickets.length}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => onNewTicketOpenChange(true)}
+                    className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-purple-700"
+                  >
+                    <Plus className="h-4 w-4" /> New Ticket
+                  </button>
+                </div>
+              </div>
+
+              <KanbanBoard
+                tickets={tickets}
+                onSelectTicket={(id) => {
+                  onSelectTicket(id);
+                  onTicketModalChange(true);
+                }}
+                onStatusChange={onStatusChange}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Ticket Detail Modal */}
+        <TicketModal
+          ticket={selectedTicket}
+          open={ticketModalOpen}
+          onOpenChange={onTicketModalChange}
+          onStatusChange={onStatusChange}
+          onAssign={onAssign}
+          onSeverityChange={onSeverityChange}
+          onAddNote={onAddNote}
+          onDelete={onDeleteTicket}
+          collaborators={collaborators}
+          machines={machines}
+          onUpdateFields={onUpdateFields}
+        />
       </div>
     );
   }
