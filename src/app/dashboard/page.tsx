@@ -27,6 +27,7 @@ import {
   ChevronRight,
   Clock,
   FileText,
+  FolderKanban,
   Gauge,
   LayoutDashboard,
   Loader2,
@@ -113,6 +114,7 @@ type Machine = {
 const SIDENAV_ITEMS: Array<{ key: NavKey; label: string; icon: LucideIcon }> = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
   { key: "view-machine", label: "Assets", icon: Gauge },
+  { key: "projects", label: "Projects", icon: FolderKanban },
   { key: "tickets", label: "Tickets", icon: Ticket },
   { key: "settings", label: "Settings", icon: Settings },
 ];
@@ -246,6 +248,7 @@ type NavKey =
   | "security"
   | "apm"
   | "tickets"
+  | "projects"
   | "apps"
   | "settings";
 
@@ -308,6 +311,17 @@ type TicketRow = {
   confidenceLevel?: number;
   assetMacAddress?: string;
   alertDescription?: string;
+};
+
+type Project = {
+  id: string;
+  name: string;
+  color: string; // Tailwind color name: "red", "blue", "green", "amber", "purple", "pink"
+  isDefault: boolean;
+  autoFilter?: {
+    alertCategory?: ("Error" | "Warning")[];
+  };
+  ticketIds: string[];
 };
 
 type SortState = {
