@@ -1844,6 +1844,7 @@ function DashboardPageContent() {
                   rightPanelOpen={rightPanelOpen}
                   onToggleRightPanel={() => closePanel()}
                   onOpenGroups={() => openPanel({ type: 'chat-groups' })}
+                  chatGroups={chatGroups}
                   onToggleMaximize={() => {}}
                   onClose={() => {
                     chatScrollTopRef.current = getChatScrollTop();
@@ -1953,6 +1954,7 @@ function DashboardPageContent() {
                     rightPanelOpen={rightPanelOpen}
                     onToggleRightPanel={() => closePanel()}
                     onOpenGroups={() => openPanel({ type: 'chat-groups' })}
+                    chatGroups={chatGroups}
                     onToggleMaximize={() => {
                       // capture scroll, then maximize
                       chatScrollTopRef.current = getChatScrollTop();
@@ -2159,6 +2161,7 @@ function DashboardPageContent() {
                   rightPanelOpen={rightPanelOpen}
                   onToggleRightPanel={() => closePanel()}
                   onOpenGroups={() => openPanel({ type: 'chat-groups' })}
+                  chatGroups={chatGroups}
                   onToggleMaximize={() => {
                     chatScrollTopRef.current = getChatScrollTop();
                     setChatMaximized(true);
@@ -2231,6 +2234,7 @@ function DashboardPageContent() {
                       rightPanelOpen={rightPanelOpen}
                       onToggleRightPanel={() => closePanel()}
                       onOpenGroups={() => openPanel({ type: 'chat-groups' })}
+                      chatGroups={chatGroups}
                       onToggleMaximize={() => {
                         // restore to minimized overlay or docked based on width
                         chatScrollTopRef.current = getChatScrollTop();
@@ -2651,6 +2655,19 @@ function ChatBubble({ message }: { message: any }) {
   );
 }
 
+const GROUP_COLORS: { name: string; dot: string; bg: string }[] = [
+  { name: "red", dot: "bg-red-500", bg: "bg-red-50" },
+  { name: "blue", dot: "bg-blue-500", bg: "bg-blue-50" },
+  { name: "green", dot: "bg-green-500", bg: "bg-green-50" },
+  { name: "amber", dot: "bg-amber-500", bg: "bg-amber-50" },
+  { name: "purple", dot: "bg-purple-500", bg: "bg-purple-50" },
+  { name: "pink", dot: "bg-pink-500", bg: "bg-pink-50" },
+];
+
+function getGroupColor(color: string) {
+  return GROUP_COLORS.find((c) => c.name === color) ?? GROUP_COLORS[1];
+}
+
 type ChatSidebarHandle = {
   getScrollTop: () => number;
   setScrollTop: (n: number) => void;
@@ -2677,6 +2694,7 @@ const ChatSidebar = forwardRef<
     rightPanelOpen?: boolean;
     onToggleRightPanel?: () => void;
     onOpenGroups?: () => void;
+    chatGroups?: ChatGroup[];
   }
 >(
   (
@@ -2699,6 +2717,7 @@ const ChatSidebar = forwardRef<
       rightPanelOpen,
       onToggleRightPanel,
       onOpenGroups,
+      chatGroups,
     },
     ref,
   ) => {
@@ -2814,55 +2833,67 @@ const ChatSidebar = forwardRef<
                     </div>
                   </div>
                   <div className="max-h-60 overflow-y-auto p-2">
-                    {filteredThreads.length > 0 ? (
-                      filteredThreads.map((thread, index) => {
+                    {chatGroups && threadSearch === "" ? (
+                      // Grouped view
+                      chatGroups.map((group) => {
+                        const color = GROUP_COLORS.find((c) => c.name === group.color) || GROUP_COLORS[0];
+                        const groupThreads = group.threadNames.filter((t) =>
+                          filteredThreads.includes(t),
+                        );
+                        if (groupThreads.length === 0) return null;
+                        return (
+                          <div key={group.id} className="mb-2">
+                            <div className="flex items-center gap-2 px-2 py-1">
+                              <span className={cn("h-2 w-2 rounded-full", color.dot)} />
+                              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                                {group.name}
+                              </span>
+                            </div>
+                            {groupThreads.map((thread) => {
+                              const originalIndex = threads.indexOf(thread);
+                              return (
+                                <button
+                                  key={thread}
+                                  onClick={() => {
+                                    onSelectThread(originalIndex);
+                                    setThreadSearchOpen(false);
+                                    setThreadSearch("");
+                                  }}
+                                  className={cn(
+                                    "w-full flex items-center rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                                    activeThread === originalIndex
+                                      ? "bg-purple-100 text-purple-700 font-semibold"
+                                      : "text-slate-700 hover:bg-purple-50",
+                                  )}
+                                >
+                                  <span className="truncate">{thread}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })
+                    ) : filteredThreads.length > 0 ? (
+                      // Flat search results
+                      filteredThreads.map((thread) => {
                         const originalIndex = threads.indexOf(thread);
                         return (
-                          <div
+                          <button
                             key={thread}
+                            onClick={() => {
+                              onSelectThread(originalIndex);
+                              setThreadSearchOpen(false);
+                              setThreadSearch("");
+                            }}
                             className={cn(
-                              "group w-full flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                              "w-full flex items-center rounded-lg px-3 py-2 text-left text-sm transition-colors",
                               activeThread === originalIndex
                                 ? "bg-purple-100 text-purple-700 font-semibold"
                                 : "text-slate-700 hover:bg-purple-50",
                             )}
                           >
-                            <button
-                              onClick={() => {
-                                onSelectThread(originalIndex);
-                                setThreadSearchOpen(false);
-                                setThreadSearch("");
-                              }}
-                              className="flex-1 text-left truncate"
-                            >
-                              {thread}
-                            </button>
-                            <div className="flex items-center gap-1">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="opacity-0 group-hover:opacity-100 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
-                                  >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-40 bg-white border border-slate-200 shadow-lg">
-                                  <DropdownMenuItem
-                                    variant="destructive"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // Delete functionality placeholder
-                                    }}
-                                    className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
-                                  >
-                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                    <span>Delete</span>
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </div>
+                            <span className="truncate">{thread}</span>
+                          </button>
                         );
                       })
                     ) : (
@@ -3326,19 +3357,6 @@ ChatSidebar.displayName = 'ChatSidebar';
 // Legacy components removed - no longer needed with new onboarding system
 
 const INITIAL_TICKETS: TicketRow[] = [];
-
-const GROUP_COLORS: { name: string; dot: string; bg: string }[] = [
-  { name: "red", dot: "bg-red-500", bg: "bg-red-50" },
-  { name: "blue", dot: "bg-blue-500", bg: "bg-blue-50" },
-  { name: "green", dot: "bg-green-500", bg: "bg-green-50" },
-  { name: "amber", dot: "bg-amber-500", bg: "bg-amber-50" },
-  { name: "purple", dot: "bg-purple-500", bg: "bg-purple-50" },
-  { name: "pink", dot: "bg-pink-500", bg: "bg-pink-50" },
-];
-
-function getGroupColor(color: string) {
-  return GROUP_COLORS.find((c) => c.name === color) ?? GROUP_COLORS[1];
-}
 
 function ChatGroupsPanel({
   groups,
