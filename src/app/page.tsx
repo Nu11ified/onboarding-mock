@@ -328,53 +328,62 @@ export default function LandingPage() {
                     )}
 
                     {/* Icon */}
-                    <div className="mb-3 flex justify-center">
-                      <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
-                        <Key className="h-5 w-5" />
+                    <div className="mb-4 flex justify-center">
+                      <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-purple-50 text-purple-600">
+                        <Key className="h-6 w-6" />
                       </div>
                     </div>
 
                     {/* Title */}
-                    <h2 className="mb-0.5 text-center text-lg font-semibold tracking-tight text-slate-900">
-                      Enter Invite Code
+                    <h2 className="mb-5 text-center text-xl font-semibold tracking-tight text-slate-900">
+                      Enter Your Invite Code
                     </h2>
-                    <p className="mb-4 text-center text-sm text-slate-500">
-                      Enter your invite code to get started
-                    </p>
 
                     {/* Invite Code Field */}
-                    <div className="mb-4">
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={inviteCode}
-                          onChange={(e) => { setInviteCode(e.target.value); clearField("inviteCode"); }}
-                          placeholder="Enter your invite code"
-                          className={cn(
-                            "flex-1 min-w-0 rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
-                            formErrors.inviteCode ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
-                          )}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleGoToRequest}
-                          className="shrink-0 rounded-lg border border-purple-300 bg-purple-50 px-3.5 py-2.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100 hover:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/30"
-                        >
-                          Request Code
-                        </button>
-                      </div>
+                    <div className="mb-3">
+                      <input
+                        type="text"
+                        value={inviteCode}
+                        onChange={(e) => { setInviteCode(e.target.value); clearField("inviteCode"); }}
+                        placeholder="Enter code..."
+                        className={cn(
+                          "w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-purple-400/20",
+                          formErrors.inviteCode ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-purple-400"
+                        )}
+                      />
                       {formErrors.inviteCode && (
                         <p className="mt-1 text-xs text-rose-500">{formErrors.inviteCode}</p>
                       )}
                     </div>
 
+                    {/* Helper text */}
+                    <p className="mb-4 text-sm text-slate-500">
+                      Use the invite code we provided to access the onboarding experience.
+                    </p>
+
+                    {/* Terms checkbox */}
+                    <label className="mb-4 flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                      />
+                      <span className="text-sm text-slate-600">
+                        I agree to the{" "}
+                        <a href="#" className="font-medium text-slate-900 underline">Terms of Use</a>
+                        {" "}and{" "}
+                        <a href="#" className="font-medium text-slate-900 underline">Privacy Policy</a>
+                      </span>
+                    </label>
+
                     {/* Submit Button */}
                     <button
                       onClick={handleInviteSubmit}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || !termsAccepted}
                       className={cn(
-                        "w-full rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
-                        !isSubmitting
+                        "w-full rounded-xl px-5 py-3 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-purple-400/50",
+                        !isSubmitting && termsAccepted
                           ? "bg-purple-600 hover:bg-purple-700 hover:shadow-md"
                           : "bg-slate-300 cursor-not-allowed"
                       )}
@@ -387,6 +396,25 @@ export default function LandingPage() {
                       ) : (
                         "Continue"
                       )}
+                    </button>
+
+                    {/* Divider */}
+                    <div className="relative my-5">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-slate-200" />
+                      </div>
+                      <div className="relative flex justify-center text-xs">
+                        <span className="bg-white px-3 text-slate-400">or</span>
+                      </div>
+                    </div>
+
+                    {/* Request Code Button */}
+                    <button
+                      type="button"
+                      onClick={handleGoToRequest}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-purple-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-purple-400/30"
+                    >
+                      Request Code
                     </button>
 
                   </div>

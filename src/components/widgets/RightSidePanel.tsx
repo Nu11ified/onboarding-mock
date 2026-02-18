@@ -9,6 +9,7 @@ import { HealthMetricsHelpPanel } from './HealthMetricsHelpPanel';
 import { AgenticWorkflowHelpPanel } from './AgenticWorkflowHelpPanel';
 import { WhatCanIDoNextPanel } from './WhatCanIDoNextPanel';
 import { TrainingVideoPanel } from './TrainingVideoPanel';
+import { TicketHierarchyPanel } from './TicketHierarchyPanel';
 
 export function RightSidePanel({
   panel,
@@ -35,7 +36,9 @@ export function RightSidePanel({
               ? 'What can I do next?'
               : panel.type === 'training-video'
                 ? 'Training Video'
-                : 'MQTT configuration');
+                : panel.type === 'ticket-hierarchy'
+                  ? 'Ticket Overview'
+                  : 'MQTT configuration');
 
   return (
     <div
@@ -78,6 +81,7 @@ export function RightSidePanel({
         {panel.type === 'channel-config-help' && <ChannelConfigHelpPanel />}
         {panel.type === 'health-metrics' && <HealthMetricsHelpPanel />}
         {panel.type === 'agentic-workflow' && <AgenticWorkflowHelpPanel />}
+        {panel.type === 'ticket-hierarchy' && <TicketHierarchyPanel />}
         {panel.type === 'what-can-i-do-next' && <WhatCanIDoNextPanel />}
         {panel.type === 'mqtt-setup' && (
           <MQTTInstructionsPanel

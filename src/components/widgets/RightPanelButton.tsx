@@ -24,6 +24,7 @@ export function RightPanelButton({
     if (t === 'channel-config-help') return 'View Channel Configuration Info';
     if (t === 'mqtt-setup') return 'View MQTT Configuration Info';
     if (t === 'health-metrics') return 'What are the metrics?';
+    if (t === 'ticket-hierarchy') return 'Ticket Overview';
     return 'View Details';
   };
 

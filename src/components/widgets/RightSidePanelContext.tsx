@@ -10,7 +10,8 @@ export type RightSidePanelType =
   | 'agentic-workflow'
   | 'what-can-i-do-next'
   | 'training-video'
-  | 'chat-groups';
+  | 'chat-groups'
+  | 'ticket-hierarchy';
 
 export type RightSidePanelState = {
   type: RightSidePanelType;

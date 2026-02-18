@@ -2737,6 +2737,8 @@ const ChatSidebar = forwardRef<
     const [newPromptContent, setNewPromptContent] = useState("");
     const [customInput, setCustomInput] = useState("");
     const [showVideoPopup, setShowVideoPopup] = useState(false);
+    const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+    const [activeGroupFilter, setActiveGroupFilter] = useState<string | null>(null);
 
     useEffect(() => {
       if (messagesEndRef.current && chatContainerRef.current) {
@@ -2833,24 +2835,84 @@ const ChatSidebar = forwardRef<
                       />
                     </div>
                   </div>
+                  {/* Group filter tabs */}
+                  {chatGroups && chatGroups.length > 1 && threadSearch === "" && (
+                    <div className="flex items-center gap-1 border-b border-purple-100 px-2 py-1.5 overflow-x-auto">
+                      <button
+                        onClick={() => setActiveGroupFilter(null)}
+                        className={cn(
+                          "shrink-0 rounded-md px-2 py-1 text-[10px] font-semibold transition-colors",
+                          activeGroupFilter === null
+                            ? "bg-purple-100 text-purple-700"
+                            : "text-slate-500 hover:bg-slate-100",
+                        )}
+                      >
+                        All
+                      </button>
+                      {chatGroups.map((group) => {
+                        const color = GROUP_COLORS.find((c) => c.name === group.color) || GROUP_COLORS[0];
+                        const groupThreads = group.threadNames.filter((t) => filteredThreads.includes(t));
+                        if (groupThreads.length === 0) return null;
+                        return (
+                          <button
+                            key={group.id}
+                            onClick={() => setActiveGroupFilter(activeGroupFilter === group.id ? null : group.id)}
+                            className={cn(
+                              "shrink-0 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold transition-colors",
+                              activeGroupFilter === group.id
+                                ? "bg-purple-100 text-purple-700"
+                                : "text-slate-500 hover:bg-slate-100",
+                            )}
+                          >
+                            <span className={cn("h-1.5 w-1.5 rounded-full", color.dot)} />
+                            {group.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                   <div className="max-h-60 overflow-y-auto p-2">
                     {chatGroups && threadSearch === "" ? (
-                      // Grouped view
-                      chatGroups.map((group) => {
+                      // Grouped view with collapsible sections
+                      chatGroups
+                        .filter((group) => activeGroupFilter === null || group.id === activeGroupFilter)
+                        .map((group) => {
                         const color = GROUP_COLORS.find((c) => c.name === group.color) || GROUP_COLORS[0];
                         const groupThreads = group.threadNames.filter((t) =>
                           filteredThreads.includes(t),
                         );
                         if (groupThreads.length === 0) return null;
+                        const isCollapsed = collapsedGroups.has(group.id);
                         return (
                           <div key={group.id} className="mb-2">
-                            <div className="flex items-center gap-2 px-2 py-1">
+                            <button
+                              onClick={() => {
+                                setCollapsedGroups((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(group.id)) {
+                                    next.delete(group.id);
+                                  } else {
+                                    next.add(group.id);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className="w-full flex items-center gap-2 px-2 py-1 rounded-md hover:bg-slate-50 transition-colors group"
+                            >
+                              {isCollapsed ? (
+                                <ChevronRight className="h-3 w-3 text-slate-400 group-hover:text-slate-600" />
+                              ) : (
+                                <ChevronDown className="h-3 w-3 text-slate-400 group-hover:text-slate-600" />
+                              )}
                               <span className={cn("h-2 w-2 rounded-full", color.dot)} />
-                              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider group-hover:text-slate-600">
                                 {group.name}
                               </span>
-                            </div>
-                            {groupThreads.map((thread) => {
+                              <span className="ml-auto text-[10px] text-slate-300">
+                                {groupThreads.length}
+                              </span>
+                            </button>
+                            {!isCollapsed && groupThreads.map((thread) => {
                               const originalIndex = threads.indexOf(thread);
                               return (
                                 <button
@@ -3913,12 +3975,9 @@ function DashboardMain({
               <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">
                 Tickets Management
               </p>
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-semibold text-slate-900">
-                  All Tickets
-                </h1>
-                <TicketHierarchyTooltip />
-              </div>
+              <h1 className="text-3xl font-semibold text-slate-900">
+                All Tickets
+              </h1>
               <p className="text-sm text-slate-500">
                 Track and manage maintenance tickets across all machines
               </p>
@@ -5852,78 +5911,6 @@ function SummaryCard({ data }: { data: CollectedData }) {
           <dd className="flex-1 text-slate-700">{data.dtmn} days</dd>
         </div>
       </dl>
-    </div>
-  );
-}
-
-function TicketHierarchyTooltip() {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-purple-50 hover:text-purple-600"
-        title="Learn about ticket hierarchy"
-      >
-        <HelpCircle className="h-4.5 w-4.5" />
-      </button>
-      {open && (
-        <div className="absolute left-0 top-9 z-50 w-80 rounded-xl border border-purple-100 bg-white p-4 shadow-xl animate-fade-in-up">
-          <h3 className="text-sm font-semibold text-slate-900 mb-3">How Tickets Are Organized</h3>
-          <div className="space-y-3">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <div className="flex items-start gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 shrink-0">
-                  <Ticket className="h-4 w-4 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-xs font-semibold text-slate-900 mb-0.5">Parent Tickets</h4>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Created automatically when the first alert is detected on a machine. Each parent ticket represents the primary issue and serves as the anchor for related follow-ups.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <div className="flex items-start gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 shrink-0">
-                  <FileText className="h-4 w-4 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-xs font-semibold text-slate-900 mb-0.5">Child Tickets</h4>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Subsequent alerts from the same machine are grouped as child tickets under the original parent. This keeps related issues together for easier tracking.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <div className="flex items-start gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 shrink-0">
-                  <Settings className="h-4 w-4 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-xs font-semibold text-slate-900 mb-0.5">Full Control</h4>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Both parent and child tickets can be independently assigned, updated, or closed. Resolving a parent does not automatically close its children.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

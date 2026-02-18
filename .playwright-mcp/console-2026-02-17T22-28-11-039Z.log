@@ -1,0 +1,82 @@
+[     572ms] Error: Hydration failed because the server rendered text didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <SegmentViewNode type="page" pagePath="dashboard/...">
+      <SegmentTrieNode>
+      <ClientPageRoot Component={function DashboardPage} searchParams={{}} params={{}}>
+        <DashboardPage params={Promise} searchParams={Promise}>
+          <Suspense fallback={<div>}>
+            <RightSidePanelProvider>
+              <DashboardPageContent>
+                <SMSConsentPopup>
+                <div className="relative f...">
+                  <Sidebar active="overview" onSelect={function onSelect} collapsed={false} isMobile={false} ...>
+                    <nav className="flex flex-..." aria-label="Primary na...">
+                      <div>
+                      <div className="flex-1 spa...">
+                        <button>
+                        <button>
+                        <button onClick={function onClick} className="flex w-ful..." aria-current={undefined} ...>
+                          <FolderKanban className="h-5 w-5 fl...">
+                            <svg
+                              ref={null}
+                              xmlns="http://www.w3.org/2000/svg"
+                              width={24}
+                              height={24}
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
++                             className="lucide lucide-folder-kanban h-5 w-5 flex-shrink-0"
+-                             className="lucide lucide-ticket h-5 w-5 flex-shrink-0"
+                              aria-hidden="true"
+                            >
+                              <path
++                               d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7..."
+-                               d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-..."
+                              >
+                              <path
++                               d="M8 10v4"
+-                               d="M13 5v2"
+                              >
+                              <path
++                               d="M12 10v2"
+-                               d="M13 17v2"
+                              >
+                              <path
++                               d="M16 10v6"
+-                               d="M13 11v2"
+                              >
+                          <span>
++                           Projects
+-                           Tickets
+                        ...
+                      ...
+                  ...
+    ...
+
+    at throwOnHydrationMismatch (http://localhost:3000/_next/static/chunks/36066_next_dist_compiled_react-dom_deb47720._.js:2892:56)
+    at prepareToHydrateHostInstance (http://localhost:3000/_next/static/chunks/36066_next_dist_compiled_react-dom_deb47720._.js:2946:23)
+    at completeWork (http://localhost:3000/_next/static/chunks/36066_next_dist_compiled_react-dom_deb47720._.js:6330:60)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/36066_next_dist_compiled_react-dom_deb47720._.js:886:74)
+    at completeUnitOfWork (http://localhost:3000/_next/static/chunks/36066_next_dist_compiled_react-dom_deb47720._.js:8363:23)
+    at performUnitOfWork (http://localhost:3000/_next/static/chunks/36066_next_dist_compiled_react-dom_deb47720._.js:8300:28)
+    at workLoopConcurrentByScheduler (http://localhost:3000/_next/static/chunks/36066_next_dist_compiled_react-dom_deb47720._.js:8294:58)
+    at renderRootConcurrent (http://localhost:3000/_next/static/chunks/36066_next_dist_compiled_react-dom_deb47720._.js:8276:71)
+    at performWorkOnRoot (http://localhost:3000/_next/static/chunks/36066_next_dist_compiled_react-dom_deb47720._.js:7908:176)
+    at performWorkOnRootViaSchedulerTask (http://localhost:3000/_next/static/chunks/36066_next_dist_compiled_react-dom_deb47720._.js:8882:9)
+    at MessagePort.performWorkUntilDeadline (http://localhost:3000/_next/static/chunks/36066_next_dist_compiled_3dfbc5d0._.js:2601:64)
+[     457ms] [WARNING] Image with src "http://localhost:3000/microai-logo-dark.svg" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio. @ http://localhost:3000/_next/static/chunks/36066_next_dist_2b3a1437._.js:968
+[   29437ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr' failed:  @ http://localhost:3000/_next/static/chunks/36066_next_dist_client_fb5e0c61._.js:5696

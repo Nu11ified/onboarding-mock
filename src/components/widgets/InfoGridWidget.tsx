@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
+import { X, Info } from 'lucide-react';
 import type { InfoField } from '@/lib/widgets/types';
+import { useRightSidePanelOptional } from './RightSidePanelContext';
 
 interface InfoGridWidgetProps {
   title?: string;
@@ -14,6 +15,7 @@ interface InfoGridWidgetProps {
 // Table-style grid used for compact ticket/connection summaries
 export function InfoGridWidget({ title, description, fields }: InfoGridWidgetProps) {
   const [open, setOpen] = useState(false);
+  const rightPanel = useRightSidePanelOptional();
 
   if (!fields || fields.length === 0) return null;
 
@@ -82,12 +84,33 @@ export function InfoGridWidget({ title, description, fields }: InfoGridWidgetPro
     );
   };
 
+  const isTicketWidget = !!(title && title.toLowerCase().includes('ticket'));
+
   return (
     <>
       {/* Inline compact grid */}
       <div className="w-full overflow-x-auto scroll-rounded">
         {renderTable(true)}
       </div>
+
+      {/* Ticket hierarchy help button - opens right side panel */}
+      {isTicketWidget && rightPanel && (
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() =>
+              rightPanel.openPanel({
+                type: 'ticket-hierarchy',
+                title: 'Ticket Overview',
+              })
+            }
+            className="inline-flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 transition hover:bg-purple-100 hover:border-purple-300"
+          >
+            <Info className="h-4 w-4" />
+            Ticket Overview
+          </button>
+        </div>
+      )}
 
       {/* Dialog with full-width grid (functionality kept but button removed) */}
       <Dialog.Root open={open} onOpenChange={setOpen}>

@@ -1,0 +1,26 @@
+[    6232ms] [WARNING] Image with src "http://localhost:3000/microai-logo-dark.svg" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio. @ http://localhost:3000/_next/static/chunks/36066_next_dist_2b3a1437._.js:968
+[   13560ms] [ERROR] In HTML, %s cannot be a descendant of <%s>.
+This will cause a hydration error.%s <button> button 
+
+  ...
+    <div>
+      <DropdownMenu>
+        <DropdownMenu data-slot="dropdown-menu">
+          <DropdownMenuProvider scope={undefined} triggerId="radix-_r_0_" triggerRef={{current:null}} ...>
+            <Menu __scopeMenu={{Menu:[...], ...}} open={false} ...>
+              <Popper __scopePopper={{Menu:[...], ...}}>
+                <PopperProvider scope={{Menu:[...], ...}} anchor={null} onAnchorChange={function bound dispatchSetState}>
+                  <MenuProvider scope={{Menu:[...], ...}} open={false} onOpenChange={function useCallbackRef.useMemo} ...>
+                    <MenuProvider scope={{Menu:[...], ...}} onClose={function Menu.useCallback} ...>
+                      <div className="flex items...">
+>                       <button
+>                         onClick={function onClick}
+>                         className="flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-sm transition min-w-0 te..."
+>                       >
+>                         <button onClick={function onClick} className="flex-shrink-0">
+                          ...
+                        ...
+                      ...
+      ...
+    ...
+ @ http://localhost:3000/_next/static/chunks/36066_next_dist_2b3a1437._.js:2359
