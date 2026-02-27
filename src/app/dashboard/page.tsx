@@ -36,6 +36,7 @@ import {
   MessageSquare,
   MoreHorizontal,
   Paperclip,
+  Pencil,
   Plus,
   Save,
   Search,
@@ -596,6 +597,8 @@ function DashboardPageContent() {
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [newTicketOpen, setNewTicketOpen] = useState(false);
   const [chatGroups, setChatGroups] = useState<ChatGroup[]>(DEFAULT_CHAT_GROUPS);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("grp-general");
+  const [threads, setThreads] = useState<string[]>(THREADS);
   const [notifications, setNotifications] = useState<
     NotificationItemWithRead[]
   >(DASHBOARD_NOTIFICATIONS.map((n) => ({ ...n, isRead: false })));
@@ -1010,10 +1013,10 @@ function DashboardPageContent() {
 
   // Auto-assign threads to chat groups on mount
   useEffect(() => {
-    if (THREADS.length === 0) return;
+    if (threads.length === 0) return;
     setChatGroups((prev) => {
       const assigned = new Set(prev.flatMap((g) => g.threadNames));
-      const unassigned = THREADS.filter((t) => !assigned.has(t));
+      const unassigned = threads.filter((t) => !assigned.has(t));
       if (unassigned.length === 0) return prev;
       // All unassigned threads go to General by default
       return prev.map((g) =>
@@ -1439,6 +1442,44 @@ function DashboardPageContent() {
     );
   }, []);
 
+  const handleSelectGroup = useCallback((groupId: string) => {
+    setSelectedGroupId(groupId);
+  }, []);
+
+  const handleCreateThread = useCallback(() => {
+    const group = chatGroups.find((g) => g.id === selectedGroupId);
+    if (!group) return;
+    // Generate unique thread name
+    let counter = 1;
+    let name = `New Chat ${counter}`;
+    while (threads.includes(name)) {
+      counter++;
+      name = `New Chat ${counter}`;
+    }
+    setThreads((prev) => [...prev, name]);
+    setChatGroups((prev) =>
+      prev.map((g) =>
+        g.id === selectedGroupId
+          ? { ...g, threadNames: [...g.threadNames, name] }
+          : g,
+      ),
+    );
+    // Switch to the new thread
+    setActiveThread(threads.length); // new thread is at the end
+  }, [chatGroups, selectedGroupId, threads]);
+
+  const handleRenameThread = useCallback((oldName: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName || threads.includes(trimmed)) return;
+    setThreads((prev) => prev.map((t) => (t === oldName ? trimmed : t)));
+    setChatGroups((prev) =>
+      prev.map((g) => ({
+        ...g,
+        threadNames: g.threadNames.map((t) => (t === oldName ? trimmed : t)),
+      })),
+    );
+  }, [threads]);
+
   const handleUpdateTicketFields = useCallback(
     (related: string, updates: Partial<TicketRow>) => {
       setTickets((prev) => {
@@ -1805,8 +1846,8 @@ function DashboardPageContent() {
                   {rightPanel.type === 'chat-groups' ? (
                     <ChatGroupsPanel
                       groups={chatGroups}
-                      onSelectThread={handleThreadChange}
-                      onMoveThread={handleMoveThread}
+                      selectedGroupId={selectedGroupId}
+                      onSelectGroup={handleSelectGroup}
                       onCreateGroup={handleCreateGroup}
                       onRenameGroup={handleRenameGroup}
                       onDeleteGroup={handleDeleteGroup}
@@ -1829,7 +1870,7 @@ function DashboardPageContent() {
                 <ChatSidebar
                   ref={chatSidebarRef}
                   messages={onboardingMessages}
-                  threads={THREADS}
+                  threads={threads}
                   activeThread={activeThread}
                   onSelectThread={handleThreadChange}
                   onSendCustom={async (text: string) => {
@@ -1846,6 +1887,9 @@ function DashboardPageContent() {
                   onToggleRightPanel={() => closePanel()}
                   onOpenGroups={() => openPanel({ type: 'chat-groups' })}
                   chatGroups={chatGroups}
+                  selectedGroupId={selectedGroupId}
+                  onCreateThread={handleCreateThread}
+                  onRenameThread={handleRenameThread}
                   onToggleMaximize={() => {}}
                   onClose={() => {
                     chatScrollTopRef.current = getChatScrollTop();
@@ -1939,7 +1983,7 @@ function DashboardPageContent() {
                   <ChatSidebar
                     ref={chatSidebarRef}
                     messages={onboardingMessages}
-                    threads={THREADS}
+                    threads={threads}
                     activeThread={activeThread}
                     onSelectThread={handleThreadChange}
                     onSendCustom={async (text: string) => {
@@ -1956,6 +2000,9 @@ function DashboardPageContent() {
                     onToggleRightPanel={() => closePanel()}
                     onOpenGroups={() => openPanel({ type: 'chat-groups' })}
                     chatGroups={chatGroups}
+                    selectedGroupId={selectedGroupId}
+                    onCreateThread={handleCreateThread}
+                  onRenameThread={handleRenameThread}
                     onToggleMaximize={() => {
                       // capture scroll, then maximize
                       chatScrollTopRef.current = getChatScrollTop();
@@ -1986,8 +2033,8 @@ function DashboardPageContent() {
                       <div className="h-full w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                         <ChatGroupsPanel
                           groups={chatGroups}
-                          onSelectThread={handleThreadChange}
-                          onMoveThread={handleMoveThread}
+                          selectedGroupId={selectedGroupId}
+                          onSelectGroup={handleSelectGroup}
                           onCreateGroup={handleCreateGroup}
                           onRenameGroup={handleRenameGroup}
                           onDeleteGroup={handleDeleteGroup}
@@ -2146,7 +2193,7 @@ function DashboardPageContent() {
                 <ChatSidebar
                   ref={chatSidebarRef}
                   messages={onboardingMessages}
-                  threads={THREADS}
+                  threads={threads}
                   activeThread={activeThread}
                   onSelectThread={handleThreadChange}
                   onSendCustom={async (text: string) => {
@@ -2163,6 +2210,9 @@ function DashboardPageContent() {
                   onToggleRightPanel={() => closePanel()}
                   onOpenGroups={() => openPanel({ type: 'chat-groups' })}
                   chatGroups={chatGroups}
+                  selectedGroupId={selectedGroupId}
+                  onCreateThread={handleCreateThread}
+                  onRenameThread={handleRenameThread}
                   onToggleMaximize={() => {
                     chatScrollTopRef.current = getChatScrollTop();
                     setChatMaximized(true);
@@ -2192,8 +2242,8 @@ function DashboardPageContent() {
                   <div className="h-full w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                     <ChatGroupsPanel
                       groups={chatGroups}
-                      onSelectThread={handleThreadChange}
-                      onMoveThread={handleMoveThread}
+                      selectedGroupId={selectedGroupId}
+                      onSelectGroup={handleSelectGroup}
                       onCreateGroup={handleCreateGroup}
                       onRenameGroup={handleRenameGroup}
                       onDeleteGroup={handleDeleteGroup}
@@ -2219,7 +2269,7 @@ function DashboardPageContent() {
                     <ChatSidebar
                       ref={chatSidebarRef}
                       messages={onboardingMessages}
-                      threads={THREADS}
+                      threads={threads}
                       activeThread={activeThread}
                       onSelectThread={handleThreadChange}
                       onSendCustom={async (text: string) => {
@@ -2236,6 +2286,9 @@ function DashboardPageContent() {
                       onToggleRightPanel={() => closePanel()}
                       onOpenGroups={() => openPanel({ type: 'chat-groups' })}
                       chatGroups={chatGroups}
+                      selectedGroupId={selectedGroupId}
+                      onCreateThread={handleCreateThread}
+                  onRenameThread={handleRenameThread}
                       onToggleMaximize={() => {
                         // restore to minimized overlay or docked based on width
                         chatScrollTopRef.current = getChatScrollTop();
@@ -2255,8 +2308,8 @@ function DashboardPageContent() {
                       rightPanel.type === 'chat-groups' ? (
                         <ChatGroupsPanel
                           groups={chatGroups}
-                          onSelectThread={handleThreadChange}
-                          onMoveThread={handleMoveThread}
+                          selectedGroupId={selectedGroupId}
+                          onSelectGroup={handleSelectGroup}
                           onCreateGroup={handleCreateGroup}
                           onRenameGroup={handleRenameGroup}
                           onDeleteGroup={handleDeleteGroup}
@@ -2696,6 +2749,9 @@ const ChatSidebar = forwardRef<
     onToggleRightPanel?: () => void;
     onOpenGroups?: () => void;
     chatGroups?: ChatGroup[];
+    selectedGroupId?: string;
+    onCreateThread?: () => void;
+    onRenameThread?: (oldName: string, newName: string) => void;
   }
 >(
   (
@@ -2719,6 +2775,9 @@ const ChatSidebar = forwardRef<
       onToggleRightPanel,
       onOpenGroups,
       chatGroups,
+      selectedGroupId,
+      onCreateThread,
+      onRenameThread,
     },
     ref,
   ) => {
@@ -2737,8 +2796,8 @@ const ChatSidebar = forwardRef<
     const [newPromptContent, setNewPromptContent] = useState("");
     const [customInput, setCustomInput] = useState("");
     const [showVideoPopup, setShowVideoPopup] = useState(false);
-    const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-    const [activeGroupFilter, setActiveGroupFilter] = useState<string | null>(null);
+    const [renamingThread, setRenamingThread] = useState<string | null>(null);
+    const [renameThreadValue, setRenameThreadValue] = useState("");
 
     useEffect(() => {
       if (messagesEndRef.current && chatContainerRef.current) {
@@ -2801,25 +2860,35 @@ const ChatSidebar = forwardRef<
       >
         <div className="border-b border-purple-100 px-3 py-2">
           <div className="flex items-center justify-between gap-2">
-            {/* Thread Dropdown */}
+            {/* Thread Dropdown - shows selected group's chats */}
             <div className="relative flex-1">
-              <button
-                onClick={() => setThreadSearchOpen(!threadSearchOpen)}
-                className="w-full flex items-center justify-between rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-left text-xs hover:bg-purple-100"
-              >
-                <span className="flex items-center gap-2 min-w-0">
-                  <Clock className="h-3.5 w-3.5 text-purple-600" />
-                  <span className="min-w-0">
-                    <span className="block text-[10px] font-semibold text-slate-500 leading-none">
-                      History
+              {(() => {
+                const selGroup = chatGroups?.find((g) => g.id === selectedGroupId);
+                const selColor = selGroup ? getGroupColor(selGroup.color) : null;
+                return (
+                  <button
+                    onClick={() => setThreadSearchOpen(!threadSearchOpen)}
+                    className="w-full flex items-center justify-between rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-left text-xs hover:bg-purple-100"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      {selColor ? (
+                        <span className={cn("h-3 w-3 rounded-full flex-shrink-0", selColor.dot)} />
+                      ) : (
+                        <Clock className="h-3.5 w-3.5 text-purple-600" />
+                      )}
+                      <span className="min-w-0">
+                        <span className="block text-[10px] font-semibold text-slate-500 leading-none">
+                          {selGroup?.name ?? "History"}
+                        </span>
+                        <span className="block text-xs font-semibold text-slate-800 truncate">
+                          {threads[activeThread]}
+                        </span>
+                      </span>
                     </span>
-                    <span className="block text-xs font-semibold text-slate-800 truncate">
-                      {threads[activeThread]}
-                    </span>
-                  </span>
-                </span>
-                <ChevronDown className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-              </button>
+                    <ChevronDown className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  </button>
+                );
+              })()}
               {threadSearchOpen && (
                 <div className="absolute left-0 top-9 z-50 w-full rounded-xl border border-purple-100 bg-white shadow-lg">
                   <div className="border-b border-purple-100 p-2">
@@ -2835,135 +2904,102 @@ const ChatSidebar = forwardRef<
                       />
                     </div>
                   </div>
-                  {/* Group filter tabs */}
-                  {chatGroups && chatGroups.length > 1 && threadSearch === "" && (
-                    <div className="flex items-center gap-1 border-b border-purple-100 px-2 py-1.5 overflow-x-auto">
-                      <button
-                        onClick={() => setActiveGroupFilter(null)}
-                        className={cn(
-                          "shrink-0 rounded-md px-2 py-1 text-[10px] font-semibold transition-colors",
-                          activeGroupFilter === null
-                            ? "bg-purple-100 text-purple-700"
-                            : "text-slate-500 hover:bg-slate-100",
-                        )}
-                      >
-                        All
-                      </button>
-                      {chatGroups.map((group) => {
-                        const color = GROUP_COLORS.find((c) => c.name === group.color) || GROUP_COLORS[0];
-                        const groupThreads = group.threadNames.filter((t) => filteredThreads.includes(t));
-                        if (groupThreads.length === 0) return null;
-                        return (
-                          <button
-                            key={group.id}
-                            onClick={() => setActiveGroupFilter(activeGroupFilter === group.id ? null : group.id)}
-                            className={cn(
-                              "shrink-0 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold transition-colors",
-                              activeGroupFilter === group.id
-                                ? "bg-purple-100 text-purple-700"
-                                : "text-slate-500 hover:bg-slate-100",
-                            )}
-                          >
-                            <span className={cn("h-1.5 w-1.5 rounded-full", color.dot)} />
-                            {group.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  {/* Selected group indicator bar */}
+                  {(() => {
+                    const selGroup = chatGroups?.find((g) => g.id === selectedGroupId);
+                    const selColor = selGroup ? getGroupColor(selGroup.color) : null;
+                    return selGroup ? (
+                      <div className="flex items-center gap-2 border-b border-purple-100 px-3 py-1.5">
+                        <span className={cn("h-2 w-2 rounded-full", selColor?.dot)} />
+                        <span className="text-[10px] font-semibold text-slate-600">
+                          {selGroup.name}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {selGroup.threadNames.length} {selGroup.threadNames.length === 1 ? "chat" : "chats"}
+                        </span>
+                      </div>
+                    ) : null;
+                  })()}
                   <div className="max-h-60 overflow-y-auto p-2">
-                    {chatGroups && threadSearch === "" ? (
-                      // Grouped view with collapsible sections
-                      chatGroups
-                        .filter((group) => activeGroupFilter === null || group.id === activeGroupFilter)
-                        .map((group) => {
-                        const color = GROUP_COLORS.find((c) => c.name === group.color) || GROUP_COLORS[0];
-                        const groupThreads = group.threadNames.filter((t) =>
-                          filteredThreads.includes(t),
-                        );
-                        if (groupThreads.length === 0) return null;
-                        const isCollapsed = collapsedGroups.has(group.id);
+                    {(() => {
+                      const selGroup = chatGroups?.find((g) => g.id === selectedGroupId);
+                      const groupThreadNames = selGroup?.threadNames ?? [];
+                      const visibleThreads = threadSearch
+                        ? groupThreadNames.filter((t) =>
+                            t.toLowerCase().includes(threadSearch.toLowerCase()),
+                          )
+                        : groupThreadNames;
+
+                      if (visibleThreads.length === 0) {
                         return (
-                          <div key={group.id} className="mb-2">
-                            <button
-                              onClick={() => {
-                                setCollapsedGroups((prev) => {
-                                  const next = new Set(prev);
-                                  if (next.has(group.id)) {
-                                    next.delete(group.id);
-                                  } else {
-                                    next.add(group.id);
-                                  }
-                                  return next;
-                                });
-                              }}
-                              className="w-full flex items-center gap-2 px-2 py-1 rounded-md hover:bg-slate-50 transition-colors group"
-                            >
-                              {isCollapsed ? (
-                                <ChevronRight className="h-3 w-3 text-slate-400 group-hover:text-slate-600" />
-                              ) : (
-                                <ChevronDown className="h-3 w-3 text-slate-400 group-hover:text-slate-600" />
-                              )}
-                              <span className={cn("h-2 w-2 rounded-full", color.dot)} />
-                              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider group-hover:text-slate-600">
-                                {group.name}
-                              </span>
-                              <span className="ml-auto text-[10px] text-slate-300">
-                                {groupThreads.length}
-                              </span>
-                            </button>
-                            {!isCollapsed && groupThreads.map((thread) => {
-                              const originalIndex = threads.indexOf(thread);
-                              return (
-                                <button
-                                  key={thread}
-                                  onClick={() => {
-                                    onSelectThread(originalIndex);
-                                    setThreadSearchOpen(false);
-                                    setThreadSearch("");
-                                  }}
-                                  className={cn(
-                                    "w-full flex items-center rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                                    activeThread === originalIndex
-                                      ? "bg-purple-100 text-purple-700 font-semibold"
-                                      : "text-slate-700 hover:bg-purple-50",
-                                  )}
-                                >
-                                  <span className="truncate">{thread}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
+                          <p className="px-3 py-4 text-center text-xs text-slate-400">
+                            {threadSearch ? "No threads found" : "No chats in this group"}
+                          </p>
                         );
-                      })
-                    ) : filteredThreads.length > 0 ? (
-                      // Flat search results
-                      filteredThreads.map((thread) => {
+                      }
+
+                      return visibleThreads.map((thread) => {
                         const originalIndex = threads.indexOf(thread);
+                        const isRenaming = renamingThread === thread;
                         return (
-                          <button
+                          <div
                             key={thread}
-                            onClick={() => {
-                              onSelectThread(originalIndex);
-                              setThreadSearchOpen(false);
-                              setThreadSearch("");
-                            }}
                             className={cn(
-                              "w-full flex items-center rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                              "w-full flex items-center rounded-lg px-3 py-2 text-left text-sm transition-colors group/thread",
                               activeThread === originalIndex
                                 ? "bg-purple-100 text-purple-700 font-semibold"
                                 : "text-slate-700 hover:bg-purple-50",
                             )}
                           >
-                            <span className="truncate">{thread}</span>
-                          </button>
+                            <MessageSquare className="h-3 w-3 flex-shrink-0 text-slate-400 mr-2" />
+                            {isRenaming ? (
+                              <input
+                                autoFocus
+                                value={renameThreadValue}
+                                onChange={(e) => setRenameThreadValue(e.target.value)}
+                                onBlur={() => {
+                                  if (onRenameThread) onRenameThread(thread, renameThreadValue);
+                                  setRenamingThread(null);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    if (onRenameThread) onRenameThread(thread, renameThreadValue);
+                                    setRenamingThread(null);
+                                  }
+                                  if (e.key === "Escape") setRenamingThread(null);
+                                }}
+                                className="flex-1 min-w-0 bg-transparent text-sm border-b border-purple-300 outline-none px-0 py-0"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            ) : (
+                              <button
+                                className="flex-1 min-w-0 text-left truncate"
+                                onClick={() => {
+                                  onSelectThread(originalIndex);
+                                  setThreadSearchOpen(false);
+                                  setThreadSearch("");
+                                }}
+                              >
+                                {thread}
+                              </button>
+                            )}
+                            {!isRenaming && onRenameThread && (
+                              <button
+                                className="ml-1 flex-shrink-0 h-5 w-5 inline-flex items-center justify-center rounded text-slate-300 hover:text-slate-600 hover:bg-slate-100 opacity-0 group-hover/thread:opacity-100 transition"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRenamingThread(thread);
+                                  setRenameThreadValue(thread);
+                                }}
+                                title="Rename chat"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
                         );
-                      })
-                    ) : (
-                      <p className="px-3 py-4 text-center text-xs text-slate-400">
-                        No threads found
-                      </p>
-                    )}
+                      });
+                    })()}
                   </div>
                 </div>
               )}
@@ -2971,10 +3007,9 @@ const ChatSidebar = forwardRef<
             <button
               className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 flex-shrink-0"
               onClick={() => {
-                // Create new thread logic
-                alert("Create new thread functionality");
+                if (onCreateThread) onCreateThread();
               }}
-              title="Create new thread"
+              title="Create new chat in group"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
@@ -3423,8 +3458,8 @@ const INITIAL_TICKETS: TicketRow[] = [];
 
 function ChatGroupsPanel({
   groups,
-  onSelectThread,
-  onMoveThread,
+  selectedGroupId,
+  onSelectGroup,
   onCreateGroup,
   onRenameGroup,
   onDeleteGroup,
@@ -3432,31 +3467,19 @@ function ChatGroupsPanel({
   onClose,
 }: {
   groups: ChatGroup[];
-  onSelectThread: (index: number) => void;
-  onMoveThread: (threadName: string, groupId: string) => void;
+  selectedGroupId: string;
+  onSelectGroup: (groupId: string) => void;
   onCreateGroup: (name: string, color: string) => void;
   onRenameGroup: (id: string, name: string) => void;
   onDeleteGroup: (id: string) => void;
   onChangeGroupColor: (id: string, color: string) => void;
   onClose: () => void;
 }) {
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(groups.map((g) => g.id)),
-  );
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupColor, setNewGroupColor] = useState("green");
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-
-  const toggleExpand = (id: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   const handleCreateSubmit = () => {
     const trimmed = newGroupName.trim();
@@ -3500,153 +3523,100 @@ function ChatGroupsPanel({
         </div>
       </div>
 
-      {/* Group list */}
+      {/* Group list - simplified: just group names with count, click to select */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
         {groups.map((group) => {
           const color = getGroupColor(group.color);
-          const isExpanded = expandedGroups.has(group.id);
           const count = group.threadNames.length;
+          const isSelected = group.id === selectedGroupId;
 
           return (
-            <div key={group.id}>
-              {/* Group row */}
-              <div className="flex items-center group">
-                <button
-                  onClick={() => toggleExpand(group.id)}
-                  className="flex flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition min-w-0 text-slate-700 hover:bg-slate-50"
-                >
-                  <ChevronRight
-                    className={cn(
-                      "h-3 w-3 text-slate-400 transition-transform flex-shrink-0",
-                      isExpanded && "rotate-90",
-                    )}
+            <div key={group.id} className="flex items-center group">
+              <button
+                onClick={() => onSelectGroup(group.id)}
+                className={cn(
+                  "flex flex-1 items-center gap-2 rounded-lg px-2 py-2 text-sm transition min-w-0",
+                  isSelected
+                    ? "bg-purple-100 text-purple-700 font-semibold"
+                    : "text-slate-700 hover:bg-slate-50",
+                )}
+              >
+                <span className={cn("h-2.5 w-2.5 rounded-full flex-shrink-0", color.dot)} />
+                {renamingGroupId === group.id ? (
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onBlur={() => handleRenameSubmit(group.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleRenameSubmit(group.id);
+                      if (e.key === "Escape") setRenamingGroupId(null);
+                    }}
+                    className="flex-1 min-w-0 bg-transparent text-sm border-b border-purple-300 outline-none px-0 py-0"
+                    onClick={(e) => e.stopPropagation()}
                   />
-                  <span className={cn("h-2.5 w-2.5 rounded-full flex-shrink-0", color.dot)} />
-                  {renamingGroupId === group.id ? (
-                    <input
-                      autoFocus
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onBlur={() => handleRenameSubmit(group.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleRenameSubmit(group.id);
-                        if (e.key === "Escape") setRenamingGroupId(null);
-                      }}
-                      className="flex-1 min-w-0 bg-transparent text-sm border-b border-purple-300 outline-none px-0 py-0"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  ) : (
-                    <span className="flex-1 text-left truncate">{group.name}</span>
-                  )}
-                  <span className="text-xs text-slate-400">{count}</span>
-                </button>
+                ) : (
+                  <span className="flex-1 text-left truncate">{group.name}</span>
+                )}
+                <span className={cn(
+                  "inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold",
+                  isSelected
+                    ? "bg-purple-200 text-purple-700"
+                    : "bg-slate-100 text-slate-500",
+                )}>
+                  {count}
+                </span>
+              </button>
 
-                {/* Group context menu */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className="flex-shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition opacity-0 group-hover:opacity-100"
-                    >
-                      <MoreHorizontal className="h-3.5 w-3.5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44 bg-white">
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setRenamingGroupId(group.id);
-                        setRenameValue(group.name);
-                      }}
-                    >
-                      Rename
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-xs text-slate-400">Color</DropdownMenuLabel>
-                    <div className="flex gap-1.5 px-2 py-1.5">
-                      {GROUP_COLORS.map((c) => (
-                        <button
-                          key={c.name}
-                          onClick={() => onChangeGroupColor(group.id, c.name)}
-                          className={cn(
-                            "h-5 w-5 rounded-full border-2 transition",
-                            c.dot,
-                            group.color === c.name
-                              ? "border-slate-800 scale-110"
-                              : "border-transparent hover:border-slate-300",
-                          )}
-                        />
-                      ))}
-                    </div>
-                    {!group.isDefault && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-red-600 focus:text-red-600"
-                          onClick={() => onDeleteGroup(group.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 mr-2" />
-                          Delete group
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {/* Expanded thread list */}
-              {isExpanded && (
-                <div className="ml-5 space-y-0.5 py-0.5">
-                  {group.threadNames.map((threadName) => {
-                    const threadIndex = THREADS.indexOf(threadName);
-                    return (
-                      <DropdownMenu key={threadName}>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition text-left"
-                            onDoubleClick={() => {
-                              if (threadIndex >= 0) onSelectThread(threadIndex);
-                            }}
-                          >
-                            <MessageSquare className="h-3 w-3 flex-shrink-0 text-slate-400" />
-                            <span className="truncate">{threadName}</span>
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-44 bg-white">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              if (threadIndex >= 0) onSelectThread(threadIndex);
-                            }}
-                          >
-                            Open chat
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuLabel className="text-xs text-slate-400">
-                            Move to group
-                          </DropdownMenuLabel>
-                          {groups
-                            .filter((g) => g.id !== group.id)
-                            .map((g) => {
-                              const c = getGroupColor(g.color);
-                              return (
-                                <DropdownMenuItem
-                                  key={g.id}
-                                  onClick={() => onMoveThread(threadName, g.id)}
-                                >
-                                  <span className={cn("h-2 w-2 rounded-full mr-2", c.dot)} />
-                                  {g.name}
-                                </DropdownMenuItem>
-                              );
-                            })}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    );
-                  })}
-                  {count === 0 && (
-                    <p className="px-2 py-1.5 text-xs text-slate-400 italic">
-                      No chats
-                    </p>
+              {/* Group context menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="flex-shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition opacity-0 group-hover:opacity-100"
+                  >
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44 bg-white">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setRenamingGroupId(group.id);
+                      setRenameValue(group.name);
+                    }}
+                  >
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs text-slate-400">Color</DropdownMenuLabel>
+                  <div className="flex gap-1.5 px-2 py-1.5">
+                    {GROUP_COLORS.map((c) => (
+                      <button
+                        key={c.name}
+                        onClick={() => onChangeGroupColor(group.id, c.name)}
+                        className={cn(
+                          "h-5 w-5 rounded-full border-2 transition",
+                          c.dot,
+                          group.color === c.name
+                            ? "border-slate-800 scale-110"
+                            : "border-transparent hover:border-slate-300",
+                        )}
+                      />
+                    ))}
+                  </div>
+                  {!group.isDefault && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-red-600 focus:text-red-600"
+                        onClick={() => onDeleteGroup(group.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        Delete group
+                      </DropdownMenuItem>
+                    </>
                   )}
-                </div>
-              )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           );
         })}
